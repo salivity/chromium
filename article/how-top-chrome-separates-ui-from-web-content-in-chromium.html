@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Top Chrome Separates UI from Web Content in Chromium - chromium</title>
+    <meta name="description" content="This article provides a quick overview of the architectural mechanisms that separate the &quot;Top Chrome&quot; user interface—specifically the tab strip and omnibox—from web content views in the Chromium browser. By examining the Chromium Views framework, multi-pr">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-top-chrome-separates-ui-from-web-content-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Top Chrome Separates UI from Web Content in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-top-chrome-separates-ui-from-web-content-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a quick overview of the architectural mechanisms that separate the &quot;Top Chrome&quot; user interface—specifically the tab strip and omnibox—from web content views in the Chromium browser. By examining the Chromium Views framework, multi-pr" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-top-chrome-separates-ui-from-web-content-in-chromium">How
+Top Chrome Separates UI from Web Content in Chromium</h1>
+<p>This article provides a quick overview of the architectural
+mechanisms that separate the "Top Chrome" user interface—specifically
+the tab strip and omnibox—from web content views in the Chromium
+browser. By examining the Chromium Views framework, multi-process
+boundaries, input routing, and the Viz compositing pipeline, this guide
+explains how the browser keeps its core interface secure, responsive,
+and isolated from untrusted web pages.</p>
+<h3 id="the-views-framework-hierarchy">The Views Framework
+Hierarchy</h3>
+<p>At the structural level, Chromium separates the browser interface
+from web content using its custom cross-platform UI toolkit known as the
+Views framework (<code>ui/views</code>). The entire browser window is
+managed by a root container called <code>BrowserView</code>.</p>
+<p>Inside <code>BrowserView</code>, the layout is strictly divided into
+two primary sections:</p>
+<ul>
+<li><strong><code>TopContainerView</code>:</strong> This holds the Top
+Chrome components, including the <code>TabStrip</code>,
+<code>ToolbarView</code>, and <code>OmniboxView</code>. These elements
+are built using C++ classes that draw directly to the screen using Skia,
+Chromium’s 2D graphics library, rather than relying on HTML and
+CSS.</li>
+<li><strong><code>ContentsWebView</code>:</strong> Positioned directly
+beneath the <code>TopContainerView</code>, this view acts as a
+placeholder and host for the <code>WebContents</code> object, which is
+responsible for displaying the actual webpage.</li>
+</ul>
+<p>Because they exist as distinct branches in the UI hierarchy, layout
+calculations or visual updates in the tab strip or omnibox do not
+trigger layout recalculations inside the webpage, and vice versa.</p>
+<h3 id="process-level-isolation">Process-Level Isolation</h3>
+<p>The most critical separation between Top Chrome and web content
+happens at the operating system process level.</p>
+<p>Top Chrome runs entirely within the privileged <strong>Browser
+Process</strong>. Because the tab strip and omnibox handle sensitive
+data—such as system-level window management, local file paths, and user
+search history—they require direct access to the operating system and
+user profile data.</p>
+<p>Conversely, the web content view is powered by the Blink rendering
+engine, which runs inside a restricted, sandboxed <strong>Renderer
+Process</strong>. <code>ContentsWebView</code> in the Browser Process
+does not actually render the webpage; it merely displays a visual output
+generated by the isolated Renderer Process.</p>
+<p>This separation ensures that if a webpage executes heavy JavaScript
+that freezes its Renderer Process, the Browser Process remains
+unaffected. The user can still type in the omnibox, switch tabs, or
+close the frozen tab because the Top Chrome UI runs on an entirely
+separate thread and process.</p>
+<h3 id="input-routing-and-event-handling">Input Routing and Event
+Handling</h3>
+<p>When you interact with the Chromium window, the operating system
+sends hardware events (mouse clicks, keystrokes, touch gestures) to the
+Browser Process first. The Browser Process uses the boundaries defined
+by the Views hierarchy to route these events:</p>
+<ol type="1">
+<li><strong>Top Chrome Input:</strong> If you click a tab or type in the
+omnibox, the hit-testing system recognizes that the coordinates fall
+within the <code>TopContainerView</code>. The Browser Process handles
+the event immediately within its own UI thread.</li>
+<li><strong>Web Content Input:</strong> If you click or scroll within
+the bounds of the <code>ContentsWebView</code>, the Browser Process does
+not process the action. Instead, it packages the input event and
+forwards it across the process boundary via Mojo (Chromium's
+Inter-Process Communication system) to the appropriate Renderer
+Process.</li>
+</ol>
+<h3 id="visual-separation-via-the-viz-compositor">Visual Separation via
+the Viz Compositor</h3>
+<p>Even though Top Chrome and web content appear seamlessly in the same
+OS window, their pixels are generated independently and combined at the
+very last moment by the <strong>Viz</strong> service running in the GPU
+Process.</p>
+<p>Chromium uses a technique called Surface Aggregation to achieve
+this:</p>
+<ul>
+<li><strong>The UI Surface:</strong> The Browser Process has its own
+compositor (<code>ui::Compositor</code>). It takes the visual
+instructions from the tab strip and omnibox, rasterizes them, and
+submits a compositor frame to a dedicated <code>viz::Surface</code>
+allocated for Top Chrome.</li>
+<li><strong>The Web Surface:</strong> Simultaneously, the Renderer
+Process composites the HTML, CSS, and images of the webpage, submitting
+its own compositor frame to a completely separate
+<code>viz::Surface</code>.</li>
+<li><strong>Final Aggregation:</strong> The <code>ContentsWebView</code>
+in the Browser Process does not contain the webpage's pixels; it simply
+holds a <code>SurfaceId</code> that points to the Renderer's surface.
+When it is time to draw the window, the Viz display compositor in the
+GPU Process takes the Top Chrome surface, places the Web Content surface
+in the designated area below it, and draws the final combined frame to
+the screen.</li>
+</ul>
+<p>Through this architecture, Top Chrome and the web content view never
+share a rendering context or memory space, guaranteeing both visual
+stability and strict security isolation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-top-chrome-separates-ui-from-web-content-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

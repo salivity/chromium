@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Simple Cache Disk Eviction Algorithm - chromium</title>
+    <meta name="description" content="This article provides a quick overview and technical breakdown of the disk caching eviction algorithm used by the Simple Cache backend in the Chromium web browser. It explains how the browser manages local storage limits using a Least Recently Used (LRU)">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-simple-cache-disk-eviction-algorithm">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Simple Cache Disk Eviction Algorithm - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-simple-cache-disk-eviction-algorithm" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a quick overview and technical breakdown of the disk caching eviction algorithm used by the Simple Cache backend in the Chromium web browser. It explains how the browser manages local storage limits using a Least Recently Used (LRU)" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-simple-cache-disk-eviction-algorithm">Chromium Simple
+Cache Disk Eviction Algorithm</h1>
+<p>This article provides a quick overview and technical breakdown of the
+disk caching eviction algorithm used by the Simple Cache backend in the
+Chromium web browser. It explains how the browser manages local storage
+limits using a Least Recently Used (LRU) strategy, how the in-memory
+index tracks file usage without causing disk bottlenecks, and the exact
+process triggered when the cache reaches capacity.</p>
+<h2 id="the-core-algorithm-least-recently-used-lru">The Core Algorithm:
+Least Recently Used (LRU)</h2>
+<p>The Simple Cache backend in Chromium uses the <strong>Least Recently
+Used (LRU)</strong> eviction algorithm to manage disk space.</p>
+<p>Unlike Chromium's legacy "Blockfile" cache—which used a complex,
+multi-tiered ranking system that combined access frequency and
+recency—Simple Cache was designed to be lightweight. It relies directly
+on the host operating system's file system to manage individual cache
+files and uses a straightforward time-based LRU policy to decide which
+files to delete when storage runs low.</p>
+<h2 id="how-simple-cache-tracks-usage">How Simple Cache Tracks
+Usage</h2>
+<p>To execute an LRU eviction strategy efficiently, the browser must
+know when every cached file was last accessed. Querying the operating
+system's file system for the "last accessed" timestamps of thousands of
+files would cause severe disk I/O bottlenecks.</p>
+<p>Simple Cache solves this by maintaining an <strong>in-memory
+index</strong> (<code>SimpleIndex</code>). This index stores minimal
+metadata for every active entry in the cache:</p>
+<ul>
+<li>A 64-bit hash of the cache key.</li>
+<li>The size of the cached entry on the disk.</li>
+<li>The <code>last_used</code> timestamp.</li>
+</ul>
+<p>Whenever a cached resource is read or written, Chromium updates the
+<code>last_used</code> timestamp in the RAM-based
+<code>SimpleIndex</code> instantly. To ensure this data isn't lost when
+the browser closes, the in-memory index is periodically serialized and
+flushed to a single index file on the disk when the browser is idle.</p>
+<h2 id="the-eviction-process">The Eviction Process</h2>
+<p>Eviction in the Simple Cache backend is not a continuous process; it
+is triggered in batches based on storage thresholds (watermarks) to
+prevent constant disk thrashing.</p>
+<p>The eviction lifecycle follows these exact steps:</p>
+<ol type="1">
+<li><strong>Monitoring Capacity:</strong> Every time a new file is
+written to the cache, the <code>SimpleIndex</code> adds the new file's
+size to the total tracked cache size.</li>
+<li><strong>Reaching the High Watermark:</strong> Eviction is triggered
+only when the total size of all cached files exceeds the maximum allowed
+cache size (the high watermark), which is dynamically calculated based
+on available disk space.</li>
+<li><strong>Sorting Entries:</strong> Once triggered, the browser
+collects all entries from the <code>SimpleIndex</code> and sorts them in
+ascending order based on their <code>last_used</code> timestamps.</li>
+<li><strong>Batch Deletion:</strong> Chromium iterates through the
+sorted list, deleting the oldest files from the disk and removing their
+references from the <code>SimpleIndex</code>.</li>
+<li><strong>Reaching the Low Watermark:</strong> The deletion process
+does not stop the moment the cache drops just below the maximum limit.
+Instead, it continues deleting the least recently used files until the
+total cache size drops to a "low watermark" (typically around 90% of the
+maximum limit). Clearing this extra buffer ensures that the eviction
+algorithm does not need to run again on the very next network
+request.</li>
+</ol>
+<h2 id="why-simple-cache-uses-pure-lru">Why Simple Cache Uses Pure
+LRU</h2>
+<p>The decision to use a standard LRU algorithm in Simple Cache comes
+down to CPU and disk efficiency. Because Simple Cache stores entries as
+discrete files on the OS file system rather than inside a massive,
+custom-managed database file, the actual deletion of an entry requires
+an OS-level <code>unlink</code> (delete) operation.</p>
+<p>By keeping the eviction math strictly tied to an in-memory timestamp
+sort, Chromium minimizes CPU overhead and reserves disk operations
+strictly for reading, writing, and batch-deleting the actual cached web
+assets.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-simple-cache-disk-eviction-algorithm';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuckDuckGo on Windows: WebView2 and Tracker Blocking - chromium</title>
+    <meta name="description" content="This article explores how the DuckDuckGo browser for Windows utilizes Microsoft&#39;s Chromium-based WebView2 runtime to render web pages while simultaneously layering its own proprietary tracker blocking lists. By combining an operating system-level renderin">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/duck-duck-go-on-windows-web-view-2-and-tracker-blocking">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DuckDuckGo on Windows: WebView2 and Tracker Blocking - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/duck-duck-go-on-windows-web-view-2-and-tracker-blocking" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the DuckDuckGo browser for Windows utilizes Microsoft&#39;s Chromium-based WebView2 runtime to render web pages while simultaneously layering its own proprietary tracker blocking lists. By combining an operating system-level renderin" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="duckduckgo-on-windows-webview2-and-tracker-blocking">DuckDuckGo
+on Windows: WebView2 and Tracker Blocking</h1>
+<p>This article explores how the DuckDuckGo browser for Windows utilizes
+Microsoft's Chromium-based WebView2 runtime to render web pages while
+simultaneously layering its own proprietary tracker blocking lists. By
+combining an operating system-level rendering engine with custom network
+interception and script injection, DuckDuckGo delivers a lightweight,
+privacy-focused browsing experience without the need to maintain a full
+fork of the Chromium source code.</p>
+<h2 id="the-webview2-foundation">The WebView2 Foundation</h2>
+<p>Unlike browsers such as Brave or Vivaldi, which fork and modify the
+massive Chromium codebase, DuckDuckGo for Windows builds its browser on
+top of Microsoft Edge WebView2. WebView2 is a runtime component built
+into Windows that allows developers to embed web content into native
+applications using the Chromium engine.</p>
+<p>By using WebView2, DuckDuckGo avoids the heavy engineering overhead
+of compiling and updating Chromium on its own. Instead, it relies on the
+underlying Windows operating system to keep the core rendering engine
+secure and up to date, while DuckDuckGo builds the user interface and
+privacy features as a native Windows wrapper around that engine.</p>
+<h2 id="network-request-interception">Network Request Interception</h2>
+<p>Because DuckDuckGo does not modify the Chromium source code directly,
+it must apply its tracker blocking lists externally. It achieves this by
+utilizing WebView2’s built-in network interception APIs.</p>
+<p>When you load a webpage in DuckDuckGo, the browser registers an event
+handler with the WebView2 runtime—specifically hooking into the
+<code>WebResourceRequested</code> event. This allows the DuckDuckGo
+application to pause and inspect every single network request (such as
+scripts, images, and stylesheets) the Chromium engine attempts to make
+before the request actually leaves your device.</p>
+<h2 id="layering-the-tracker-radar-lists">Layering the Tracker Radar
+Lists</h2>
+<p>Once DuckDuckGo intercepts a network request from WebView2, it
+evaluates the request against its own local database, known as the
+DuckDuckGo Tracker Radar. This is a continually updated, proprietary
+list of known third-party tracking domains, scripts, and behavioral
+profiles.</p>
+<p>The process works in milliseconds:</p>
+<ol type="1">
+<li>WebView2 attempts to fetch a resource from a URL.</li>
+<li>DuckDuckGo intercepts the URL and checks the domain against its
+local Tracker Radar blocklist.</li>
+<li>Checks are also made against a list of exceptions to ensure blocking
+the tracker won't break the website's core functionality.</li>
+<li>If the URL is identified as a tracker, DuckDuckGo instructs the
+WebView2 API to cancel the request or return an empty response. The
+tracker is blocked before any connection to the third-party server is
+established.</li>
+</ol>
+<h2 id="script-injection-for-advanced-protection">Script Injection for
+Advanced Protection</h2>
+<p>Blocking network requests via lists is only part of DuckDuckGo's
+privacy layer. Modern trackers also use browser fingerprinting and
+first-party cookies, which cannot be stopped by domain blocklists
+alone.</p>
+<p>To combat this, DuckDuckGo uses another WebView2 feature that allows
+the host application to inject custom JavaScript into a webpage before
+any of the website's own scripts are allowed to run. DuckDuckGo injects
+its own privacy scripts into the WebView2 environment to alter or
+restrict access to specific browser APIs (like canvas, audio, or battery
+status) that trackers use to fingerprint your device. This same
+injection method is used to automatically detect and hide cookie consent
+pop-ups, selecting the most private options on the user's behalf.</p>
+<h2 id="isolating-browser-telemetry">Isolating Browser Telemetry</h2>
+<p>A common concern with using a Microsoft-provided Chromium runtime is
+underlying telemetry. DuckDuckGo addresses this by configuring the
+WebView2 environment parameters upon launch to disable crash reporting
+and usage data collection that would normally go to Microsoft or Google.
+Furthermore, because WebView2 is purely a rendering component and not
+the full Microsoft Edge browser, it lacks the built-in bloatware,
+shopping extensions, and account-syncing services found in standard
+Chromium browsers.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/duck-duck-go-on-windows-web-view-2-and-tracker-blocking';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

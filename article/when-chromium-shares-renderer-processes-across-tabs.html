@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When Chromium Shares Renderer Processes Across Tabs - chromium</title>
+    <meta name="description" content="This article explores the specific scenarios in which the Chromium web browser assigns multiple tabs from the same origin to a single renderer process. While Chromium generally attempts to isolate tabs into separate processes to maximize performance and s">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/when-chromium-shares-renderer-processes-across-tabs">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="When Chromium Shares Renderer Processes Across Tabs - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/when-chromium-shares-renderer-processes-across-tabs" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the specific scenarios in which the Chromium web browser assigns multiple tabs from the same origin to a single renderer process. While Chromium generally attempts to isolate tabs into separate processes to maximize performance and s" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="when-chromium-shares-renderer-processes-across-tabs">When
+Chromium Shares Renderer Processes Across Tabs</h1>
+<p>This article explores the specific scenarios in which the Chromium
+web browser assigns multiple tabs from the same origin to a single
+renderer process. While Chromium generally attempts to isolate tabs into
+separate processes to maximize performance and stability, it will
+consolidate same-origin tabs into one process when the tabs are directly
+linked via scripts, when the system reaches memory or process limits, or
+when specific browser policies dictate consolidation.</p>
+<h3 id="1-connected-tabs-same-browsinginstance">1. Connected Tabs (Same
+BrowsingInstance)</h3>
+<p>By default, Chromium uses a "process-per-site-instance" model. If a
+user opens a new tab and types in a URL, that tab gets a brand-new
+renderer process, even if another tab with that exact same URL is
+already open.</p>
+<p>However, Chromium must share a single renderer process when two tabs
+from the same origin are "connected" and belong to the same
+<code>BrowsingInstance</code>. This happens when:</p>
+<ul>
+<li>One tab opens another same-origin tab using JavaScript, such as
+<code>window.open()</code>.</li>
+<li>A user clicks a link that opens a new tab where the
+<code>rel="opener"</code> attribute is explicitly set.</li>
+</ul>
+<p>Because the HTML specification allows these connected tabs to
+synchronously access each other's Document Object Model (DOM) and
+JavaScript variables (via <code>window.opener</code>), Chromium is
+forced to place them in the exact same renderer process so they share
+the same memory space and execution thread.</p>
+<h3 id="2-reaching-the-maximum-process-limit">2. Reaching the Maximum
+Process Limit</h3>
+<p>Chromium cannot spawn an infinite number of processes. To prevent the
+browser from exhausting the host operating system's memory, Chromium
+enforces a soft limit on the total number of active renderer processes.
+This limit is dynamically calculated based on the device's available RAM
+and CPU cores.</p>
+<p>When a user opens enough tabs to hit this process limit, Chromium
+shifts its strategy. If a user opens a new tab for
+<code>example.com</code> and the process limit has already been reached,
+Chromium will scan existing processes. Instead of creating a new process
+or randomly picking an unrelated one, it will find an existing
+<code>example.com</code> renderer process and place the new tab inside
+it. This allows Chromium to cap memory usage without violating Site
+Isolation security boundaries.</p>
+<h3 id="3-aggressive-reuse-on-low-memory-devices">3. Aggressive Reuse on
+Low-Memory Devices</h3>
+<p>On devices with tight memory constraints, such as low-end Android
+phones, Chromium does not wait for a high process limit to be reached.
+Instead, it aggressively reuses renderer processes for same-origin tabs
+as soon as possible. If the system detects memory pressure, the browser
+prioritizes keeping the memory footprint low over isolating individual
+same-origin tabs for performance.</p>
+<h3 id="4-browser-extensions-and-internal-pages">4. Browser Extensions
+and Internal Pages</h3>
+<p>Chromium abandons its standard process model and strictly enforces a
+"process-per-site" model for specific types of origins:</p>
+<ul>
+<li><strong>Browser Extensions:</strong> All tabs, popups, and
+background frames belonging to a single <code>chrome-extension://</code>
+origin will always share a single renderer process.</li>
+<li><strong>WebUI Pages:</strong> Internal browser pages (such as
+<code>chrome://settings</code> or <code>chrome://history</code>) will
+share a single process with other tabs of the exact same internal origin
+to conserve system resources.</li>
+</ul>
+<h3 id="5-explicit-command-line-flags">5. Explicit Command-Line
+Flags</h3>
+<p>Users and administrators can force Chromium to always share a single
+renderer process for all tabs of the same origin, regardless of how they
+were opened or how much RAM is available. Launching the browser with the
+<code>--process-per-site</code> command-line flag overrides the default
+behavior and groups all same-site tabs into one shared process
+immediately.</p>
+<h3 id="exceptions-when-same-origin-sharing-is-blocked">Exceptions: When
+Same-Origin Sharing is Blocked</h3>
+<p>Even if the above conditions are met, Chromium will refuse to share a
+renderer process between two tabs of the same origin if:</p>
+<ul>
+<li><strong>Different Profiles:</strong> One tab is in a standard window
+and the other is in an Incognito window (or a different user
+profile).</li>
+<li><strong>Security Headers:</strong> One of the tabs serves a strict
+Cross-Origin-Opener-Policy (COOP) or Cross-Origin-Embedder-Policy (COEP)
+header that mismatches the other tab, requiring strict process isolation
+at the browser level.</li>
+<li><strong>Sandboxed Tabs:</strong> One of the pages is loaded with
+specific Content Security Policy (CSP) sandbox directives that strip it
+of its standard origin privileges.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/when-chromium-shares-renderer-processes-across-tabs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

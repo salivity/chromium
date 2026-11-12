@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s Transition from Goma to RBE and Siso - chromium</title>
+    <meta name="description" content="This article provides an overview of the Chromium project&#39;s migration from its legacy distributed compiler service, Goma, to Google&#39;s modern Remote Build Execution (RBE) platform and the Siso build system. It covers the architectural limitations that led">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-transition-from-goma-to-rbe-and-siso">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s Transition from Goma to RBE and Siso - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-transition-from-goma-to-rbe-and-siso" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the Chromium project&#39;s migration from its legacy distributed compiler service, Goma, to Google&#39;s modern Remote Build Execution (RBE) platform and the Siso build system. It covers the architectural limitations that led" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromiums-transition-from-goma-to-rbe-and-siso">Chromium's
+Transition from Goma to RBE and Siso</h1>
+<p>This article provides an overview of the Chromium project's migration
+from its legacy distributed compiler service, Goma, to Google's modern
+Remote Build Execution (RBE) platform and the Siso build system. It
+covers the architectural limitations that led to Goma's deprecation, the
+intermediate step of pairing the Ninja build system with Reclient, and
+the final deployment of Siso to achieve faster, more scalable
+builds.</p>
+<h2 id="the-limitations-of-goma">The Limitations of Goma</h2>
+<p>For years, compiling the massive Chromium codebase relied on GN
+(Generate Ninja) to create build files, Ninja to orchestrate the build,
+and Goma to distribute the compilation steps. Goma acted as a compiler
+proxy, intercepting local C++ compilation commands and sending them to
+remote servers.</p>
+<p>While effective for its time, Goma eventually became a bottleneck for
+several reasons:</p>
+<ul>
+<li><strong>Non-Standard Architecture:</strong> Goma used a custom,
+Chromium-specific protocol rather than the standardized Remote Execution
+API (REAPI) used by modern tools like Bazel.</li>
+<li><strong>Limited Scope:</strong> Goma was primarily designed to
+accelerate C/C++ and Objective-C compilation. It could not easily
+distribute other heavy build steps, such as Rust compilation, Java
+compilation, or complex Python actions.</li>
+<li><strong>High Maintenance:</strong> Maintaining a bespoke backend
+infrastructure exclusively for Goma was costly and redundant, given that
+Google had already developed a unified Remote Build Execution (RBE)
+backend for its internal and cloud ecosystems.</li>
+</ul>
+<h2 id="phase-1-rbe-and-reclient">Phase 1: RBE and Reclient</h2>
+<p>To move off Goma's aging infrastructure without rewriting Chromium’s
+entire GN-based build configuration, the Chromium team adopted a phased
+approach. The first step was migrating the backend from Goma to RBE
+while keeping Ninja as the local build orchestrator.</p>
+<p>Because Ninja does not natively speak the Remote Execution API,
+Google developed a bridge tool called <strong>Reclient</strong>.
+Reclient replaced the Goma client on developers' machines and continuous
+integration (CI) bots.</p>
+<p>When Ninja triggered a build step, it called a Reclient wrapper
+(<code>rewrapper</code>). Reclient analyzed the local files, determined
+the necessary header dependencies, packaged them, and sent the request
+to the RBE backend. By late 2023, the Chromium project successfully
+migrated its bots and developers from Goma to Ninja paired with
+Reclient, allowing the Goma service to be officially shut down.</p>
+<h2 id="the-ninja--reclient-bottleneck">The Ninja + Reclient
+Bottleneck</h2>
+<p>While Reclient solved the backend infrastructure problem, pairing it
+with Ninja introduced new local performance bottlenecks:</p>
+<ul>
+<li><strong>Process Overhead:</strong> Ninja had to spawn a separate
+<code>rewrapper</code> process for every single build action. In a full
+Chromium build consisting of tens of thousands of actions, this created
+massive Inter-Process Communication (IPC) overhead.</li>
+<li><strong>Redundant Dependency Scanning:</strong> Because each
+<code>rewrapper</code> instance ran in isolation, dependency scanning
+lacked unified state awareness, leading to duplicated effort on the host
+machine.</li>
+<li><strong>Local I/O Thrashing:</strong> Ninja requires all
+intermediate build artifacts (like <code>.o</code> object files) to be
+downloaded to the local disk, even if they are only needed for a
+subsequent remote step. This saturated local disk I/O and network
+bandwidth.</li>
+</ul>
+<h2 id="phase-2-replacing-ninja-with-siso">Phase 2: Replacing Ninja with
+Siso</h2>
+<p>To eliminate the overhead of the Ninja and Reclient combination, the
+Chromium build team developed <strong>Siso</strong> (Simple Software), a
+new build system written in Go that serves as a drop-in replacement for
+Ninja.</p>
+<p>Siso reads the exact same <code>.ninja</code> build files generated
+by GN, requiring no immediate changes to how Chromium developers write
+build configurations. However, Siso fundamentally changes how the build
+is executed:</p>
+<ul>
+<li><strong>Native RBE Integration:</strong> Siso communicates directly
+with the RBE backend. For many actions, it bypasses the need to spawn
+external Reclient processes, eliminating IPC overhead and centralizing
+dependency scanning in memory.</li>
+<li><strong>Cloud-to-Cloud Execution:</strong> Siso minimizes local disk
+I/O by keeping intermediate files in the RBE cloud cache. If an object
+file is compiled remotely, Siso does not download it to the developer's
+machine unless it is explicitly needed for a local step.</li>
+<li><strong>Broader Action Distribution:</strong> Unlike Goma, Siso
+easily offloads non-C++ tasks—such as TypeScript, Rust, and Android
+resource processing—to RBE workers, massively parallelizing the build
+graph.</li>
+<li><strong>Starlark Configuration:</strong> Siso uses Starlark scripts
+to define how specific build steps are handled remotely, making it easy
+for build engineers to optimize and fine-tune remote execution
+rules.</li>
+</ul>
+<h2 id="the-result-of-the-transition">The Result of the Transition</h2>
+<p>By moving from Goma to RBE, and subsequently replacing Ninja with
+Siso, the Chromium project unified its build infrastructure with modern
+cloud standards. The transition removed the maintenance burden of Goma,
+drastically reduced local CPU and memory consumption during builds, and
+significantly shortened compile times for both CI bots and individual
+contributors.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-transition-from-goma-to-rbe-and-siso';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How MemorySanitizer Detects Uninitialized Reads in Chromium - chromium</title>
+    <meta name="description" content="This article explains how MemorySanitizer (MSan) detects the use of uninitialized memory in specialized test builds of the Chromium web browser. It covers the core mechanism of bit-to-bit shadow memory tracking, how MSan propagates uninitialized states ac">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-memory-sanitizer-detects-uninitialized-reads-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How MemorySanitizer Detects Uninitialized Reads in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-memory-sanitizer-detects-uninitialized-reads-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how MemorySanitizer (MSan) detects the use of uninitialized memory in specialized test builds of the Chromium web browser. It covers the core mechanism of bit-to-bit shadow memory tracking, how MSan propagates uninitialized states ac" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-memorysanitizer-detects-uninitialized-reads-in-chromium">How
+MemorySanitizer Detects Uninitialized Reads in Chromium</h1>
+<p>This article explains how MemorySanitizer (MSan) detects the use of
+uninitialized memory in specialized test builds of the Chromium web
+browser. It covers the core mechanism of bit-to-bit shadow memory
+tracking, how MSan propagates uninitialized states across memory
+operations, the specific conditions that trigger a crash report, and why
+Chromium requires fully instrumented system libraries to prevent false
+positives during testing.</p>
+<h3 id="bit-to-bit-shadow-memory">Bit-to-Bit Shadow Memory</h3>
+<p>MemorySanitizer is a compiler-based tool integrated into Clang/LLVM.
+It operates by mapping every single bit of application memory to a
+corresponding bit in "shadow memory."</p>
+<p>In a specialized Chromium MSan build, the compiler inserts
+instrumentation instructions around every memory allocation and
+deallocation. When memory is allocated on the stack or the heap, MSan
+automatically marks the corresponding shadow bits as <code>1</code>,
+which means the memory is "poisoned" (uninitialized). When the browser
+writes valid data to that memory address, the instrumentation updates
+the shadow bits to <code>0</code>, marking the memory as "unpoisoned"
+(initialized).</p>
+<h3 id="silent-state-propagation">Silent State Propagation</h3>
+<p>Simply reading or copying uninitialized memory does not immediately
+trigger an MSan error. C++ code frequently copies uninitialized padding
+bytes inside structures or moves unused variables around safely.
+Flagging every read would result in massive amounts of false
+positives.</p>
+<p>Instead of crashing on a simple read, MSan propagates the
+uninitialized state. When data is copied from one memory address to
+another, the compiler instrumentation copies the corresponding shadow
+bits alongside the actual data. If an uninitialized variable is copied
+to a new location, the new location's shadow memory is also marked as
+uninitialized. Arithmetic and bitwise operations also compute and
+propagate shadow states based on the validity of their inputs.</p>
+<h3 id="triggering-the-error-report">Triggering the Error Report</h3>
+<p>MSan only halts the Chromium test execution and reports a bug when
+uninitialized memory is used in a way that affects the program's
+observable behavior. The compiler inserts verification checks directly
+before critical instructions to inspect the shadow bits. An error is
+triggered under three main conditions:</p>
+<ol type="1">
+<li><strong>Conditional Branches:</strong> An uninitialized value is
+evaluated in an <code>if</code> statement, ternary operator, loop
+condition, or <code>switch</code> case. Because the value is random
+garbage, the execution path becomes unpredictable.</li>
+<li><strong>Pointer Dereferencing:</strong> An uninitialized value is
+used as a memory address to read or write data, which could lead to
+memory corruption or segmentation faults.</li>
+<li><strong>System Calls:</strong> Uninitialized data is passed as an
+argument into an operating system kernel call.</li>
+</ol>
+<h3 id="origin-tracking">Origin Tracking</h3>
+<p>Because uninitialized memory can be copied multiple times before it
+is finally used in a branch or system call, knowing where the crash
+happened is often not enough to fix the bug.</p>
+<p>To solve this, Chromium MSan builds enable origin tracking. This
+feature uses an additional section of shadow memory to store a 32-bit
+Origin ID for every four bytes of application memory. When uninitialized
+memory is created on the stack or heap, MSan records the allocation
+stack trace and assigns it an Origin ID. Every time the uninitialized
+data is copied, the Origin ID is updated to track the intermediate
+steps. When an error is finally triggered, MSan prints the exact line of
+code where the uninitialized value was used, alongside the historical
+stack traces showing where the uninitialized memory was originally
+created.</p>
+<h3 id="full-system-instrumentation">Full-System Instrumentation</h3>
+<p>MSan requires that every single piece of code executed by the process
+be compiled with MSan instrumentation. If Chromium calls an external,
+uninstrumented system library (such as the standard C library) to write
+data into a buffer, MSan has no way of knowing that the memory was
+updated. The shadow bits will remain marked as <code>1</code>
+(uninitialized). When Chromium later reads that buffer, MSan will
+trigger a false positive crash.</p>
+<p>To prevent this, Chromium's MSan build configuration does not use the
+host machine's default system libraries. Instead, the build system
+downloads and compiles a specialized, fully instrumented collection of
+third-party dependencies and standard libraries (like
+<code>libc++</code>). This ensures that every memory write—from deep
+within the system libraries up to the browser's user interface—is
+accurately tracked in shadow memory.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-memory-sanitizer-detects-uninitialized-reads-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

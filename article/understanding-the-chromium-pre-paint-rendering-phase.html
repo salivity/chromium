@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Chromium Pre-Paint Rendering Phase - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of the pre-paint phase in the Chromium web browser&#39;s rendering lifecycle. Sitting directly between the layout and paint stages, the pre-paint phase is responsible for two critical operations: building propert">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-the-chromium-pre-paint-rendering-phase">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Chromium Pre-Paint Rendering Phase - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-the-chromium-pre-paint-rendering-phase" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the pre-paint phase in the Chromium web browser&#39;s rendering lifecycle. Sitting directly between the layout and paint stages, the pre-paint phase is responsible for two critical operations: building propert" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-the-chromium-pre-paint-rendering-phase">Understanding
+the Chromium Pre-Paint Rendering Phase</h1>
+<p>This article provides a comprehensive overview of the pre-paint phase
+in the Chromium web browser's rendering lifecycle. Sitting directly
+between the layout and paint stages, the pre-paint phase is responsible
+for two critical operations: building property trees and executing paint
+invalidation. By translating layout geometry into specialized data
+structures and identifying exactly which parts of the screen need
+updating, the pre-paint process enables Chromium to render complex web
+pages efficiently and maintain smooth frame rates.</p>
+<h2 id="where-pre-paint-fits-in-the-pipeline">Where Pre-Paint Fits in
+the Pipeline</h2>
+<p>The rendering pipeline in Chromium's Blink engine follows a strict
+sequence of steps to convert HTML, CSS, and JavaScript into pixels on a
+screen. After the browser parses the DOM, computes CSS styles, and
+calculates the geometric coordinates of elements during the Layout
+phase, it enters the Pre-Paint phase.</p>
+<p>Pre-paint executes a depth-first traversal of the layout tree. It
+acts as an optimization bridge, taking the raw spatial data from the
+Layout phase and preparing it so the upcoming Paint and Composite phases
+can do their jobs with minimal overhead.</p>
+<h2 id="building-property-trees">Building Property Trees</h2>
+<p>The first major task of the pre-paint tree walk is constructing and
+updating property trees. In modern Chromium architecture, visual effects
+and scrolling behaviors are decoupled from the layout hierarchy and
+organized into four distinct property trees:</p>
+<ul>
+<li><strong>Transform Tree:</strong> Manages CSS transforms (such as
+rotations, scaling, and translations) and coordinate space offsets.</li>
+<li><strong>Clip Tree:</strong> Defines the rectangular or rounded
+boundaries of elements that hide overflowing content, such as containers
+using the CSS <code>overflow: hidden</code> property.</li>
+<li><strong>Effect Tree:</strong> Handles pixel-level visual effects
+applied to elements, including opacity, CSS filters, blend modes, and
+masks.</li>
+<li><strong>Scroll Tree:</strong> Tracks scrollable areas, scroll
+offsets, and how scrolling behaviors are chained together across nested
+elements.</li>
+</ul>
+<p>By isolating these properties into dedicated trees during the
+pre-paint phase, Chromium allows its compositor thread to handle tasks
+like scrolling or transform animations independently. When a user
+scrolls, the browser simply updates a node in the Scroll Tree rather
+than recalculating the entire page layout.</p>
+<h2 id="issuing-paint-invalidations">Issuing Paint Invalidations</h2>
+<p>The second core responsibility of the pre-paint phase is paint
+invalidation. Redrawing an entire webpage for every single frame is
+computationally expensive and leads to poor performance. To prevent
+this, Chromium caches the drawing instructions (display items) generated
+in previous frames.</p>
+<p>During the pre-paint walk, the engine compares the current style and
+layout states against the data from the previous frame. If an element's
+visual appearance, dimensions, or position has changed, the engine marks
+that specific element as "invalid."</p>
+<p>Paint invalidation occurs at two levels during this phase:</p>
+<ol type="1">
+<li><strong>Display Item Invalidation:</strong> Marks the specific
+drawing instructions (like background colors, borders, or text) that
+need to be re-recorded during the upcoming Paint phase.</li>
+<li><strong>Raster Invalidation:</strong> Flags the actual pixel tiles
+on the screen that have been dirtied by the change, signaling to the
+compositor that those specific areas must be redrawn into bitmaps later
+in the pipeline.</li>
+</ol>
+<p>If an element only changes a property managed by the compositor—such
+as a 3D transform—the pre-paint phase updates the Transform Tree without
+issuing a paint invalidation, saving significant processing time.</p>
+<h2 id="preparing-for-later-stages">Preparing for Later Stages</h2>
+<p>In addition to property trees and invalidation, the pre-paint phase
+calculates crucial metadata required by subsequent stages of the
+rendering lifecycle. It computes the precise visual rectangles needed to
+trigger JavaScript <code>IntersectionObserver</code> callbacks and
+identifies elements that require hardware-accelerated compositing
+layers. By resolving these complex spatial relationships upfront, the
+pre-paint phase ensures the rest of the rendering pipeline executes
+quickly and predictably.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-the-chromium-pre-paint-rendering-phase';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizing CSS with Chromium&#39;s CSS Overview Panel - chromium</title>
+    <meta name="description" content="This article explores how the CSS Overview panel in Chromium-based web browsers assists developers in optimizing their stylesheets and improving web accessibility. By capturing a comprehensive summary of a webpage&#39;s styles, this built-in developer tool qu">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/optimizing-css-with-chromium-s-css-overview-panel">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Optimizing CSS with Chromium&#39;s CSS Overview Panel - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/optimizing-css-with-chromium-s-css-overview-panel" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the CSS Overview panel in Chromium-based web browsers assists developers in optimizing their stylesheets and improving web accessibility. By capturing a comprehensive summary of a webpage&#39;s styles, this built-in developer tool qu" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="optimizing-css-with-chromiums-css-overview-panel">Optimizing CSS
+with Chromium's CSS Overview Panel</h1>
+<p>This article explores how the CSS Overview panel in Chromium-based
+web browsers assists developers in optimizing their stylesheets and
+improving web accessibility. By capturing a comprehensive summary of a
+webpage's styles, this built-in developer tool quickly pinpoints unused
+CSS declarations that fail to render and identifies text elements
+suffering from poor color contrast. Understanding how to leverage these
+specific features allows developers to streamline their codebases and
+ensure their user interfaces meet modern accessibility standards
+efficiently.</p>
+<h2 id="accessing-the-css-overview-panel">Accessing the CSS Overview
+Panel</h2>
+<p>To use the tool, open the Developer Tools in any Chromium browser
+(such as Google Chrome or Microsoft Edge). Click the three-dot menu icon
+in the top-right corner of the Developer Tools pane, navigate to
+<strong>More tools</strong>, and select <strong>CSS Overview</strong>.
+Once the panel opens, click the <strong>Capture overview</strong> button
+to generate a static report of the current page's CSS.</p>
+<h2 id="identifying-color-contrast-issues">Identifying Color Contrast
+Issues</h2>
+<p>The CSS Overview panel simplifies accessibility auditing by
+automatically detecting text that is difficult to read against its
+background.</p>
+<ol type="1">
+<li><strong>Navigate to Colors:</strong> After capturing the overview,
+click on the <strong>Colors</strong> section in the left-hand sidebar of
+the panel.</li>
+<li><strong>Locate Contrast Issues:</strong> Scroll down to the
+<strong>Contrast issues</strong> subsection. If the page has
+accessibility violations, they will be listed here, grouped by the
+specific background and text color combinations causing the
+problem.</li>
+<li><strong>Review WCAG Standards:</strong> Beneath each problematic
+color pairing, the tool displays the failing status against Web Content
+Accessibility Guidelines (WCAG) AA and AAA standards, alongside the
+current contrast ratio.</li>
+<li><strong>Inspect the Elements:</strong> Clicking on any flagged color
+combination opens a list of every DOM element affected by that specific
+issue. Clicking on an element in this list takes you directly to the
+<strong>Elements</strong> panel, allowing you to modify the CSS colors
+in real time until the contrast ratio passes.</li>
+</ol>
+<h2 id="finding-unused-declarations">Finding Unused Declarations</h2>
+<p>Unlike the Coverage panel, which finds entirely unused CSS rules, the
+CSS Overview panel identifies <strong>unused declarations</strong>.
+These are CSS properties that are applied to an element but have no
+visual effect due to other conflicting styles on that same element.</p>
+<ol type="1">
+<li><strong>Navigate to Unused Declarations:</strong> In the captured
+overview, select <strong>Unused declarations</strong> from the left-hand
+sidebar.</li>
+<li><strong>Understand the Grouping:</strong> The panel groups the
+ineffective declarations by the specific reason they are failing to
+work. Common examples flagged by the tool include:
+<ul>
+<li><strong><code>vertical-align</code> applied to incompatible
+elements:</strong> This property is ignored on block-level or flex
+items.</li>
+<li><strong><code>width</code> and <code>height</code> on inline
+elements:</strong> Inline elements (like <code>&lt;span&gt;</code> or
+<code>&lt;a&gt;</code>) ignore dimension properties unless their display
+property is changed.</li>
+<li><strong>Positioning offsets on static elements:</strong> Properties
+like <code>top</code>, <code>left</code>, <code>right</code>, and
+<code>bottom</code> have no effect if the element's
+<code>position</code> is set to <code>static</code>.</li>
+</ul></li>
+<li><strong>Locate and Remove the Code:</strong> Click on any of the
+listed reasons to reveal the exact DOM elements containing the redundant
+code. From this list, you can click the element to jump to the
+<strong>Elements</strong> panel, locate the ineffective CSS declaration
+in the <strong>Styles</strong> pane, and remove it from your stylesheet
+to reduce code bloat.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/optimizing-css-with-chromium-s-css-overview-panel';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Prerender2: The Safe Replacement for Link Prerender - chromium</title>
+    <meta name="description" content="This article explores Prerender2, the modern page prerendering engine in the Chromium web browser designed to deliver instant page loads. It covers why the legacy &lt;link rel=&quot;prerender&quot;&gt; mechanism was deprecated due to resource consumption and security fla">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-prerender-2-the-safe-replacement-for-link-prerender">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Prerender2: The Safe Replacement for Link Prerender - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-prerender-2-the-safe-replacement-for-link-prerender" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores Prerender2, the modern page prerendering engine in the Chromium web browser designed to deliver instant page loads. It covers why the legacy &lt;link rel=&quot;prerender&quot;&gt; mechanism was deprecated due to resource consumption and security fla" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-prerender2-the-safe-replacement-for-link-prerender">Chromium
+Prerender2: The Safe Replacement for Link Prerender</h1>
+<p>This article explores Prerender2, the modern page prerendering engine
+in the Chromium web browser designed to deliver instant page loads. It
+covers why the legacy <code>&lt;link rel="prerender"&gt;</code>
+mechanism was deprecated due to resource consumption and security flaws,
+and explains how Prerender2 safely replaces it using Multiple Page
+Architecture (MPArch), strict capability controls, and the Speculation
+Rules API.</p>
+<h2 id="why-the-legacy-link-prerender-was-deprecated">Why the Legacy
+Link Prerender Was Deprecated</h2>
+<p>Originally, web developers could instruct Chromium to preload and
+render an entire webpage in the background using the
+<code>&lt;link rel="prerender" href="..."&gt;</code> HTML tag. While
+this created instant navigations, the underlying implementation was
+deeply flawed:</p>
+<ul>
+<li><strong>Resource Heavy:</strong> It worked by creating a hidden
+background tab, which consumed massive amounts of memory and CPU.</li>
+<li><strong>Unwanted Side Effects:</strong> Because the page was fully
+executed in the background, prerendered pages would occasionally play
+audio, trigger permission prompts, or corrupt session data before the
+user ever clicked the link.</li>
+<li><strong>Architectural Complexity:</strong> Merging a hidden tab into
+the active tab upon navigation caused severe bugs in browser history,
+security states, and extension APIs.</li>
+</ul>
+<p>Due to these issues, Chromium deprecated the full prerendering
+behavior of <code>&lt;link rel="prerender"&gt;</code> and downgraded it
+to "NoState Prefetch," a mechanism that only fetched sub-resources
+without executing JavaScript or rendering the page.</p>
+<h2 id="what-is-prerender2">What is Prerender2?</h2>
+<p>Prerender2 is Chromium’s ground-up rewrite of true page prerendering.
+Unlike NoState Prefetch, Prerender2 fully downloads resources, executes
+JavaScript, and builds the Document Object Model (DOM) and layout in the
+background. When the user clicks the link to navigate to the prerendered
+page, the browser instantly swaps the background page into the
+foreground, resulting in a near-zero millisecond load time.</p>
+<h2 id="how-prerender2-safely-replaces-the-old-mechanism">How Prerender2
+Safely Replaces the Old Mechanism</h2>
+<p>To avoid the pitfalls of the legacy system, Chromium engineers built
+Prerender2 around strict safety, privacy, and architectural
+guardrails.</p>
+<h3 id="1-multiple-page-architecture-mparch">1. Multiple Page
+Architecture (MPArch)</h3>
+<p>Instead of spinning up a separate, hidden browser tab to render the
+page, Prerender2 relies on Chromium's Multiple Page Architecture
+(MPArch). MPArch allows a single tab container
+(<code>WebContents</code>) to host a primary visible page alongside one
+or more invisible background pages. This prevents background pages from
+interfering with the browser's user interface, tab strip, or navigation
+history until the user explicitly activates the page.</p>
+<h3 id="2-capability-control-and-deferred-apis">2. Capability Control
+and Deferred APIs</h3>
+<p>The most significant safety improvement in Prerender2 is "Capability
+Control." To prevent background pages from annoying the user or
+performing unsafe actions, Chromium restricts what JavaScript APIs a
+prerendering page can use before it becomes visible.</p>
+<ul>
+<li><strong>Deferred APIs:</strong> Requests for intrusive APIs—such as
+WebAudio, video autoplay, Geolocation, Notifications, Fullscreen, and
+WebXR—are paused. The browser delays their execution until the user
+actually navigates to the page.</li>
+<li><strong>Canceled Navigations:</strong> If a prerendering page
+attempts an action that cannot be safely deferred—such as triggering a
+file download, opening a <code>window.print()</code> dialog, or spawning
+a pop-up window—Chromium immediately aborts and destroys the prerendered
+page to protect the user.</li>
+</ul>
+<h3 id="3-the-speculation-rules-api">3. The Speculation Rules API</h3>
+<p>Prerender2 moves away from the
+<code>&lt;link rel="prerender"&gt;</code> tag in favor of the modern
+<strong>Speculation Rules API</strong>. Instead of relying on simple
+HTML link tags, developers define prerendering rules using a JSON
+structure inside a <code>&lt;script type="speculationrules"&gt;</code>
+tag.</p>
+<p>This API gives both the developer and the browser much finer control.
+Developers can specify eagerness levels (e.g., prerender immediately, or
+only when the user hovers over a link), and the browser can easily
+ignore these rules if the user's device is in battery-saver mode or
+running low on RAM.</p>
+<h3 id="4-privacy-and-cross-origin-safeguards">4. Privacy and
+Cross-Origin Safeguards</h3>
+<p>Prerendering a page across different domains poses a privacy risk, as
+the destination server could track the user via cookies before the user
+chooses to visit the site. Prerender2 mitigates this by restricting
+prerendering primarily to same-origin pages by default.</p>
+<p>Cross-origin prerendering is only permitted under strict conditions:
+either the request must be made without credentials (no cookies or
+client certificates sent), or the destination server must explicitly
+opt-in to being prerendered using the
+<code>Supports-Loading-Mode: credentialed-prerender</code> HTTP
+header.</p>
+<h3 id="5-accurate-analytics-and-lifecycle-states">5. Accurate Analytics
+and Lifecycle States</h3>
+<p>Legacy prerendering broke web analytics because scripts would record
+a "page view" in the background even if the user never clicked the link.
+Prerender2 solves this by introducing the
+<code>document.prerendering</code> boolean property and the
+<code>prerenderingchange</code> event. Analytics providers can now
+easily detect if a page is currently in the background and wait until
+the <code>prerenderingchange</code> event fires (when the user actually
+views the page) before logging a visit.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-prerender-2-the-safe-replacement-for-link-prerender';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

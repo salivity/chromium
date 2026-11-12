@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packaging and Patching Chromium in Linux Distributions - chromium</title>
+    <meta name="description" content="Packaging the Chromium web browser for Linux distributions is one of the most complex maintenance tasks in open-source software. This article provides a comprehensive look at how major distributions like Debian, Ubuntu, and Fedora take Google&#39;s massive, f">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/packaging-and-patching-chromium-in-linux-distributions">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Packaging and Patching Chromium in Linux Distributions - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/packaging-and-patching-chromium-in-linux-distributions" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Packaging the Chromium web browser for Linux distributions is one of the most complex maintenance tasks in open-source software. This article provides a comprehensive look at how major distributions like Debian, Ubuntu, and Fedora take Google&#39;s massive, f" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="packaging-and-patching-chromium-in-linux-distributions">Packaging
+and Patching Chromium in Linux Distributions</h1>
+<p>Packaging the Chromium web browser for Linux distributions is one of
+the most complex maintenance tasks in open-source software. This article
+provides a comprehensive look at how major distributions like Debian,
+Ubuntu, and Fedora take Google's massive, fast-moving Chromium source
+code, apply necessary security and privacy patches, adapt it to their
+specific build systems, and deliver it to users through their respective
+software repositories.</p>
+<h2 id="the-challenge-of-the-chromium-codebase">The Challenge of the
+Chromium Codebase</h2>
+<p>Chromium is not a standard software package; it is practically an
+operating system unto itself. The source code consists of tens of
+millions of lines of code and includes hundreds of bundled third-party
+libraries. Furthermore, Google updates Chromium on a rapid cycle,
+releasing a new major version every four weeks.</p>
+<p>For Linux distribution maintainers, this presents three main
+challenges:</p>
+<ol type="1">
+<li><strong>Compilation Time:</strong> Building Chromium from source
+requires immense computing power, large amounts of RAM, and hours of
+compilation time.</li>
+<li><strong>Bundled Libraries:</strong> Chromium includes its own copies
+of libraries (like FFmpeg, ICU, and zlib). Linux distributions generally
+forbid this, preferring applications to use the operating system's
+shared libraries to make security patching easier.</li>
+<li><strong>Compiler Differences:</strong> Google develops Chromium to
+be compiled with Clang. Many Linux distributions use GCC as their
+primary system compiler, requiring patches just to make the code compile
+without errors.</li>
+</ol>
+<h2 id="general-patching-strategies">General Patching Strategies</h2>
+<p>Before packaging Chromium, maintainers across all distributions apply
+a series of patches to the source code. These modifications generally
+fall into three categories:</p>
+<ul>
+<li><strong>De-Googling and Privacy:</strong> Maintainers strip out
+hardcoded Google API keys, disable built-in metrics reporting
+(telemetry), and sometimes change the default search engine or start
+page to match the distribution's branding.</li>
+<li><strong>System Integration:</strong> Patches are applied to make
+Chromium play nicely with the Linux desktop. This includes enabling
+native Wayland display server support by default, integrating with
+system notification daemons, and forcing the browser to use the system's
+native file picker.</li>
+<li><strong>Hardware Acceleration:</strong> Maintainers often add
+patches to enable VA-API (Video Acceleration API) so that Linux users
+can get hardware-accelerated video decoding, a feature Google rarely
+prioritizes for Linux upstream.</li>
+</ul>
+<h2 id="debian-the-purist-approach">Debian: The Purist Approach</h2>
+<p>Debian maintains some of the strictest packaging guidelines in the
+Linux ecosystem, known as the Debian Free Software Guidelines
+(DFSG).</p>
+<p>To package Chromium as a traditional <code>.deb</code> file, Debian
+maintainers first strip the source tarball of any non-free code,
+proprietary binaries, or unredistributable artwork before it even enters
+their build system. They also apply hundreds of patches to unbundle
+Google’s included libraries, forcing Chromium to link against Debian’s
+system libraries instead.</p>
+<p>Because Debian "Stable" aims to keep software versions frozen while
+only backporting security fixes, Chromium presents a massive hurdle.
+Backporting individual security patches to an older version of Chromium
+is nearly impossible due to the sheer volume of code changes.
+Consequently, Debian makes an exception for Chromium, rolling out
+entirely new major versions to the Stable repository to ensure users
+remain secure.</p>
+<h2 id="ubuntu-the-shift-to-snap">Ubuntu: The Shift to Snap</h2>
+<p>Historically, Ubuntu relied on Debian’s work, pulling the Chromium
+source and building <code>.deb</code> packages for its own repositories.
+However, in 2019, Ubuntu made the controversial decision to stop
+packaging Chromium as a <code>.deb</code> and transitioned it
+exclusively to the Snap package format.</p>
+<p>Ubuntu supports multiple Long Term Support (LTS) releases
+simultaneously. Building and testing every new version of Chromium
+against the different system libraries of Ubuntu 18.04, 20.04, 22.04,
+and 24.04 became unsustainable for the engineering team.</p>
+<p>By packaging Chromium as a Snap, Ubuntu maintainers only have to
+build and patch the browser once. The Snap contains all its required
+dependencies in a sandboxed container, allowing Canonical (Ubuntu's
+parent company) to push the exact same package to all supported Ubuntu
+versions simultaneously. If a user runs
+<code>apt install chromium-browser</code> on Ubuntu today, the system
+installs a wrapper that downloads the Snap package instead.</p>
+<h2 id="fedora-upstream-alignment-and-rpms">Fedora: Upstream Alignment
+and RPMs</h2>
+<p>Fedora packages Chromium using the <code>.rpm</code> format and takes
+an approach that stays closer to upstream code than Debian, while
+avoiding the containerization used by Ubuntu.</p>
+<p>Fedora’s main hurdle with Chromium involves software patents. Fedora
+strictly prohibits patent-encumbered software in its official
+repositories. Because of this, Fedora maintainers patch the Chromium
+build configuration to strip out support for proprietary media codecs
+like H.264 and AAC. The official Fedora <code>chromium</code> package
+can only play open media formats like VP8, VP9, and AV1. To work around
+this, a third-party repository called RPM Fusion maintains a
+<code>chromium-freeworld</code> package, which is compiled with all
+proprietary codecs enabled.</p>
+<p>Fedora is also a leader in adopting new Linux technologies. Fedora
+maintainers heavily patch Chromium to ensure it compiles cleanly with
+the newest versions of the GCC compiler and operates smoothly on Wayland
+with PipeWire (for screen sharing).</p>
+<h2 id="the-build-and-release-pipeline">The Build and Release
+Pipeline</h2>
+<p>Once the distribution maintainers have unbundled the necessary
+libraries, removed restricted codecs, and applied their
+distribution-specific patches, the code is sent to automated build
+farms.</p>
+<ol type="1">
+<li><strong>Debian</strong> uses its <code>buildd</code> network to
+compile the <code>.deb</code> across multiple CPU architectures (x86_64,
+ARM64, etc.).</li>
+<li><strong>Ubuntu</strong> uses Launchpad to build the Chromium Snap
+and pushes it to the Snap Store's "candidate" channel for testing before
+promoting it to "stable."</li>
+<li><strong>Fedora</strong> uses its Koji build system to generate the
+<code>.rpm</code> files, which are then sent to the Bodhi update system
+where community members test the browser and give "karma" points before
+it is pushed to the stable repositories.</li>
+</ol>
+<p>Through these distinct pipelines, Linux distributions successfully
+tame one of the world's most complex codebases, ensuring that users
+receive a secure, integrated, and open-source web browser.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/packaging-and-patching-chromium-in-linux-distributions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccessibilityNG: Table and Form Improvements in Chromium - chromium</title>
+    <meta name="description" content="This article provides a quick overview of how Chromium’s AccessibilityNG initiative modernized the browser&#39;s accessibility engine, focusing specifically on the major improvements made to table navigation and form control labeling. By overhauling how the b">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/accessibility-ng-table-and-form-improvements-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AccessibilityNG: Table and Form Improvements in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/accessibility-ng-table-and-form-improvements-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a quick overview of how Chromium’s AccessibilityNG initiative modernized the browser&#39;s accessibility engine, focusing specifically on the major improvements made to table navigation and form control labeling. By overhauling how the b" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="accessibilityng-table-and-form-improvements-in-chromium">AccessibilityNG:
+Table and Form Improvements in Chromium</h1>
+<p>This article provides a quick overview of how Chromium’s
+AccessibilityNG initiative modernized the browser's accessibility
+engine, focusing specifically on the major improvements made to table
+navigation and form control labeling. By overhauling how the browser
+constructs and updates the accessibility tree, AccessibilityNG resolved
+long-standing bugs caused by modern CSS layouts, enhanced screen reader
+navigation across complex data grids, and standardized accessible name
+computation for form inputs.</p>
+<h2 id="table-navigation-improvements">Table Navigation
+Improvements</h2>
+<p>Before AccessibilityNG, Chromium relied heavily on the visual layout
+tree to build the accessibility tree. This caused severe issues when web
+developers applied modern CSS to standard HTML tables. AccessibilityNG
+decoupled accessibility logic from visual layout, bringing several
+direct improvements to table navigation:</p>
+<ul>
+<li><strong>Resilience to Modern CSS:</strong> Applying properties like
+<code>display: flex</code>, <code>display: grid</code>, or
+<code>display: contents</code> to <code>&lt;table&gt;</code>,
+<code>&lt;tr&gt;</code>, or <code>&lt;td&gt;</code> elements previously
+destroyed the table's semantic structure for screen readers.
+AccessibilityNG shifted table construction to rely on DOM semantics and
+ARIA roles rather than visual layout objects, ensuring tables remain
+fully navigable regardless of how they are styled.</li>
+<li><strong>Accurate Cell Coordinates:</strong> The initiative rewrote
+the logic for calculating row and column indices. Complex tables
+utilizing <code>rowspan</code> and <code>colspan</code>, as well as ARIA
+grids using <code>aria-rowindex</code> and <code>aria-colindex</code>,
+now report exact coordinates to assistive technologies. This prevents
+screen readers from skipping cells or getting trapped during directional
+navigation.</li>
+<li><strong>Smarter Data vs. Layout Heuristics:</strong> Developers
+historically used HTML tables for page layout rather than tabular data.
+AccessibilityNG refined the heuristics used to detect whether a table is
+a "data table" or a "layout table." Screen readers are now much less
+likely to announce irrelevant table coordinates for purely visual
+layouts, while reliably exposing true data tables.</li>
+</ul>
+<h2 id="form-control-labeling-improvements">Form Control Labeling
+Improvements</h2>
+<p>Form controls rely on the W3C Accessible Name and Description
+Computation (AccName) specification to tell screen reader users what an
+input field represents. AccessibilityNG overhauled how Chromium
+calculates these labels, fixing numerous edge cases:</p>
+<ul>
+<li><strong>Reliable Hidden Label Referencing:</strong> Developers
+frequently use <code>aria-labelledby</code> or
+<code>aria-describedby</code> to link form inputs to elements that are
+visually hidden using <code>display: none</code> or
+<code>visibility: hidden</code>. Because the legacy engine relied on
+rendered layout objects, it often failed to read hidden elements. By
+transitioning to a pure DOM-based traversal for text calculation,
+AccessibilityNG ensures hidden labels and error descriptions are always
+announced accurately.</li>
+<li><strong>Standardized Recursive Name Computation:</strong> When a
+<code>&lt;label&gt;</code> contains multiple nested elements—including
+other form controls, spans, or pseudo-elements—calculating the correct
+text string can become recursive and error-prone. AccessibilityNG
+aligned Chromium strictly with the latest W3C AccName specification,
+eliminating bugs where screen readers would either read duplicate label
+text or drop parts of a label entirely.</li>
+<li><strong>Dynamic State and Label Updates:</strong> Modern web forms
+dynamically inject validation errors and update input labels on the fly.
+AccessibilityNG moved accessibility updates into the main rendering
+pipeline lifecycle. As a result, when a form control's label or
+<code>aria-invalid</code> state changes, the update is serialized and
+communicated to the screen reader immediately, eliminating the stale or
+missing announcements that plagued the legacy engine.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/accessibility-ng-table-and-form-improvements-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

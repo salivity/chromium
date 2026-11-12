@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Testing: Unit, Browser, and Interactive UI Tests - chromium</title>
+    <meta name="description" content="Chromium relies on a massive automated testing suite to ensure code quality and browser stability across multiple platforms. This article breaks down the core differences between the three primary testing methodologies used in Chromium development: unit t">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-testing-unit-browser-and-interactive-ui-tests">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Testing: Unit, Browser, and Interactive UI Tests - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-testing-unit-browser-and-interactive-ui-tests" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Chromium relies on a massive automated testing suite to ensure code quality and browser stability across multiple platforms. This article breaks down the core differences between the three primary testing methodologies used in Chromium development: unit t" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-testing-unit-browser-and-interactive-ui-tests">Chromium
+Testing: Unit, Browser, and Interactive UI Tests</h1>
+<p>Chromium relies on a massive automated testing suite to ensure code
+quality and browser stability across multiple platforms. This article
+breaks down the core differences between the three primary testing
+methodologies used in Chromium development: unit tests, browser tests,
+and interactive UI tests. By examining their scope, execution speed,
+process isolation, and specific use cases, you will understand how each
+test type functions and when developers use them.</p>
+<h2 id="unit-tests">Unit Tests</h2>
+<p>Unit tests are the foundation of Chromium's testing pyramid. They are
+designed to test the smallest pieces of code, such as individual C++
+classes or functions, in complete isolation from the rest of the
+browser.</p>
+<ul>
+<li><strong>Environment:</strong> They do not launch a full browser.
+Instead, they rely heavily on mock objects, fakes, and minimal test
+harnesses (like <code>TaskEnvironment</code>) to simulate necessary
+dependencies.</li>
+<li><strong>Speed and Execution:</strong> Because they do not initialize
+the browser process, rendering engine, or graphical user interface, unit
+tests are extremely fast. They run in large batches within a single
+process and are heavily parallelized.</li>
+<li><strong>Reliability:</strong> They are the least prone to
+"flakiness" (random failures) because they do not depend on operating
+system window managers, network conditions, or complex multi-process
+timing.</li>
+<li><strong>When to use:</strong> Developers use unit tests to verify
+specific business logic, data structures, utility functions, and edge
+cases where a full browser environment is unnecessary.</li>
+</ul>
+<h2 id="browser-tests">Browser Tests</h2>
+<p>Browser tests are integration tests that verify how different
+components of the Chromium browser work together. Unlike unit tests, a
+browser test brings up a complete, functioning instance of the
+browser.</p>
+<ul>
+<li><strong>Environment:</strong> Each test launches a real browser
+process, creates an actual browser window, and spawns renderer
+processes. It loads real web pages and executes JavaScript.</li>
+<li><strong>Speed and Execution:</strong> Launching a full browser takes
+significant time and system resources, making browser tests much slower
+than unit tests. However, they still run in parallel by isolating each
+test in its own separate process.</li>
+<li><strong>The Focus Limitation:</strong> Because multiple browser
+tests run simultaneously on the same test machine, multiple browser
+windows open and close at the same time. Consequently, a browser test
+cannot rely on its window having operating system focus, as another
+parallel test might steal that focus at any moment.</li>
+<li><strong>When to use:</strong> Browser tests are used for end-to-end
+feature testing, such as verifying page navigation, Inter-Process
+Communication (IPC), extension APIs, and DOM manipulation.</li>
+</ul>
+<h2 id="interactive-ui-tests">Interactive UI Tests</h2>
+<p>Interactive UI tests are a specialized subset of browser tests. They
+exist specifically to solve the window focus limitation inherent to
+standard browser tests.</p>
+<ul>
+<li><strong>Environment:</strong> Like browser tests, they spin up a
+full browser instance and create real windows. However, they also
+interact directly with the underlying operating system's window manager
+and input queue.</li>
+<li><strong>Speed and Execution:</strong> Interactive UI tests cannot be
+run in parallel on the same display. They must run serially (one after
+the other) to guarantee that no other process steals window focus or
+interferes with simulated mouse movements and keystrokes. This makes
+them the slowest and most resource-expensive tests in the suite.</li>
+<li><strong>Input Simulation:</strong> While standard browser tests
+simulate clicks and keystrokes via software events injected directly
+into the browser, interactive UI tests generate real, OS-level hardware
+events.</li>
+<li><strong>When to use:</strong> These tests are strictly reserved for
+features that depend on window activation, focus, or OS-level input.
+Examples include testing autofill popups, context menus, fullscreen
+mode, drag-and-drop operations, and system notifications.</li>
+</ul>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<ul>
+<li><strong>Scope:</strong> Unit tests check isolated code; Browser
+tests check integrated browser features; Interactive UI tests check
+focus-dependent user interfaces.</li>
+<li><strong>Browser Initialization:</strong> Unit tests do not launch a
+browser; Browser and Interactive UI tests launch the full browser.</li>
+<li><strong>Parallelism:</strong> Unit tests and Browser tests run in
+parallel; Interactive UI tests run serially.</li>
+<li><strong>Speed:</strong> Unit tests take milliseconds; Browser tests
+take seconds; Interactive UI tests take several seconds and bottleneck
+test queues due to serial execution.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-testing-unit-browser-and-interactive-ui-tests';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

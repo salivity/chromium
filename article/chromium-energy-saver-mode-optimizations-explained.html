@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Energy Saver Mode Optimizations Explained - chromium</title>
+    <meta name="description" content="This article provides an overview of the specific technical optimizations the Chromium web browser applies when its Energy Saver mode is activated on an unplugged laptop running on low battery. By automatically curbing resource-heavy processes—such as lim">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-energy-saver-mode-optimizations-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Energy Saver Mode Optimizations Explained - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-energy-saver-mode-optimizations-explained" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the specific technical optimizations the Chromium web browser applies when its Energy Saver mode is activated on an unplugged laptop running on low battery. By automatically curbing resource-heavy processes—such as lim" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-energy-saver-mode-optimizations-explained">Chromium
+Energy Saver Mode Optimizations Explained</h1>
+<p>This article provides an overview of the specific technical
+optimizations the Chromium web browser applies when its Energy Saver
+mode is activated on an unplugged laptop running on low battery. By
+automatically curbing resource-heavy processes—such as limiting visual
+effects, capping frame rates, and aggressively throttling background
+tabs—Chromium significantly reduces CPU and GPU power consumption to
+extend the device's remaining battery life.</p>
+<h2 id="aggressive-background-tab-throttling">Aggressive Background Tab
+Throttling</h2>
+<p>When Energy Saver mode turns on, Chromium immediately restricts the
+amount of computing power allocated to tabs you are not actively
+viewing.</p>
+<ul>
+<li><strong>JavaScript Timer Alignment:</strong> Background tabs often
+run JavaScript code to fetch new data, update notifications, or track
+analytics. Chromium limits how often these scripts can wake up the CPU,
+grouping timers together and reducing their execution frequency.</li>
+<li><strong>CPU Budget Restrictions:</strong> Inactive tabs are given a
+strict CPU time budget. If a background tab exceeds its allotted
+processing limit, Chromium delays its tasks until the user brings the
+tab back into focus.</li>
+</ul>
+<h2 id="frame-rate-capping">Frame Rate Capping</h2>
+<p>Rendering web pages at high refresh rates requires substantial power
+from both the CPU and the Graphics Processing Unit (GPU).</p>
+<ul>
+<li><strong>30 FPS Limit:</strong> While Chromium normally attempts to
+render pages at 60 frames per second (FPS) or higher depending on the
+display, Energy Saver mode caps the rendering rate at 30 FPS. This
+halves the graphical workload while keeping the browser usable for
+reading and basic navigation.</li>
+<li><strong>Reduced Canvas Rendering:</strong> HTML5 Canvas elements,
+which are frequently used for browser games and complex interactive
+graphics, have their refresh rates similarly constrained to prevent GPU
+spikes.</li>
+</ul>
+<h2 id="reduction-of-visual-effects">Reduction of Visual Effects</h2>
+<p>To save additional power, Chromium disables or scales back
+non-essential visual polish within the browser and on web pages.</p>
+<ul>
+<li><strong>Disabling Smooth Scrolling:</strong> Smooth scrolling
+requires continuous frame generation as you move down a page. Energy
+Saver disables this feature, reverting to a more basic, step-by-step
+scrolling behavior that uses far less processing power.</li>
+<li><strong>Simplified Animations:</strong> CSS animations and
+transitions on websites are dialed back. They update less frequently,
+which may make them appear slightly choppy, but it prevents the GPU from
+entering high-power states for purely decorative website elements.</li>
+</ul>
+<h2 id="video-playback-adjustments">Video Playback Adjustments</h2>
+<p>Watching videos is one of the most battery-intensive tasks in a
+browser. Chromium modifies how media is handled when power is low.</p>
+<ul>
+<li><strong>Lowered Playback Frame Rates:</strong> High-frame-rate
+videos (such as 60 FPS streams) may drop frames or be forced to render
+at lower rates to decrease decoding demands.</li>
+<li><strong>Optimized Hardware Acceleration:</strong> Chromium
+prioritizes the most power-efficient decoding paths available on the
+laptop's specific hardware, favoring battery conservation over maximum
+visual fidelity.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-energy-saver-mode-optimizations-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

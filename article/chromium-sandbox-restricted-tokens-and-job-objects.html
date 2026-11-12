@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Sandbox: Restricted Tokens and Job Objects - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser implements its Windows sandbox using restricted tokens and job objects to severely limit the privileges of untrusted processes. By combining the access-control limitations of restricted tok">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-sandbox-restricted-tokens-and-job-objects">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Sandbox: Restricted Tokens and Job Objects - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-sandbox-restricted-tokens-and-job-objects" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser implements its Windows sandbox using restricted tokens and job objects to severely limit the privileges of untrusted processes. By combining the access-control limitations of restricted tok" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-sandbox-restricted-tokens-and-job-objects">Chromium
+Sandbox: Restricted Tokens and Job Objects</h1>
+<p>This article provides an overview of how the Chromium web browser
+implements its Windows sandbox using restricted tokens and job objects
+to severely limit the privileges of untrusted processes. By combining
+the access-control limitations of restricted tokens with the execution
+boundaries of Windows job objects, Chromium ensures that compromised
+rendering processes cannot interact with the underlying operating
+system, access user data, or spawn malicious child processes.</p>
+<h2 id="the-broker-and-target-architecture">The Broker and Target
+Architecture</h2>
+<p>Chromium’s security model relies on a multi-process architecture
+divided into a "Broker" process (the main browser process) and "Target"
+processes (such as rendering engines and plugin hosts). The Broker runs
+with the user's standard privileges, while Targets run inside a strict
+sandbox. Because Target processes parse untrusted web content, Chromium
+assumes they will eventually be compromised. To prevent a compromised
+Target from harming the system, the Broker strips the Target of its
+abilities using Windows Restricted Tokens and Job Objects.</p>
+<h2 id="limiting-securable-resources-with-restricted-tokens">Limiting
+Securable Resources with Restricted Tokens</h2>
+<p>In Windows, every process has an access token that defines its
+security context, including the user's Security Identifiers (SIDs) and
+specific system privileges. When a process tries to access a securable
+object—such as a file, registry key, or another process—Windows checks
+the process's token against the object's Access Control List (ACL).</p>
+<p>Chromium uses the Windows API to create a heavily modified,
+"restricted" token for its Target processes. It restricts the token in
+three primary ways:</p>
+<ul>
+<li><strong>Modifying SIDs to Deny-Only:</strong> Chromium converts the
+user's standard SIDs in the token into "Deny-Only" SIDs. This means
+Windows will only use these SIDs to deny access to resources, never to
+grant it.</li>
+<li><strong>Adding Restricting SIDs:</strong> Chromium adds a specific
+list of restricting SIDs (often just the <code>NULL</code> SID or a
+specialized "All Restricted" SID). When Windows evaluates access, both
+the standard SIDs and the restricting SIDs must be granted permission by
+the object's ACL. Because almost no system resources grant permissions
+to the <code>NULL</code> SID, access to the file system and registry is
+effectively blocked.</li>
+<li><strong>Stripping Privileges:</strong> Chromium removes all system
+privileges from the token, such as the ability to debug other processes
+(<code>SeDebugPrivilege</code>), shut down the system, or load device
+drivers.</li>
+<li><strong>Lowering Integrity Levels:</strong> The token is assigned an
+"Untrusted" or "Low" integrity level. Mandatory Integrity Control (MIC)
+in Windows ensures that a low-integrity process cannot write to or
+modify any resource with a higher integrity level, even if the ACL would
+otherwise allow it.</li>
+</ul>
+<h3 id="the-two-token-lockdown-process">The Two-Token Lockdown
+Process</h3>
+<p>A completely restricted token is so locked down that the Windows OS
+cannot even start the process, because the process lacks the permissions
+to load core system DLLs from the disk.</p>
+<p>To solve this, Chromium starts the Target process in a suspended
+state with two tokens. The primary token is the fully locked-down
+restricted token. However, the initial thread is given a slightly more
+permissive "impersonation" token. The process uses this impersonation
+token just long enough to load the necessary DLLs and initialize memory.
+Once initialization is complete, and before any untrusted web code is
+processed, the thread calls the <code>RevertToSelf()</code> API. This
+permanently drops the permissive impersonation token, locking the
+process into the completely restricted primary token for the rest of its
+lifecycle.</p>
+<h2 id="containing-execution-with-job-objects">Containing Execution with
+Job Objects</h2>
+<p>While restricted tokens successfully block access to files, registry
+keys, and other processes, they only apply to <em>securable</em>
+objects—things in Windows that have ACLs. Windows has many system-wide
+functionalities and APIs that do not check security tokens at all. To
+secure these, Chromium places the Target process inside a Windows Job
+Object.</p>
+<p>A Job Object is a kernel-level mechanism that allows the operating
+system to manage a group of processes as a single unit and enforce
+strict operational limits. Chromium configures the Job Object to enforce
+the following restrictions on Target processes:</p>
+<ul>
+<li><strong>No Child Processes:</strong> The job's active process limit
+is set to one. If a compromised renderer attempts to launch
+<code>cmd.exe</code> or <code>powershell.exe</code>, the operating
+system blocks the creation at the kernel level because the job limit has
+already been reached.</li>
+<li><strong>Clipboard Isolation:</strong> The job object explicitly
+revokes the process's ability to read from or write to the Windows
+clipboard, preventing malicious sites from stealing copied passwords or
+injecting malicious data.</li>
+<li><strong>UI and Display Restrictions:</strong> Windows allows
+processes on the same desktop to send messages to one another, which can
+be exploited to take control of higher-privileged applications (Shatter
+attacks). The Job Object blocks the Target from interacting with window
+handles outside of its own process, changing display settings, or
+accessing system parameters.</li>
+<li><strong>Resource Quotas:</strong> The Job Object places strict
+limits on memory and CPU usage. If a Target process attempts to execute
+a denial-of-service attack by exhausting system memory, the Job Object
+terminates the process before the wider operating system is
+affected.</li>
+<li><strong>Clean Termination:</strong> The job is configured so that if
+the main Broker process crashes or closes, the operating system
+automatically terminates all Target processes associated with the job,
+preventing orphaned, invisible processes from lingering in the
+background.</li>
+</ul>
+<h2 id="summary-of-the-defense-in-depth-approach">Summary of the
+Defense-in-Depth Approach</h2>
+<p>Neither mechanism is sufficient on its own. Without a restricted
+token, a process in a Job Object could still read the user's personal
+files. Without a Job Object, a process with a restricted token could
+still read the clipboard, exhaust system memory, or manipulate the user
+interface. By combining the ACL-based denials of Restricted Tokens with
+the kernel-level execution boundaries of Job Objects, Chromium creates a
+comprehensive sandbox that isolates untrusted web content from the
+Windows operating system.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-sandbox-restricted-tokens-and-job-objects';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

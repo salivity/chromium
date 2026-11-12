@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Calculates CSS in Style Recalculation - chromium</title>
+    <meta name="description" content="This article explains the mechanics behind Chromium&#39;s style recalculation phase, detailing how the Blink rendering engine processes CSS rules and applies them to the Document Object Model (DOM). It covers the exact steps Chromium takes, starting from CSS">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-calculates-css-in-style-recalculation">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Calculates CSS in Style Recalculation - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-calculates-css-in-style-recalculation" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the mechanics behind Chromium&#39;s style recalculation phase, detailing how the Blink rendering engine processes CSS rules and applies them to the Document Object Model (DOM). It covers the exact steps Chromium takes, starting from CSS" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-calculates-css-in-style-recalculation">How Chromium
+Calculates CSS in Style Recalculation</h1>
+<p>This article explains the mechanics behind Chromium's style
+recalculation phase, detailing how the Blink rendering engine processes
+CSS rules and applies them to the Document Object Model (DOM). It covers
+the exact steps Chromium takes, starting from CSS rule indexing and
+selector matching, moving through cascade resolution, and ending with
+the generation of the final computed styles required for page
+layout.</p>
+<h2 id="rule-indexing-and-bucketing">Rule Indexing and Bucketing</h2>
+<p>Before matching styles to any DOM elements, Chromium's Blink engine
+organizes parsed CSS rules into an optimized data structure called a
+<code>RuleSet</code>. Instead of comparing every CSS rule in a
+stylesheet against every DOM node, Chromium groups rules into specific
+"buckets" (hash maps) based on their rightmost selector, known as the
+key selector.</p>
+<p>There are separate buckets for IDs, class names, tag names, and
+attributes, plus a universal bucket for general rules. For example, in
+the selector <code>.nav &gt; ul li.active</code>, the key selector is
+<code>.active</code>, so the rule is placed into the <code>active</code>
+class bucket. This pre-processing drastically reduces the number of
+rules the engine must evaluate for any given element.</p>
+<h2 id="dom-traversal-and-selector-matching">DOM Traversal and Selector
+Matching</h2>
+<p>When a change triggers the style recalculation phase, Chromium
+traverses the DOM tree in a top-down manner. For each element that needs
+its styles calculated, Chromium instantiates an
+<code>ElementRuleCollector</code>.</p>
+<p>The collector inspects the element's ID, classes, attributes, and tag
+name, and pulls only the relevant candidate rules from the corresponding
+<code>RuleSet</code> buckets. Chromium then performs selector matching
+on these candidates. To maximize performance, it evaluates complex
+selectors from right to left. It starts at the target element (matching
+the key selector) and walks up or across the DOM tree to verify parent,
+ancestor, or sibling combinators. If a rule fails to match at any point,
+the engine immediately abandons that rule and moves to the next
+candidate.</p>
+<h2 id="resolving-the-cascade">Resolving the Cascade</h2>
+<p>Once all matching CSS rules for an element are collected, Chromium
+must determine which declarations win when property conflicts arise. The
+<code>ElementRuleCollector</code> sorts the matched rules based on the
+standard CSS cascade criteria:</p>
+<ol type="1">
+<li><strong>Origin and Importance:</strong> The engine separates
+user-agent styles (browser defaults), user styles, and author styles
+(website CSS), while prioritizing rules marked with
+<code>!important</code>.</li>
+<li><strong>Cascade Layers:</strong> Rules are ordered according to any
+defined <code>@layer</code> rules.</li>
+<li><strong>Specificity:</strong> Chromium calculates a specificity
+score based on the components of the selector (IDs outweigh classes,
+which outweigh tags).</li>
+<li><strong>Order of Appearance:</strong> If specificity is tied, rules
+declared later in the stylesheet or document override earlier ones.</li>
+</ol>
+<h2 id="generating-the-computedstyle">Generating the ComputedStyle</h2>
+<p>After sorting the matched rules, Chromium uses a component called the
+<code>StyleBuilder</code> to take the winning property declarations and
+create an immutable <code>ComputedStyle</code> object for the
+element.</p>
+<p>During this step, the engine resolves relative values into absolute,
+usable values. For instance, relative units like <code>em</code>,
+<code>rem</code>, and <code>vh</code> are converted into concrete pixel
+values based on the parent element, root element, or viewport
+dimensions.</p>
+<p>CSS inheritance is also finalized during this step. Because Chromium
+traverses the DOM from top to bottom, the parent element's
+<code>ComputedStyle</code> is always ready before the child is
+processed. If an inheritable property (like <code>color</code> or
+<code>font-size</code>) is not explicitly defined on the child element,
+the <code>StyleBuilder</code> simply copies the resolved value from the
+parent's <code>ComputedStyle</code>.</p>
+<h2 id="style-invalidation-optimization">Style Invalidation
+Optimization</h2>
+<p>To maintain high frame rates, Chromium avoids recalculating styles
+for the entire DOM tree when minor changes occur. When the DOM or CSSOM
+is mutated—such as a JavaScript function toggling a class on a
+<code>div</code>—Chromium uses "Invalidation Sets."</p>
+<p>These sets allow the engine to quickly determine the exact
+descendants or siblings that might be affected by that specific class
+change. Chromium marks only those affected nodes as "dirty." When the
+style recalculation phase actually runs, the DOM traversal skips clean
+nodes entirely and only executes the bucketing, matching, and cascade
+processes on the dirty nodes, updating their <code>ComputedStyle</code>
+objects before passing the updated tree to the Layout phase.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-calculates-css-in-style-recalculation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

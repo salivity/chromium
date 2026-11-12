@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Fugu: Bridging the Gap Between Web and Native Apps - chromium</title>
+    <meta name="description" content="This article explores Project Fugu, a cross-company initiative aimed at giving web applications the same capabilities as native desktop and mobile software. We will cover the origins of the project, the specific technological hurdles it overcomes, the key">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/project-fugu-bridging-the-gap-between-web-and-native-apps">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Project Fugu: Bridging the Gap Between Web and Native Apps - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/project-fugu-bridging-the-gap-between-web-and-native-apps" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores Project Fugu, a cross-company initiative aimed at giving web applications the same capabilities as native desktop and mobile software. We will cover the origins of the project, the specific technological hurdles it overcomes, the key" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="project-fugu-bridging-the-gap-between-web-and-native-apps">Project
+Fugu: Bridging the Gap Between Web and Native Apps</h1>
+<p>This article explores Project Fugu, a cross-company initiative aimed
+at giving web applications the same capabilities as native desktop and
+mobile software. We will cover the origins of the project, the specific
+technological hurdles it overcomes, the key Web APIs it has introduced
+to the Chromium browser engine, and how it maintains user security while
+granting websites deep access to device hardware and operating
+systems.</p>
+<h3 id="what-is-project-fugu">What is Project Fugu?</h3>
+<p>Project Fugu—officially known as the Web Capabilities Project—is a
+collaborative effort led by Google, Microsoft, Intel, and Samsung.
+Launched to improve the Chromium open-source browser engine (which
+powers Google Chrome, Microsoft Edge, Brave, and Opera), its primary
+goal is to make it possible for developers to build web apps that can do
+anything a native iOS, Android, Windows, or macOS app can do.</p>
+<p>The project is named after the <em>fugu</em> (pufferfish), a Japanese
+delicacy that is delicious when prepared correctly by a master chef, but
+lethal if prepared incorrectly. This serves as a metaphor for the
+project's mission: exposing powerful, low-level device capabilities to
+the web is immensely beneficial when done right, but poses severe
+security and privacy risks if implemented poorly.</p>
+<h3 id="the-historical-limitation-of-web-apps">The Historical Limitation
+of Web Apps</h3>
+<p>Traditionally, web applications run inside a "sandbox." This security
+mechanism isolates the website from the rest of the user's computer or
+phone. While the sandbox keeps users safe from malicious websites, it
+also prevents legitimate web apps from performing basic tasks that
+native apps take for granted.</p>
+<p>Before Project Fugu, a web app could not easily modify a file on your
+hard drive, communicate with a USB device, access the system clipboard
+seamlessly, or interact with Bluetooth hardware. To bypass these
+limitations, developers had to either build separate native apps for
+every operating system or wrap their web apps in heavy frameworks like
+Electron, which consumes significant system memory.</p>
+<h3 id="how-project-fugu-bridges-the-gap">How Project Fugu Bridges the
+Gap</h3>
+<p>Project Fugu bridges the divide between the web and native software
+by designing, testing, and shipping new Web APIs (Application
+Programming Interfaces) directly into the Chromium browser. These APIs
+act as secure bridges out of the browser sandbox, allowing websites to
+interact directly with the underlying operating system and hardware.</p>
+<p>Key capabilities introduced by Project Fugu include:</p>
+<ul>
+<li><strong>File System Access API:</strong> Allows web apps to read and
+save changes directly to files and folders on the user's device. Instead
+of downloading a new copy of a document every time you make an edit in
+the browser, web apps like Adobe Photoshop on the web can now open,
+edit, and overwrite local files just like a desktop app.</li>
+<li><strong>WebUSB, WebHID, and WebBluetooth:</strong> These APIs allow
+browsers to communicate directly with external hardware. Users can now
+configure gaming mice, update firmware on microcontrollers, or connect
+to medical devices and barcode scanners directly through a webpage
+without installing specialized drivers.</li>
+<li><strong>App Badging and Web Share APIs:</strong> These features
+allow Progressive Web Apps (PWAs) to integrate into the operating
+system. Web apps can now display notification badges on their home
+screen icons and use the device's native sharing menu to send content to
+other apps.</li>
+<li><strong>Multi-Screen Window Placement API:</strong> Enables web
+applications to detect multiple displays connected to a computer and
+place specific windows on specific screens, a crucial feature for
+financial trading platforms and presentation software.</li>
+<li><strong>Web NFC:</strong> Allows web applications on mobile devices
+to read and write to Near-Field Communication (NFC) tags, useful for
+inventory management, museum tours, and contactless interactions.</li>
+</ul>
+<h3 id="empowering-progressive-web-apps-pwas">Empowering Progressive Web
+Apps (PWAs)</h3>
+<p>The ultimate vehicle for Project Fugu’s features is the Progressive
+Web App. PWAs are websites that can be installed on a device's home
+screen or desktop, run in their own window without a browser address
+bar, and work offline.</p>
+<p>By combining the installability of PWAs with the hardware access of
+Project Fugu, the line between a website and native software disappears.
+Developers can write a single codebase using standard web technologies
+(HTML, CSS, and JavaScript) and deploy it across all platforms that
+support a Chromium-based browser, drastically reducing development costs
+and time.</p>
+<h3 id="balancing-power-with-security">Balancing Power with
+Security</h3>
+<p>To avoid the "poison" of the fugu fish, the project enforces strict
+security protocols before granting any web app access to native
+capabilities.</p>
+<ol type="1">
+<li><strong>HTTPS Requirement:</strong> Fugu APIs only function on
+secure, encrypted connections (HTTPS).</li>
+<li><strong>User Gesture:</strong> Many APIs cannot be triggered
+automatically when a page loads; they require an explicit user action,
+such as clicking a button, to initiate.</li>
+<li><strong>Explicit Permission Prompts:</strong> The browser acts as a
+gatekeeper. If a web app wants to access a local folder or a USB device,
+the browser displays a clear permission pop-up. The user must manually
+select the specific file or device they want the website to access.</li>
+<li><strong>Restricted System Files:</strong> Even with user permission,
+the browser blocks web apps from accessing critical operating system
+directories to prevent accidental damage or malware installation.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/project-fugu-bridging-the-gap-between-web-and-native-apps';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

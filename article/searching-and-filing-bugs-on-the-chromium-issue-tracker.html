@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Searching and Filing Bugs on the Chromium Issue Tracker - chromium</title>
+    <meta name="description" content="This article provides a straightforward guide on how to use the public Chromium Issue Tracker to find existing bugs and submit new reports. By learning how to effectively search the database and properly format a bug submission, users can directly assist">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/searching-and-filing-bugs-on-the-chromium-issue-tracker">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Searching and Filing Bugs on the Chromium Issue Tracker - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/searching-and-filing-bugs-on-the-chromium-issue-tracker" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a straightforward guide on how to use the public Chromium Issue Tracker to find existing bugs and submit new reports. By learning how to effectively search the database and properly format a bug submission, users can directly assist" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="searching-and-filing-bugs-on-the-chromium-issue-tracker">Searching
+and Filing Bugs on the Chromium Issue Tracker</h1>
+<p>This article provides a straightforward guide on how to use the
+public Chromium Issue Tracker to find existing bugs and submit new
+reports. By learning how to effectively search the database and properly
+format a bug submission, users can directly assist developers in
+identifying, reproducing, and resolving issues within the Chromium web
+browser.</p>
+<h3 id="accessing-the-tracker">Accessing the Tracker</h3>
+<p>To begin, navigate to the Chromium Issue Tracker at
+<code>issues.chromium.org</code>. While anyone can search and view
+public bugs, you must sign in with a Google account to file a new
+report, star existing issues, or leave comments.</p>
+<h3 id="how-to-search-for-existing-bugs">How to Search for Existing
+Bugs</h3>
+<p>Before filing a new bug report, you must search the tracker to ensure
+the issue has not already been reported. Submitting duplicate reports
+slows down the development process.</p>
+<ol type="1">
+<li><strong>Use the Search Bar:</strong> Locate the search bar at the
+top of the page. Enter specific keywords related to the problem, such as
+exact error messages, the affected web API, or the specific browser
+feature (e.g., "WebRTC audio drop" or "bookmark bar crash").</li>
+<li><strong>Apply Filters:</strong> By default, the tracker searches
+open issues. You can refine your search by clicking the filter icon or
+typing search operators. Useful filters include operating system (OS),
+component, and status (e.g., Open, Fixed, Verified).</li>
+<li><strong>Review the Results:</strong> Scan the titles of the returned
+issues. Click on relevant entries to read the description and confirm if
+the reproduction steps match your experience.</li>
+<li><strong>Star the Issue:</strong> If you find an existing report that
+matches your bug, do not post a comment just to say "me too." Instead,
+click the star icon next to the issue title. Starring the bug notifies
+developers of how many people are affected and subscribes you to email
+updates regarding its progress. Only leave a comment if you can provide
+new, relevant technical data.</li>
+</ol>
+<h3 id="preparing-to-file-a-bug">Preparing to File a Bug</h3>
+<p>If your search yields no results, you should file a new report.
+Gather the following information from your browser before starting:</p>
+<ul>
+<li><strong>Version and OS Data:</strong> Open a new tab, type
+<code>chrome://version</code> into the address bar, and press Enter.
+Keep this page open, as you will need to copy this data into your
+report.</li>
+<li><strong>Crash IDs (if applicable):</strong> If the bug involves a
+browser crash, navigate to <code>chrome://crashes</code>. Copy the
+"Uploaded Crash Report ID" associated with the event.</li>
+<li><strong>Clean Profile Test:</strong> Verify that the bug is not
+caused by a third-party extension. Open an Incognito window (with
+extensions disabled) or create a new, clean user profile and try to
+trigger the bug again.</li>
+</ul>
+<h3 id="how-to-file-a-new-bug-report">How to File a New Bug Report</h3>
+<p>Once you have verified the bug is unique and gathered your system
+data, follow these steps to submit the report:</p>
+<ol type="1">
+<li><strong>Initiate the Report:</strong> Click the <strong>Create
+Issue</strong> button located in the top-left corner of the Issue
+Tracker interface.</li>
+<li><strong>Select the Correct Template:</strong> Choose the appropriate
+category from the template dropdown menu. Most regular browser
+malfunctions fall under "Defect report from user." If you are reporting
+a vulnerability, select the "Security" template to ensure the report
+remains restricted from public view until patched.</li>
+<li><strong>Write a Clear Title:</strong> In the Summary field, write a
+brief, specific title that summarizes the exact problem (e.g., "Clicking
+print button on PDF files crashes the tab on macOS").</li>
+<li><strong>Fill Out the Description:</strong> The template will provide
+prompts inside the description box. Fill them out directly:
+<ul>
+<li><strong>Browser Version:</strong> Paste the information from your
+<code>chrome://version</code> page.</li>
+<li><strong>Steps to Reproduce:</strong> Write a numbered list of the
+exact, minimal steps required to trigger the bug. Include a specific URL
+if the bug only happens on a certain website.</li>
+<li><strong>Expected Result:</strong> State clearly what the browser
+should do if it were working correctly.</li>
+<li><strong>Actual Result:</strong> State what actually happens
+instead.</li>
+</ul></li>
+<li><strong>Attach Supporting Files:</strong> Use the attachment button
+at the bottom of the form to upload screenshots, screen recordings,
+minimal HTML test cases, or system logs that help demonstrate the
+issue.</li>
+<li><strong>Submit:</strong> Click the <strong>Create</strong> button at
+the bottom of the page to publish your report.</li>
+</ol>
+<h3 id="following-up-on-your-report">Following Up on Your Report</h3>
+<p>After submission, your bug will be triaged by the Chromium team.
+Monitor the email associated with your Google account for notifications.
+Developers may leave comments on your issue asking for further
+clarification, specific log files, or asking you to test a fix in
+Chromium Canary (the daily developer build). Responding promptly to
+these requests ensures your bug has the highest chance of being
+resolved.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/searching-and-filing-bugs-on-the-chromium-issue-tracker';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

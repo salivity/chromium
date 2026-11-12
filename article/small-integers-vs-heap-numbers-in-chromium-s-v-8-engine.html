@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Small Integers vs. Heap Numbers in Chromium&#39;s V8 Engine - chromium</title>
+    <meta name="description" content="Chromium’s JavaScript engine, V8, differentiates between small integers (known as Smis) and heap numbers to drastically improve execution speed and reduce memory consumption. While the official JavaScript specification dictates that all numbers are 64-bit">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/small-integers-vs-heap-numbers-in-chromium-s-v-8-engine">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Small Integers vs. Heap Numbers in Chromium&#39;s V8 Engine - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/small-integers-vs-heap-numbers-in-chromium-s-v-8-engine" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Chromium’s JavaScript engine, V8, differentiates between small integers (known as Smis) and heap numbers to drastically improve execution speed and reduce memory consumption. While the official JavaScript specification dictates that all numbers are 64-bit" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="small-integers-vs-heap-numbers-in-chromiums-v8-engine">Small
+Integers vs. Heap Numbers in Chromium's V8 Engine</h1>
+<p>Chromium’s JavaScript engine, V8, differentiates between small
+integers (known as Smis) and heap numbers to drastically improve
+execution speed and reduce memory consumption. While the official
+JavaScript specification dictates that all numbers are 64-bit
+floating-point values, treating every single number this way would force
+the browser to constantly allocate memory and perform slow calculations
+for simple tasks like counting in a loop. To bypass this bottleneck, V8
+splits numbers into two internal types: Smis, which are stored directly
+inside memory pointers for instant access, and heap numbers, which are
+allocated as separate objects in memory to handle decimals and massive
+integers.</p>
+<h2 id="the-javascript-number-problem">The JavaScript Number
+Problem</h2>
+<p>According to the ECMAScript standard, JavaScript has only one number
+type: a double-precision 64-bit floating-point format (IEEE 754). In
+practice, however, developers mostly use whole numbers for everyday
+tasks like array indexing, loop counters, and basic math.</p>
+<p>If V8 strictly followed the specification at the hardware level,
+every time a number was created or modified, the engine would have to
+allocate a 64-bit chunk of memory on the heap, store the value there,
+and create a pointer to that memory address. Doing this millions of
+times per second would overwhelm the system's memory and drastically
+slow down the browser.</p>
+<h2 id="how-pointer-tagging-works">How Pointer Tagging Works</h2>
+<p>To separate small integers from heap numbers, V8 uses a technique
+called pointer tagging. In modern 32-bit and 64-bit system
+architectures, memory addresses are aligned, meaning the binary
+representation of any valid memory pointer always ends in zeroes.</p>
+<p>V8 exploits this predictable behavior by using the last bit (the
+least significant bit) of a memory address as a "tag" rather than part
+of the address itself:</p>
+<ul>
+<li>If the last bit is <strong>0</strong>, V8 reads the remaining bits
+as the actual value of a <strong>Small Integer (Smi)</strong>.</li>
+<li>If the last bit is <strong>1</strong>, V8 reads the remaining bits
+as a memory address pointing to an object on the heap, such as a
+<strong>Heap Number</strong>.</li>
+</ul>
+<h2 id="small-integers-smis">Small Integers (Smis)</h2>
+<p>A Smi is a signed whole number that fits directly inside a single CPU
+register alongside its tag bit. On a 32-bit system (or when V8 uses
+pointer compression on 64-bit systems), a Smi uses 31 bits for the
+integer and 1 bit for the tag, allowing it to represent whole numbers
+from -1,073,741,824 to 1,073,741,823.</p>
+<p>Smis provide two massive advantages:</p>
+<ol type="1">
+<li><strong>Zero Memory Allocation:</strong> Because the number is
+stored directly inside the variable container itself, V8 does not need
+to allocate extra space in the heap.</li>
+<li><strong>Instant CPU Access:</strong> The processor can read and
+modify the number immediately without having to follow a pointer to
+another location in RAM (a slow process known as pointer
+dereferencing).</li>
+</ol>
+<h2 id="heap-numbers">Heap Numbers</h2>
+<p>When a number cannot fit into the Smi format, V8 falls back to
+creating a Heap Number. This applies to:</p>
+<ul>
+<li>Numbers with decimal points (e.g., <code>3.14</code>).</li>
+<li>Integers outside the 31-bit Smi range.</li>
+<li>Special numeric values like <code>NaN</code> (Not-a-Number),
+<code>Infinity</code>, and <code>-0</code>.</li>
+</ul>
+<p>A Heap Number is a full 64-bit floating-point value wrapped inside a
+dedicated memory object. The variable holds a pointer (ending in bit
+<code>1</code>) that directs the engine to the location on the heap
+where the actual 64-bit number lives. Furthermore, Heap Numbers are
+immutable; if you add <code>1.5</code> to <code>2.5</code>, V8 must
+allocate a brand-new Heap Number object to store the <code>4.0</code>
+result.</p>
+<h2 id="impact-on-performance-and-garbage-collection">Impact on
+Performance and Garbage Collection</h2>
+<p>Differentiating between these two types is critical for browser
+performance. At the hardware level, CPUs execute integer arithmetic
+significantly faster than floating-point math. By keeping loop counters
+and array indices as Smis, V8 translates JavaScript directly into
+ultra-fast CPU integer instructions.</p>
+<p>Additionally, this separation prevents the Garbage Collector (GC)
+from freezing the browser. Every Heap Number created must eventually be
+tracked down and deleted by the GC when it is no longer needed. Because
+Smis never touch the heap, they completely bypass the garbage collection
+process, saving substantial processing power and keeping web
+applications running smoothly.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/small-integers-vs-heap-numbers-in-chromium-s-v-8-engine';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

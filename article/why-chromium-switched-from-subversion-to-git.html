@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Switched from Subversion to Git - chromium</title>
+    <meta name="description" content="In 2014, the Chromium project officially transitioned its version control system from Subversion (SVN) to Git. This massive migration was driven by the need for faster performance, easier branching and merging, improved infrastructure scalability, and a s">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-switched-from-subversion-to-git">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Switched from Subversion to Git - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-switched-from-subversion-to-git" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2014, the Chromium project officially transitioned its version control system from Subversion (SVN) to Git. This massive migration was driven by the need for faster performance, easier branching and merging, improved infrastructure scalability, and a s" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-switched-from-subversion-to-git">Why Chromium
+Switched from Subversion to Git</h1>
+<p>In 2014, the Chromium project officially transitioned its version
+control system from Subversion (SVN) to Git. This massive migration was
+driven by the need for faster performance, easier branching and merging,
+improved infrastructure scalability, and a strong preference from the
+developer community for a distributed workflow. As the Chromium codebase
+and contributor base grew exponentially, Subversion could no longer keep
+pace with the demands of modern browser development, making the switch
+to Git a necessary evolution.</p>
+<h2 id="overcoming-performance-and-scale-bottlenecks">Overcoming
+Performance and Scale Bottlenecks</h2>
+<p>Chromium’s codebase is massive, consisting of millions of lines of
+code and a rapidly growing history of commits. Because Subversion is a
+centralized version control system, common actions like viewing commit
+history, checking logs, or generating diffs required communicating with
+a central server over a network. This created severe latency for
+developers working globally. Git, being a distributed system, stores the
+entire repository history locally on the developer's machine. Moving to
+Git made these daily operations nearly instantaneous, drastically
+improving developer productivity.</p>
+<h2 id="superior-branching-and-merging">Superior Branching and
+Merging</h2>
+<p>Developing a modern web browser requires constant experimentation,
+feature isolation, and rapid iteration. In Subversion, creating branches
+was a heavy, server-side operation, and merging those branches back into
+the main trunk was often slow and prone to complex conflicts. Git’s core
+architecture is built around lightweight, local branching. By switching
+to Git, Chromium engineers could create, merge, and delete branches in
+seconds, allowing them to work on multiple features simultaneously
+without disrupting the main codebase.</p>
+<h2 id="eliminating-the-fragile-git-svn-bridge">Eliminating the Fragile
+git-svn Bridge</h2>
+<p>Long before the official migration, the vast majority of Chromium
+developers were already using Git locally. They achieved this through a
+workaround tool called <code>git-svn</code>, which allowed them to use
+Git commands on their machines while syncing changes back to the central
+Subversion server. However, maintaining this bridge became a major
+headache for the Chromium infrastructure team. It was slow, prone to
+corruption, and complicated the automated commit queue. Transitioning
+natively to Git eliminated the need for this fragile middle layer and
+simplified the entire development workflow.</p>
+<h2 id="reducing-central-server-load">Reducing Central Server Load</h2>
+<p>Chromium relies heavily on automated build bots and continuous
+integration systems that constantly poll the repository for changes.
+Under Subversion, the sheer volume of developers and automated systems
+hitting a single central server caused frequent slowdowns and outages.
+If the Subversion server went down, all development halted. Git's
+distributed nature allowed Google to scale its infrastructure more
+effectively, distribute the network load, and remove the single point of
+failure that plagued their Subversion setup.</p>
+<h2 id="unifying-googles-open-source-tooling">Unifying Google's
+Open-Source Tooling</h2>
+<p>At the time of the transition, Google was looking to standardize the
+tools used across its major open-source projects. The Android project
+was already successfully using Git alongside Gerrit for code reviews.
+Migrating Chromium to Git allowed Google to unify its infrastructure
+team's efforts, use the same hosting and review tools across both
+Android and Chromium, and streamline security and maintenance.
+Additionally, the move to Git provided the necessary performance
+foundation to later merge the Blink rendering engine repository directly
+into the main Chromium repository, further simplifying the project's
+structure.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-switched-from-subversion-to-git';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

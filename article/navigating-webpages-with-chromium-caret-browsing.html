@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigating Webpages with Chromium Caret Browsing - chromium</title>
+    <meta name="description" content="Caret Browsing is an accessibility feature built into the Chromium web browser and its derivatives that transforms how users interact with webpage content. By placing a moveable text cursor—known as a caret—directly onto the screen, this mode allows users">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/navigating-webpages-with-chromium-caret-browsing">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Navigating Webpages with Chromium Caret Browsing - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/navigating-webpages-with-chromium-caret-browsing" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Caret Browsing is an accessibility feature built into the Chromium web browser and its derivatives that transforms how users interact with webpage content. By placing a moveable text cursor—known as a caret—directly onto the screen, this mode allows users" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="navigating-webpages-with-chromium-caret-browsing">Navigating
+Webpages with Chromium Caret Browsing</h1>
+<p>Caret Browsing is an accessibility feature built into the Chromium
+web browser and its derivatives that transforms how users interact with
+webpage content. By placing a moveable text cursor—known as a
+caret—directly onto the screen, this mode allows users to navigate,
+highlight, and copy webpage text using only their keyboard arrow keys.
+This article explains the mechanics behind Caret Browsing, how to
+activate it, and the specific keyboard commands required to navigate and
+select text without a mouse.</p>
+<h3 id="how-the-caret-mechanism-works">How the Caret Mechanism
+Works</h3>
+<p>Normally, webpages are rendered as static documents where the Up and
+Down arrow keys simply scroll the viewport. When Caret Browsing is
+enabled, Chromium's Blink rendering engine injects a blinking text
+insertion point directly into the webpage's Document Object Model
+(DOM).</p>
+<p>This turns the read-only webpage into an interactive environment
+similar to a word processor. The browser maps the visual layout of the
+text and calculates the spatial relationships between characters, words,
+and lines. When you press an arrow key, the browser identifies the next
+valid text node or interactive element in that direction and moves the
+cursor to that exact spot.</p>
+<h3 id="activating-caret-browsing">Activating Caret Browsing</h3>
+<p>You can toggle Caret Browsing on or off at any time without digging
+through complex menus.</p>
+<ul>
+<li><strong>Keyboard Shortcut:</strong> Press the <strong>F7</strong>
+key on your keyboard. A confirmation dialog box will appear asking if
+you want to turn on Caret Browsing. Press <strong>Enter</strong> to
+confirm.</li>
+<li><strong>Browser Settings:</strong> Alternatively, navigate to the
+Chromium Settings menu, select <strong>Accessibility</strong> from the
+sidebar, and toggle the switch for <strong>Navigate pages with a text
+cursor</strong>.</li>
+</ul>
+<p>Once activated, simply click anywhere on a webpage to place the
+caret, or press the <strong>Tab</strong> key until the caret appears
+within the main body of the text.</p>
+<h3 id="navigating-text-with-arrow-keys">Navigating Text with Arrow
+Keys</h3>
+<p>With the caret placed on the page, standard scrolling is replaced by
+cursor movement. The viewport will only scroll when the caret reaches
+the very top or bottom edge of your screen.</p>
+<ul>
+<li><strong>Left and Right Arrows:</strong> Moves the caret one
+character to the left or right.</li>
+<li><strong>Up and Down Arrows:</strong> Moves the caret up or down by
+one line of text.</li>
+<li><strong>Ctrl + Left/Right Arrows (Option + Left/Right on
+Mac):</strong> Jumps the caret forward or backward by one full word at a
+time.</li>
+<li><strong>Home and End Keys:</strong> Moves the caret to the very
+beginning or the very end of the current line of text.</li>
+</ul>
+<p>If you move the caret over a hyperlink or a button, Chromium
+automatically shifts focus to that element. You can then press the
+<strong>Enter</strong> key to open the link or activate the button,
+seamlessly combining text reading with web navigation.</p>
+<h3 id="selecting-and-copying-text">Selecting and Copying Text</h3>
+<p>Caret Browsing uses standard text-editing shortcuts to highlight
+content. By holding down the <strong>Shift</strong> key while moving the
+caret, you anchor the starting point of the cursor and highlight
+everything the caret passes over.</p>
+<ul>
+<li><strong>Select by Character:</strong> Hold <strong>Shift</strong>
+and press the <strong>Left</strong> or <strong>Right</strong> arrow keys
+to highlight individual letters.</li>
+<li><strong>Select by Word:</strong> Hold <strong>Ctrl + Shift</strong>
+(<strong>Option + Shift</strong> on Mac) and press the
+<strong>Left</strong> or <strong>Right</strong> arrow keys to highlight
+whole words rapidly.</li>
+<li><strong>Select by Line:</strong> Hold <strong>Shift</strong> and
+press the <strong>Up</strong> or <strong>Down</strong> arrow keys to
+highlight entire lines or paragraphs of text.</li>
+<li><strong>Select to the Edge of a Line:</strong> Hold
+<strong>Shift</strong> and press <strong>Home</strong> or
+<strong>End</strong> to highlight everything from the caret's current
+position to the beginning or end of the line.</li>
+</ul>
+<p>Once your desired text is highlighted, press <strong>Ctrl +
+C</strong> (<strong>Cmd + C</strong> on Mac) to copy the selection to
+your system clipboard. Pressing any arrow key without holding Shift will
+immediately collapse the selection and allow you to continue navigating
+normally. To exit Caret Browsing mode and return the arrow keys to their
+default scrolling behavior, simply press <strong>F7</strong> again.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/navigating-webpages-with-chromium-caret-browsing';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

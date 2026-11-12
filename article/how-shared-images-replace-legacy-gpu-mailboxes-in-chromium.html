@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How SharedImages Replace Legacy GPU Mailboxes in Chromium - chromium</title>
+    <meta name="description" content="In the Chromium web browser, rendering content securely and efficiently requires sharing graphics resources across multiple isolated processes, such as the renderer, media, and GPU processes. Historically, Chromium relied on a legacy system known as GPU m">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-shared-images-replace-legacy-gpu-mailboxes-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How SharedImages Replace Legacy GPU Mailboxes in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-shared-images-replace-legacy-gpu-mailboxes-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the Chromium web browser, rendering content securely and efficiently requires sharing graphics resources across multiple isolated processes, such as the renderer, media, and GPU processes. Historically, Chromium relied on a legacy system known as GPU m" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-sharedimages-replace-legacy-gpu-mailboxes-in-chromium">How
+SharedImages Replace Legacy GPU Mailboxes in Chromium</h1>
+<p>In the Chromium web browser, rendering content securely and
+efficiently requires sharing graphics resources across multiple isolated
+processes, such as the renderer, media, and GPU processes. Historically,
+Chromium relied on a legacy system known as GPU mailboxes to share
+OpenGL textures across these boundaries. However, as modern graphics
+APIs like Vulkan, Metal, and Direct3D 12 emerged, the OpenGL-centric
+mailbox system became inadequate. This article explains how the
+SharedImage architecture replaces legacy GPU mailboxes to provide a
+unified, API-agnostic, and secure mechanism for sharing graphical
+textures across processes in Chromium.</p>
+<h2 id="the-limitations-of-legacy-gpu-mailboxes">The Limitations of
+Legacy GPU Mailboxes</h2>
+<p>To understand the role of SharedImages, it is necessary to look at
+why the legacy mailbox system failed to scale. In the legacy system, a
+mailbox was a 16-byte cryptographic identifier mapped directly to an
+OpenGL texture ID inside the GPU process.</p>
+<p>This approach had several critical flaws:</p>
+<ul>
+<li><strong>OpenGL Dependency:</strong> The system assumed everything
+was an OpenGL texture. Sharing resources with Vulkan, Metal, Direct3D,
+or the Skia rendering engine required complex, slow, and fragile
+conversion steps.</li>
+<li><strong>Manual Synchronization:</strong> Processes had to manually
+manage synchronization using <code>SyncTokens</code>. It was easy for a
+developer to accidentally read from a texture in one context while
+another context was still writing to it, leading to visual corruption
+and security vulnerabilities.</li>
+<li><strong>Ambiguous Lifetimes:</strong> Determining when a texture was
+safe to delete across multiple asynchronous processes was difficult and
+frequently caused memory leaks or use-after-free bugs.</li>
+</ul>
+<h2 id="what-is-a-sharedimage">What is a SharedImage?</h2>
+<p>A SharedImage is an abstraction layer in Chromium’s GPU process that
+represents a platform-specific chunk of graphical memory (called a
+"backing"). Instead of tying an identifier directly to an OpenGL
+texture, a SharedImage ties the identifier to the underlying OS memory
+primitive—such as an <code>IOSurface</code> on macOS, an
+<code>AHardwareBuffer</code> on Android, a <code>DXGI</code> shared
+resource on Windows, or a <code>DMA-BUF</code> on Linux/ChromeOS.</p>
+<p><em>Note: The SharedImage system still uses the
+<code>gpu::Mailbox</code> data structure as a unique 16-byte name to
+identify the resource across processes, which often causes confusion.
+However, what that identifier points to has completely changed from a
+raw OpenGL texture to a managed SharedImage object.</em></p>
+<h2 id="api-agnostic-access-via-representations">API-Agnostic Access via
+Representations</h2>
+<p>The primary role of a SharedImage is to decouple the underlying
+memory from the graphics API used to access it. When a process creates a
+SharedImage, it specifies how the image will be used (e.g., for WebGL,
+2D Canvas, video decoding, or the display compositor) using usage
+flags.</p>
+<p>Once the SharedImage backing is allocated in the GPU process,
+different components can access the exact same memory through
+<strong>Representations</strong>. A Representation is a lightweight
+wrapper that translates the SharedImage backing into an API-specific
+object:</p>
+<ul>
+<li><strong>GLTextureRepresentation:</strong> Exposes the memory as an
+OpenGL texture (used by WebGL).</li>
+<li><strong>SkiaRepresentation:</strong> Exposes the memory as a Skia
+surface or image (used by the renderer for 2D Canvas and the Viz display
+compositor).</li>
+<li><strong>DawnRepresentation:</strong> Exposes the memory as a WebGPU
+texture.</li>
+<li><strong>OverlayRepresentation:</strong> Allows the memory to be
+handed directly to the OS window manager for hardware overlay
+composition.</li>
+</ul>
+<p>Because the SharedImage backing is built on native OS buffers, a
+video decoder can write frames into a SharedImage using Direct3D 11, and
+WebGPU can immediately read that frame via Dawn without ever copying the
+pixel data.</p>
+<h2 id="enforced-synchronization-and-access-control">Enforced
+Synchronization and Access Control</h2>
+<p>Legacy mailboxes relied entirely on the caller to remember to insert
+synchronization primitives before using a texture. SharedImages solve
+this by enforcing strict read/write locks at the architectural
+level.</p>
+<p>To use a SharedImage Representation, the consumer must call
+<code>BeginAccess()</code> before reading or writing, and
+<code>EndAccess()</code> when finished.</p>
+<ol type="1">
+<li><strong>State Tracking:</strong> The SharedImage backing tracks
+which APIs are currently reading from or writing to the memory.</li>
+<li><strong>Automatic Barriers:</strong> During
+<code>BeginAccess()</code> and <code>EndAccess()</code>, the SharedImage
+system automatically inserts the necessary API-specific memory barriers,
+layout transitions (in Vulkan/D3D12), or keyed mutex acquisitions.</li>
+<li><strong>Validation:</strong> If a component attempts to write to a
+SharedImage while another component has an active read lock, the
+SharedImage system detects the violation and safely fails, preventing
+race conditions and GPU crashes.</li>
+</ol>
+<h2 id="unified-lifetime-management">Unified Lifetime Management</h2>
+<p>SharedImages also replace the ad-hoc lifetime management of legacy
+mailboxes with a dedicated <code>SharedImageInterface</code>. When a
+client process creates a SharedImage, it holds a reference. It can pass
+the mailbox identifier to another process (like the display compositor),
+which then registers its own access.</p>
+<p>The underlying memory backing is strictly reference-counted inside
+the GPU process. Even if a renderer process crashes or destroys its
+reference early, the SharedImage backing remains alive and valid until
+the display compositor finishes drawing the current frame and releases
+its own reference. This guarantees safe resource cleanup across
+asynchronous process boundaries.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-shared-images-replace-legacy-gpu-mailboxes-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

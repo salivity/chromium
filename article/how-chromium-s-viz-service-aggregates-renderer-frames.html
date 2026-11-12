@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Viz Service Aggregates Renderer Frames - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Viz compositor service in the Chromium web browser combines visual outputs from multiple isolated processes into a single cohesive image. Running inside the GPU process, Viz receives independent frames">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-viz-service-aggregates-renderer-frames">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Viz Service Aggregates Renderer Frames - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-viz-service-aggregates-renderer-frames" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Viz compositor service in the Chromium web browser combines visual outputs from multiple isolated processes into a single cohesive image. Running inside the GPU process, Viz receives independent frames" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-viz-service-aggregates-renderer-frames">How
+Chromium's Viz Service Aggregates Renderer Frames</h1>
+<p>This article provides a technical overview of how the Viz compositor
+service in the Chromium web browser combines visual outputs from
+multiple isolated processes into a single cohesive image. Running inside
+the GPU process, Viz receives independent frames from the main browser
+UI and various renderer processes. Through a system of memory surfaces,
+placeholder quads, and synchronization protocols, the Viz service merges
+these separate visual trees into one unified frame, which is then drawn
+to the screen using hardware acceleration.</p>
+<h3 id="compositor-clients-and-compositorframes">Compositor Clients and
+CompositorFrames</h3>
+<p>Chromium uses a multi-process architecture for security and
+stability. The main browser UI, individual web pages, and out-of-process
+iframes (OOPIFs) all run in separate processes. Because renderer
+processes are sandboxed, they cannot draw directly to the screen.
+Instead, the browser process and each renderer process act as clients to
+the Viz service, which lives inside the GPU process.</p>
+<p>Instead of outputting raw pixels, each client generates a data
+structure called a <code>CompositorFrame</code>. A
+<code>CompositorFrame</code> is a lightweight blueprint of what needs to
+be drawn. It consists of a list of <code>RenderPass</code> objects,
+which in turn contain a list of <code>DrawQuads</code>. A
+<code>DrawQuad</code> is a basic drawing instruction—such as drawing a
+solid color, a rasterized tile of a webpage, or a video frame—at a
+specific location with a specific transformation.</p>
+<h3 id="surfaces-and-placeholders">Surfaces and Placeholders</h3>
+<p>When a client finishes building a <code>CompositorFrame</code>, it
+submits it to Viz over an IPC (Inter-Process Communication) channel. Viz
+stores this frame in a construct called a <code>Surface</code>, which is
+uniquely identified by a <code>SurfaceId</code>.</p>
+<p>Because processes are isolated, the browser process does not know
+what the renderer process is drawing, and a main webpage renderer does
+not know what an embedded cross-origin iframe is drawing. To solve this,
+Chromium uses indirection.</p>
+<p>When the browser UI wants to display a webpage, it builds its own
+<code>CompositorFrame</code> containing the tabs and address bar. For
+the area where the webpage belongs, the browser inserts a special
+placeholder quad called a <code>SurfaceDrawQuad</code>. This quad does
+not contain visual data; instead, it simply holds the
+<code>SurfaceId</code> of the target renderer process. Similarly, if
+that webpage contains an out-of-process iframe, the webpage's
+<code>CompositorFrame</code> will include a <code>SurfaceDrawQuad</code>
+pointing to the iframe's <code>SurfaceId</code>.</p>
+<h3 id="surface-synchronization">Surface Synchronization</h3>
+<p>Before Viz can combine these frames, it must ensure they are visually
+synchronized. For example, if a user resizes the browser window, the
+browser UI and the webpage renderer must update their frames to the new
+size simultaneously to prevent visual glitches or guttering.</p>
+<p>When the parent process (like the browser UI) submits a frame
+referencing a new <code>SurfaceId</code> for a child (the renderer) that
+has not yet submitted its corresponding frame, Viz holds the parent's
+frame in a "pending" state. The frame is blocked from being displayed
+until the child submits the matching <code>CompositorFrame</code> for
+that <code>SurfaceId</code>. Once all referenced dependencies are met—or
+if a strict millisecond deadline expires to prevent the browser from
+freezing—the pending frames become "active" and are ready for
+aggregation.</p>
+<h3 id="the-surfaceaggregator">The SurfaceAggregator</h3>
+<p>The core of the frame-merging process happens inside a Viz component
+called the <code>SurfaceAggregator</code>. When the display hardware
+signals that it is ready for a new frame (a VSync signal), Viz triggers
+the <code>SurfaceAggregator</code> to build the final scene.</p>
+<p>The <code>SurfaceAggregator</code> starts at the root
+<code>Surface</code>, which belongs to the browser process. It reads the
+active <code>CompositorFrame</code> in that surface and begins walking
+through its list of <code>DrawQuads</code>.</p>
+<ol type="1">
+<li><strong>Standard Quads:</strong> When the aggregator encounters
+standard quads (like the textures for the browser's back button or tab
+strip), it copies them directly into a new, master frame called the
+<code>AggregatedFrame</code>.</li>
+<li><strong>SurfaceDrawQuads:</strong> When the aggregator encounters a
+<code>SurfaceDrawQuad</code>, it pauses its walk of the current frame.
+It uses the <code>SurfaceId</code> inside that quad to look up the child
+renderer's <code>Surface</code> in memory.</li>
+<li><strong>Recursive Merging:</strong> The aggregator fetches the
+active <code>CompositorFrame</code> from the child's
+<code>Surface</code> and begins walking the child's quads. It calculates
+the geometric transformations and clipping rectangles required to map
+the child's coordinate space into the parent's coordinate space.</li>
+<li><strong>Flattening:</strong> The aggregator replaces the
+<code>SurfaceDrawQuad</code> with the actual visual quads from the child
+renderer. If the child frame contains another
+<code>SurfaceDrawQuad</code> (such as an embedded iframe), the
+aggregator repeats this process recursively.</li>
+</ol>
+<h3 id="final-rendering-to-the-screen">Final Rendering to the
+Screen</h3>
+<p>Once the <code>SurfaceAggregator</code> finishes walking the entire
+tree of surfaces, the output is a single, flattened
+<code>AggregatedFrame</code>. All <code>SurfaceDrawQuad</code>
+placeholders have been resolved and removed. The
+<code>AggregatedFrame</code> now contains a complete, ordered list of
+concrete drawing instructions from the browser and all visible
+renderers, all mapped to the global screen coordinate space.</p>
+<p>Viz then passes this <code>AggregatedFrame</code> to its display
+renderer, known as <code>SkiaRenderer</code>. <code>SkiaRenderer</code>
+iterates through the final list of quads and translates them into
+low-level GPU API commands (such as Vulkan, Metal, Direct3D, or OpenGL).
+The GPU executes these commands, compositing the textures into the final
+framebuffer that is presented on the user's monitor.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-viz-service-aggregates-renderer-frames';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

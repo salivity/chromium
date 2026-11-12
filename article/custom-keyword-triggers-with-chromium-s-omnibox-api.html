@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Keyword Triggers with Chromium&#39;s Omnibox API - chromium</title>
+    <meta name="description" content="This article provides a practical guide on how developers can use the Chromium Omnibox extension API to register and manage custom keyword search triggers directly within the browser&#39;s address bar. It covers the entire implementation process, starting fro">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/custom-keyword-triggers-with-chromium-s-omnibox-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Custom Keyword Triggers with Chromium&#39;s Omnibox API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/custom-keyword-triggers-with-chromium-s-omnibox-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a practical guide on how developers can use the Chromium Omnibox extension API to register and manage custom keyword search triggers directly within the browser&#39;s address bar. It covers the entire implementation process, starting fro" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="custom-keyword-triggers-with-chromiums-omnibox-api">Custom
+Keyword Triggers with Chromium's Omnibox API</h1>
+<p>This article provides a practical guide on how developers can use the
+Chromium Omnibox extension API to register and manage custom keyword
+search triggers directly within the browser's address bar. It covers the
+entire implementation process, starting from declaring the trigger
+keyword in the extension's manifest file to writing the background
+service worker logic that intercepts user keystrokes, provides real-time
+search suggestions, and executes actions when a user makes a
+selection.</p>
+<h3 id="1-registering-the-keyword-in-the-manifest">1. Registering the
+Keyword in the Manifest</h3>
+<p>To initialize the Omnibox API, you must declare the
+<code>"omnibox"</code> field in your extension's
+<code>manifest.json</code> file. This field takes an object defining the
+<code>"keyword"</code> string. Once the extension is loaded, typing this
+keyword into the Chromium address bar followed by the Tab or Space key
+activates your extension's custom search mode.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Custom Omnibox Search&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;manifest_version&quot;</span><span class="fu">:</span> <span class="dv">3</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;icons&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;16&quot;</span><span class="fu">:</span> <span class="st">&quot;icon16.png&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;background&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;service_worker&quot;</span><span class="fu">:</span> <span class="st">&quot;background.js&quot;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;omnibox&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;keyword&quot;</span><span class="fu">:</span> <span class="st">&quot;find&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Chromium automatically uses the 16x16 pixel icon defined in the
+<code>"icons"</code> field to display next to your extension's
+suggestions in the address bar dropdown.</p>
+<h3 id="2-setting-a-default-suggestion">2. Setting a Default
+Suggestion</h3>
+<p>You can customize the first line that appears in the address bar
+dropdown immediately after the user activates your keyword, even before
+they finish typing their query. Use the
+<code>chrome.omnibox.setDefaultSuggestion()</code> method inside your
+background service worker (<code>background.js</code>).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>chrome<span class="op">.</span><span class="at">omnibox</span><span class="op">.</span><span class="at">onInputStarted</span><span class="op">.</span><span class="fu">addListener</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  chrome<span class="op">.</span><span class="at">omnibox</span><span class="op">.</span><span class="fu">setDefaultSuggestion</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">description</span><span class="op">:</span> <span class="st">&quot;Search my custom database for: %s&quot;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>The <code>%s</code> placeholder is automatically replaced by whatever
+text the user is currently typing.</p>
+<h3 id="3-providing-real-time-suggestions">3. Providing Real-Time
+Suggestions</h3>
+<p>As the user types after triggering the keyword, the
+<code>chrome.omnibox.onInputChanged</code> event fires. This listener
+receives the user's current text input and a <code>suggest</code>
+callback function. You use the <code>suggest</code> function to pass an
+array of <code>SuggestResult</code> objects back to the browser to
+populate the dropdown menu.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>chrome<span class="op">.</span><span class="at">omnibox</span><span class="op">.</span><span class="at">onInputChanged</span><span class="op">.</span><span class="fu">addListener</span>((text<span class="op">,</span> suggest) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>text) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> results <span class="op">=</span> [</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">content</span><span class="op">:</span> <span class="vs">`https://example.com/search?q=</span><span class="sc">${</span><span class="pp">encodeURIComponent</span>(text)<span class="sc">}</span><span class="vs">`</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">description</span><span class="op">:</span> <span class="vs">`Search Example for &lt;match&gt;</span><span class="sc">${</span>text<span class="sc">}</span><span class="vs">&lt;/match&gt; - &lt;dim&gt; Instant Result&lt;/dim&gt;`</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">content</span><span class="op">:</span> <span class="vs">`https://example.com/docs/</span><span class="sc">${</span><span class="pp">encodeURIComponent</span>(text)<span class="sc">}</span><span class="vs">`</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">description</span><span class="op">:</span> <span class="vs">`Open documentation for &lt;url&gt;https://example.com/docs/</span><span class="sc">${</span>text<span class="sc">}</span><span class="vs">&lt;/url&gt;`</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">suggest</span>(results)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Each <code>SuggestResult</code> object requires two properties:</p>
+<ul>
+<li><code>content</code>: The string value passed to your extension when
+the user selects this specific suggestion. This is not displayed to the
+user.</li>
+<li><code>description</code>: The text displayed in the Omnibox
+dropdown. You can style this text using three specific XML-style tags:
+<code>&lt;match&gt;</code> (bolds matching text),
+<code>&lt;dim&gt;</code> (mutes helper text), and
+<code>&lt;url&gt;</code> (formats text like a webpage link).</li>
+</ul>
+<h3 id="4-handling-user-selection">4. Handling User Selection</h3>
+<p>When the user presses Enter—either right after typing their query or
+after using the arrow keys to highlight one of your provided
+suggestions—the <code>chrome.omnibox.onInputEntered</code> event
+triggers.</p>
+<p>This listener receives two arguments: the <code>text</code> (which is
+either the raw input or the <code>content</code> property of a selected
+suggestion) and the <code>disposition</code> (how the user wants the
+action handled based on keyboard shortcuts like Alt+Enter or
+Ctrl+Enter).</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>chrome<span class="op">.</span><span class="at">omnibox</span><span class="op">.</span><span class="at">onInputEntered</span><span class="op">.</span><span class="fu">addListener</span>((text<span class="op">,</span> disposition) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> targetUrl <span class="op">=</span> text<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// If the user didn&#39;t select a pre-formatted URL suggestion, build the URL</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>text<span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&quot;http&quot;</span>)) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    targetUrl <span class="op">=</span> <span class="vs">`https://example.com/search?q=</span><span class="sc">${</span><span class="pp">encodeURIComponent</span>(text)<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">switch</span> (disposition) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="st">&quot;currentTab&quot;</span><span class="op">:</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      chrome<span class="op">.</span><span class="at">tabs</span><span class="op">.</span><span class="fu">update</span>({ <span class="dt">url</span><span class="op">:</span> targetUrl })<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="st">&quot;newForegroundTab&quot;</span><span class="op">:</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      chrome<span class="op">.</span><span class="at">tabs</span><span class="op">.</span><span class="fu">create</span>({ <span class="dt">url</span><span class="op">:</span> targetUrl })<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="st">&quot;newBackgroundTab&quot;</span><span class="op">:</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>      chrome<span class="op">.</span><span class="at">tabs</span><span class="op">.</span><span class="fu">create</span>({ <span class="dt">url</span><span class="op">:</span> targetUrl<span class="op">,</span> <span class="dt">active</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>      <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-cleaning-up-cancelled-inputs">5. Cleaning Up Cancelled
+Inputs</h3>
+<p>If a user activates your keyword, types a query, and then deletes the
+text or clicks away from the address bar without pressing Enter, the
+<code>chrome.omnibox.onInputCancelled</code> event is fired. Developers
+use this listener to abort pending network requests or reset temporary
+variables stored in the background script.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>chrome<span class="op">.</span><span class="at">omnibox</span><span class="op">.</span><span class="at">onInputCancelled</span><span class="op">.</span><span class="fu">addListener</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Clean up any temporary state or abort fetch requests here</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;User cancelled the Omnibox input.&quot;</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/custom-keyword-triggers-with-chromium-s-omnibox-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

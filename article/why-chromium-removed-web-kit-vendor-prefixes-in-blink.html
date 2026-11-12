@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Removed WebKit Vendor Prefixes in Blink - chromium</title>
+    <meta name="description" content="In 2013, the Chromium project forked the WebKit rendering engine to create Blink, marking a significant shift in how the browser handled experimental web features. This article provides an overview of why Chromium decided to systematically remove and stop">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-removed-web-kit-vendor-prefixes-in-blink">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Removed WebKit Vendor Prefixes in Blink - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-removed-web-kit-vendor-prefixes-in-blink" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2013, the Chromium project forked the WebKit rendering engine to create Blink, marking a significant shift in how the browser handled experimental web features. This article provides an overview of why Chromium decided to systematically remove and stop" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-removed-webkit-vendor-prefixes-in-blink">Why
+Chromium Removed WebKit Vendor Prefixes in Blink</h1>
+<p>In 2013, the Chromium project forked the WebKit rendering engine to
+create Blink, marking a significant shift in how the browser handled
+experimental web features. This article provides an overview of why
+Chromium decided to systematically remove and stop adding
+WebKit-specific vendor prefixes (such as <code>-webkit-</code>) after
+this transition. The decision was primarily driven by the need to
+eliminate codebase bloat, fix broken cross-browser compatibility,
+enforce true web standards, and introduce a better method for testing
+new features through browser runtime flags.</p>
+<h2 id="the-failure-of-vendor-prefixes">The Failure of Vendor
+Prefixes</h2>
+<p>Vendor prefixes were originally designed as a temporary measure. They
+allowed browser makers to test experimental CSS and JavaScript features
+before those features were officially standardized by the World Wide Web
+Consortium (W3C).</p>
+<p>However, due to the overwhelming popularity of WebKit-based browsers
+like Google Chrome and Apple Safari, web developers began using
+<code>-webkit-</code> properties on live production websites. Worse,
+they often failed to include prefixes for other engines (like
+<code>-moz-</code> for Firefox) or the final standard property. This
+created a web compatibility crisis where millions of websites only
+rendered correctly in WebKit browsers, effectively locking out
+competitors and harming the open web.</p>
+<h2 id="eliminating-codebase-bloat">Eliminating Codebase Bloat</h2>
+<p>When Chromium transitioned to Blink, a primary engineering goal was
+to strip away legacy code to make the new engine faster, lighter, and
+easier to maintain.</p>
+<p>Supporting vendor prefixes required the browser to maintain multiple
+versions of the same feature. Blink engineers had to keep the old
+<code>-webkit-</code> implementation alive while simultaneously
+supporting the newly standardized version. By committing to phase out
+WebKit prefixes, the Chromium team was able to delete massive amounts of
+duplicate and obsolete code, streamlining the Blink engine's
+architecture.</p>
+<h2 id="enforcing-true-web-standards">Enforcing True Web Standards</h2>
+<p>A major issue with vendor prefixes was that a feature's design often
+changed between its initial <code>-webkit-</code> introduction and its
+final approval as a web standard.</p>
+<p>Because so many live websites relied on the early, flawed
+<code>-webkit-</code> behavior, Chromium was frequently trapped into
+maintaining broken, non-standard functionality indefinitely just to
+prevent popular websites from breaking. Removing these prefixes broke
+this cycle. It forced web developers to adopt the final,
+W3C-standardized syntax, ensuring that code written for Chromium would
+work identically in Firefox, Safari, and Edge.</p>
+<h2 id="the-shift-to-runtime-flags">The Shift to Runtime Flags</h2>
+<p>To replace vendor prefixes, the Blink team introduced a new policy
+for experimental features: runtime flags.</p>
+<p>Instead of exposing unfinished features to the entire web via a
+<code>-webkit-</code> prefix, Chromium began hiding them behind internal
+browser settings (accessible via <code>chrome://flags</code>). This
+allowed web developers to turn on and test bleeding-edge capabilities
+locally, while preventing those unstable features from being used on
+public websites. Once an experimental feature was finalized and
+standardized by the W3C, Chromium simply enabled it by default without
+any prefix.</p>
+<h2 id="the-reality-of-legacy-compatibility">The Reality of Legacy
+Compatibility</h2>
+<p>While Chromium successfully stopped adding <em>new</em>
+<code>-webkit-</code> prefixes immediately after the Blink fork,
+removing <em>existing</em> ones proved difficult. Because so many
+abandoned or unmaintained websites relied on properties like
+<code>-webkit-box-reflect</code> or <code>-webkit-appearance</code>,
+removing them entirely would have broken large portions of the
+internet.</p>
+<p>Consequently, Chromium removed the prefixes that had low usage
+numbers and standardized the most popular ones, ultimately ending the
+era of vendor prefixes while keeping the legacy web functional.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-removed-web-kit-vendor-prefixes-in-blink';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the Chromium Navigation API Modernizes Web Routing - chromium</title>
+    <meta name="description" content="This article provides a direct comparison between the legacy HTML5 History API and the modern Navigation API introduced in Chromium-based browsers. It explores how the Navigation API solves long-standing client-side routing issues in Single Page Applicati">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-the-chromium-navigation-api-modernizes-web-routing">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the Chromium Navigation API Modernizes Web Routing - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-the-chromium-navigation-api-modernizes-web-routing" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a direct comparison between the legacy HTML5 History API and the modern Navigation API introduced in Chromium-based browsers. It explores how the Navigation API solves long-standing client-side routing issues in Single Page Applicati" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-chromium-navigation-api-modernizes-web-routing">How the
+Chromium Navigation API Modernizes Web Routing</h1>
+<p>This article provides a direct comparison between the legacy HTML5
+History API and the modern Navigation API introduced in Chromium-based
+browsers. It explores how the Navigation API solves long-standing
+client-side routing issues in Single Page Applications (SPAs) by
+offering centralized event interception, full access to the session
+history stack, automatic browser UI integration, and built-in
+accessibility features that previously required complex workarounds.</p>
+<h2 id="the-limitations-of-the-legacy-history-api">The Limitations of
+the Legacy History API</h2>
+<p>The HTML5 History API (<code>window.history</code>) was introduced
+long before Single Page Applications became the standard for web
+development. While methods like <code>history.pushState()</code> and
+<code>history.replaceState()</code> allowed developers to modify the URL
+without triggering a full page reload, the API was fundamentally flawed
+for full-scale routing:</p>
+<ul>
+<li><strong>Incomplete Event Listening:</strong> The
+<code>popstate</code> event only fires when the user clicks the
+browser’s back or forward buttons. It does not fire when
+<code>pushState()</code> or <code>replaceState()</code> is called
+programmatically, nor does it automatically intercept standard
+<code>&lt;a href="..."&gt;</code> link clicks.</li>
+<li><strong>Blind History Stack:</strong> Developers could only see the
+length of the history stack (<code>history.length</code>) and the
+current state. It was impossible to inspect previous or future URLs in
+the session history.</li>
+<li><strong>Disconnected Browser UI:</strong> Because
+<code>pushState</code> simply changes the URL string, the browser does
+not know an asynchronous page transition is happening. The loading
+spinner does not spin, the stop button does not work, and assistive
+technologies like screen readers are not notified of the page
+change.</li>
+</ul>
+<h2 id="centralized-routing-with-the-navigate-event">Centralized Routing
+with the <code>navigate</code> Event</h2>
+<p>The Chromium Navigation API (accessed via
+<code>window.navigation</code>) replaces the fragmented listeners of the
+past with a single, centralized <code>navigate</code> event.</p>
+<p>With the History API, frameworks had to attach click listeners to
+every link on the page, listen to the <code>popstate</code> event, and
+manually wrap <code>history.pushState</code> to know when a route
+changed.</p>
+<p>The Navigation API triggers the <code>navigate</code> event for all
+types of navigation, including:</p>
+<ul>
+<li>User clicks on <code>&lt;a&gt;</code> tags.</li>
+<li>Form submissions (<code>&lt;form&gt;</code>).</li>
+<li>Browser back and forward button presses.</li>
+<li>Programmatic navigations using the new
+<code>navigation.navigate()</code> method or legacy
+<code>history.pushState()</code> calls.</li>
+</ul>
+<p>This centralization allows developers to manage all routing logic
+inside a single event listener.</p>
+<h2 id="seamless-transitions-with-eventintercept">Seamless Transitions
+with <code>event.intercept()</code></h2>
+<p>To convert a standard multi-page navigation into a client-side SPA
+transition, the Navigation API provides the
+<code>event.intercept()</code> method inside the <code>navigate</code>
+event listener. This replaces the legacy pattern of calling
+<code>event.preventDefault()</code> on link clicks and manually updating
+the URL.</p>
+<p>When you pass an asynchronous handler (a Promise) into
+<code>event.intercept()</code>, the Chromium browser automatically
+handles the lifecycle of the navigation:</p>
+<ul>
+<li><strong>Browser UI Synchronization:</strong> The browser’s native
+loading spinner activates while the Promise is pending and stops when it
+resolves. The browser's "Stop" button also becomes functional, allowing
+users to cancel slow client-side navigations.</li>
+<li><strong>Scroll Restoration:</strong> The API automatically handles
+scrolling to the top of the page on new navigations or restoring the
+previous scroll position when navigating backward, which required manual
+tracking in the History API.</li>
+<li><strong>Focus and Accessibility:</strong> Once the transition
+finishes, the browser automatically manages focus management and
+announces the new page load to screen readers.</li>
+</ul>
+<h2 id="full-visibility-of-the-history-stack">Full Visibility of the
+History Stack</h2>
+<p>With the legacy History API, the session history was a black box. If
+you wanted to know if a user could go back to a specific page within
+your app, you had to manually track every visited route in memory or
+local storage—a fragile process that broke if the user refreshed the
+page.</p>
+<p>The Navigation API introduces <code>navigation.entries()</code>,
+which returns an array of all <code>NavigationHistoryEntry</code>
+objects in the current session for your origin. Developers can now:</p>
+<ul>
+<li>Inspect the exact URLs of every previous and forward entry in the
+stack.</li>
+<li>Attach unique, persistent keys and IDs to each history entry.</li>
+<li>Navigate directly to a specific point in the history stack using
+<code>navigation.traverseTo(key)</code>, rather than guessing how many
+steps to pass into the legacy <code>history.go(-n)</code> method.</li>
+</ul>
+<h2 id="reliable-state-management">Reliable State Management</h2>
+<p>In the History API, <code>history.state</code> is coupled to the
+global history object and is notoriously easy to overwrite or lose
+during complex redirects.</p>
+<p>The Navigation API attaches state directly to individual history
+entries. By calling <code>navigation.currentEntry.getState()</code>,
+developers retrieve a clone of the state specific to that exact route.
+Furthermore, because <code>navigation.entries()</code> exposes the whole
+stack, you can inspect the state of past routes without having to
+navigate to them first.</p>
+<h2 id="built-in-abort-signals">Built-in Abort Signals</h2>
+<p>Previously, if a user rapidly clicked three different links in an
+SPA, developers had to write custom logic to cancel the data-fetching
+requests of the first two clicks to prevent race conditions.</p>
+<p>The Navigation API's <code>NavigateEvent</code> includes a standard
+<code>AbortSignal</code> property (<code>event.signal</code>). If a user
+clicks a new link or presses the browser's "Stop" button while a
+navigation is still resolving, the browser automatically aborts the
+previous navigation. Developers can pass <code>event.signal</code>
+directly into their <code>fetch()</code> requests to instantly cancel
+outdated network calls without writing boilerplate cancellation
+logic.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-the-chromium-navigation-api-modernizes-web-routing';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Shares Read-Only V8 Builtins Across Processes - chromium</title>
+    <meta name="description" content="This article explains the &quot;Embedded Builtins&quot; mechanism used by the Chromium web browser to reduce memory consumption across tabs. By moving V8 JavaScript engine builtins out of the dynamic memory heap and embedding them directly into the browser binary&#39;s">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-shares-read-only-v-8-builtins-across-processes">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Shares Read-Only V8 Builtins Across Processes - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-shares-read-only-v-8-builtins-across-processes" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the &quot;Embedded Builtins&quot; mechanism used by the Chromium web browser to reduce memory consumption across tabs. By moving V8 JavaScript engine builtins out of the dynamic memory heap and embedding them directly into the browser binary&#39;s" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-shares-read-only-v8-builtins-across-processes">How
+Chromium Shares Read-Only V8 Builtins Across Processes</h1>
+<p>This article explains the "Embedded Builtins" mechanism used by the
+Chromium web browser to reduce memory consumption across tabs. By moving
+V8 JavaScript engine builtins out of the dynamic memory heap and
+embedding them directly into the browser binary's read-only text
+section, the operating system can share a single physical copy of this
+executable code across multiple renderer processes.</p>
+<h2 id="what-are-v8-builtins">What Are V8 Builtins?</h2>
+<p>V8 builtins are pre-compiled chunks of executable code that the V8
+JavaScript engine requires to function. They include implementations of
+standard JavaScript objects (such as <code>Array.prototype.sort</code>
+or <code>RegExp</code>), internal helper functions, and the bytecode
+handlers that power the Ignition interpreter. Every V8 instance, known
+as an Isolate, needs access to these builtins to execute JavaScript.</p>
+<h2 id="the-historical-memory-problem">The Historical Memory
+Problem</h2>
+<p>Chromium uses a multi-process architecture where different tabs and
+sites run in separate renderer processes, each containing its own V8
+Isolate.</p>
+<p>Historically, V8 stored builtins inside a startup snapshot. When a
+new renderer process started, V8 deserialized this snapshot directly
+into the Isolate's private, mutable heap memory. Because the
+deserialization process patched the builtins with memory addresses
+specific to that individual Isolate, the operating system treated those
+memory pages as modified and private. Consequently, every renderer
+process duplicated hundreds of kilobytes of identical builtin code in
+physical RAM.</p>
+<h2 id="the-solution-embedded-builtins">The Solution: Embedded
+Builtins</h2>
+<p>The mechanism that allows Chromium to share these builtins across
+processes is called <strong>Embedded Builtins</strong> (or off-heap
+builtins). To achieve memory sharing, V8 engineers extracted the
+builtins from the mutable V8 heap and placed them into the immutable,
+read-only section of the Chromium binary itself.</p>
+<p>This mechanism relies on three core technical concepts:</p>
+<h3 id="1-isolate-independent-code">1. Isolate-Independent Code</h3>
+<p>For executable code to be shared across multiple processes, it cannot
+contain hardcoded memory addresses that point to a specific process's
+heap. V8 engineers rewrote the builtin generation pipeline to produce
+Position-Independent Code (PIC) and Isolate-independent code.</p>
+<p>Instead of embedding fixed memory pointers into the code, V8
+dedicates a specific CPU register—known as the Root Register—to hold the
+base address of the currently executing Isolate. When an embedded
+builtin needs to access Isolate-specific data, it calculates the target
+address dynamically using fixed offsets relative to the Root
+Register.</p>
+<h3 id="2-embedding-into-the-binarys-text-section">2. Embedding into the
+Binary's <code>.text</code> Section</h3>
+<p>During the Chromium build process, V8 runs a tool called
+<code>mksnapshot</code>. This tool generates the machine code for all
+builtins. Instead of serializing this code into the standard heap
+snapshot, <code>mksnapshot</code> writes the instructions out as a
+massive assembly file (<code>embedded.S</code>).</p>
+<p>The C++ compiler and linker then compile this assembly file directly
+into the Chromium executable (or shared library, such as
+<code>chrome.dll</code> on Windows). The builtins end up in the binary's
+<code>.text</code> section, which is the standard read-only segment
+where compiled C++ functions reside.</p>
+<h3 id="3-os-level-virtual-memory-sharing">3. OS-Level Virtual Memory
+Sharing</h3>
+<p>Because the builtins are located in the read-only <code>.text</code>
+section of the binary and are completely free of runtime modifications
+(relocations), the operating system handles the memory sharing
+automatically.</p>
+<p>When Chromium spawns multiple renderer processes, the operating
+system's virtual memory manager maps the binary into each process's
+virtual address space. Since the <code>.text</code> section is marked as
+read-only and executable, the OS maps the virtual addresses of every
+renderer process to the exact same physical pages in RAM.</p>
+<h2 id="calling-an-embedded-builtin">Calling an Embedded Builtin</h2>
+<p>Because the operating system uses Address Space Layout Randomization
+(ASLR), the shared <code>.text</code> section might be loaded at
+different virtual addresses in different processes.</p>
+<p>To allow code inside the V8 heap to call a builtin located off-heap
+in the <code>.text</code> section, each V8 Isolate maintains a small,
+private "Builtins Constants Table" on its heap. When an Isolate
+initializes, it populates this table with the actual virtual addresses
+of the embedded builtins for that specific process. V8 code then calls
+builtins indirectly by looking up their addresses in this table, keeping
+the heavy executable code completely untouched and shared in physical
+memory.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-shares-read-only-v-8-builtins-across-processes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

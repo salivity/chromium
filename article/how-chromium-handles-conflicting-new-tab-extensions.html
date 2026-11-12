@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Handles Conflicting New Tab Extensions - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser resolves conflicts when two or more installed extensions attempt to override the New Tab page simultaneously. It covers the browser&#39;s built-in priority rules, the role of user confirmation prompts, what h">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-handles-conflicting-new-tab-extensions">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Handles Conflicting New Tab Extensions - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-handles-conflicting-new-tab-extensions" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser resolves conflicts when two or more installed extensions attempt to override the New Tab page simultaneously. It covers the browser&#39;s built-in priority rules, the role of user confirmation prompts, what h" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-handles-conflicting-new-tab-extensions">How
+Chromium Handles Conflicting New Tab Extensions</h1>
+<p>This article explains how the Chromium web browser resolves conflicts
+when two or more installed extensions attempt to override the New Tab
+page simultaneously. It covers the browser's built-in priority rules,
+the role of user confirmation prompts, what happens when an active
+extension is disabled, and how users can manually choose which extension
+controls their New Tab experience.</p>
+<h2 id="the-most-recently-enabled-rule">The "Most Recently Enabled"
+Rule</h2>
+<p>In Chromium-based browsers, an extension uses the
+<code>chrome_url_overrides</code> API in its manifest file to replace
+the default New Tab page. However, the browser architecture only allows
+a single extension to control the New Tab page at any given time. It
+cannot merge them or display both.</p>
+<p>When two extensions request control of the New Tab page, Chromium
+resolves the conflict using a "Last In, First Out" (LIFO) precedence
+rule. The extension that was <strong>most recently installed or
+enabled</strong> automatically wins the conflict and takes over the New
+Tab page. The older extension remains installed and active for other
+background tasks, but its New Tab override feature is suppressed.</p>
+<h2 id="the-user-confirmation-prompt">The User Confirmation Prompt</h2>
+<p>To prevent malicious or unwanted extensions from hijacking the
+browser without the user's knowledge, Chromium implements a safeguard.
+The first time you open a New Tab after a new extension takes control,
+the browser displays a notification dialog near the top right of the
+screen.</p>
+<p>This prompt informs you that a specific extension has changed what
+page is shown when you open a new tab. You are given two choices:</p>
+<ul>
+<li><strong>Keep it:</strong> Confirms the new extension as the active
+New Tab controller.</li>
+<li><strong>Change it back:</strong> Reverts the New Tab page to its
+previous state (either the previously controlling extension or the
+default Chromium page) and disables the new extension entirely.</li>
+</ul>
+<h2 id="fallback-behavior">Fallback Behavior</h2>
+<p>Chromium maintains a history—or a stack—of extensions that have
+requested the New Tab override. If you disable or uninstall the
+extension currently controlling the New Tab page, the browser does not
+necessarily revert to the default Chromium page. Instead, control falls
+back to the second-most recently enabled extension that has a New Tab
+override declared in its manifest.</p>
+<p>The default Chromium New Tab page will only return if all extensions
+attempting to override it are either disabled or uninstalled.</p>
+<h2 id="how-to-manually-choose-the-winning-extension">How to Manually
+Choose the Winning Extension</h2>
+<p>Chromium does not provide a dedicated dropdown menu in its settings
+to select which active extension controls the New Tab page, assuming you
+want to keep both extensions enabled for their other features.</p>
+<p>To manually force a specific extension to take control of the New Tab
+page while keeping the conflicting extension active, follow these
+steps:</p>
+<ol type="1">
+<li>Navigate to <code>chrome://extensions</code> in your address
+bar.</li>
+<li>Locate the extension you <strong>want</strong> to control the New
+Tab page.</li>
+<li>Toggle the switch to <strong>Disable</strong> the extension.</li>
+<li>Toggle the switch back to <strong>Enable</strong> the
+extension.</li>
+</ol>
+<p>Because this action makes your preferred extension the "most recently
+enabled," Chromium immediately grants it priority over the New Tab page,
+pushing the conflicting extension's override into the background.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-handles-conflicting-new-tab-extensions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

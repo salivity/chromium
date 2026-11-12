@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the Chromium Recorder Panel Exports Automated Scripts - chromium</title>
+    <meta name="description" content="This article provides a concise guide to the Recorder panel built into Chromium-based web browsers. It explains the core functionality of the tool, how it captures complex user interactions on a webpage, and the exact process required to export these reco">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-the-chromium-recorder-panel-exports-automated-scripts">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the Chromium Recorder Panel Exports Automated Scripts - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-the-chromium-recorder-panel-exports-automated-scripts" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a concise guide to the Recorder panel built into Chromium-based web browsers. It explains the core functionality of the tool, how it captures complex user interactions on a webpage, and the exact process required to export these reco" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-chromium-recorder-panel-exports-automated-scripts">How
+the Chromium Recorder Panel Exports Automated Scripts</h1>
+<p>This article provides a concise guide to the Recorder panel built
+into Chromium-based web browsers. It explains the core functionality of
+the tool, how it captures complex user interactions on a webpage, and
+the exact process required to export these recorded user journeys into
+runnable, automated scripts for popular testing frameworks.</p>
+<h3 id="what-is-the-chromium-recorder-panel">What is the Chromium
+Recorder Panel?</h3>
+<p>The Recorder panel is a built-in feature within the Developer Tools
+(DevTools) of Chromium-based browsers, such as Google Chrome, Microsoft
+Edge, and Brave. Its primary purpose is to help developers and quality
+assurance testers record, replay, and measure user flows—often called
+"user journeys"—directly in the browser.</p>
+<p>Instead of manually writing code to simulate a user logging in,
+adding an item to a shopping cart, or filling out a form, the Recorder
+panel watches your actions and automatically generates the underlying
+steps. It captures events such as clicks, keyboard inputs, page
+navigations, and scrolling, while automatically identifying the most
+reliable CSS, ARIA, or XPath selectors for the interacted elements.</p>
+<h3 id="how-to-record-a-user-journey">How to Record a User Journey</h3>
+<p>Before exporting a script, you must capture a user flow. The process
+is straightforward:</p>
+<ol type="1">
+<li>Open a Chromium browser and navigate to your target webpage.</li>
+<li>Open DevTools by pressing <code>F12</code> or
+<code>Ctrl+Shift+I</code> (<code>Cmd+Option+I</code> on Mac).</li>
+<li>Open the Command Menu by pressing <code>Ctrl+Shift+P</code>
+(<code>Cmd+Shift+P</code> on Mac).</li>
+<li>Type <strong>Show Recorder</strong> and press
+<code>Enter</code>.</li>
+<li>Click the <strong>Start new recording</strong> button.</li>
+<li>Enter a name for your recording and click the red <strong>Start
+recording</strong> button at the bottom.</li>
+<li>Interact with the webpage as a normal user would. The Recorder panel
+will log every action in real time.</li>
+<li>Click <strong>End recording</strong> once the user journey is
+complete.</li>
+</ol>
+<h3 id="exporting-journeys-as-automated-scripts">Exporting Journeys as
+Automated Scripts</h3>
+<p>Once a recording is finished, the Recorder panel translates the
+captured DOM events and element selectors into structured code. You can
+export this data into functional automated scripts in just a few
+clicks.</p>
+<p>To export the recording, locate the <strong>Export</strong> icon
+(represented by a downward-pointing arrow) in the top action bar of the
+Recorder panel. Clicking this icon presents several native formats:</p>
+<ul>
+<li><strong>Puppeteer:</strong> Exports the recording as a complete,
+standalone Node.js script using the Puppeteer library. This script
+includes browser launch parameters, viewport configurations, and
+step-by-step instructions to replicate your actions.</li>
+<li><strong>Puppeteer (including Lighthouse analysis):</strong> Exports
+a Puppeteer script that also triggers a Lighthouse performance audit at
+specific points during the user flow.</li>
+<li><strong><span class="citation"
+data-cites="puppeteer/replay">@puppeteer/replay</span>:</strong> Exports
+a streamlined script designed to be run using the Puppeteer Replay
+library, which is useful for executing JSON files directly.</li>
+<li><strong>JSON:</strong> Exports the raw recording data as a JSON
+file. This allows you to import the user journey back into the Recorder
+panel later or share it with team members.</li>
+</ul>
+<p>After selecting your desired format, your browser will prompt you to
+save the generated file (typically as a <code>.js</code> or
+<code>.json</code> file) to your local machine. You can immediately run
+the JavaScript files in your terminal using Node.js, provided you have
+the Puppeteer library installed.</p>
+<h3 id="exporting-to-third-party-frameworks">Exporting to Third-Party
+Frameworks</h3>
+<p>While the Recorder panel only supports Puppeteer and JSON natively,
+its export capabilities can be expanded to support almost any modern
+end-to-end testing framework.</p>
+<p>In the Export dropdown menu, clicking <strong>Get
+extensions...</strong> opens the Chrome Web Store, where you can install
+official plugins created by other testing platforms. Once installed,
+these extensions integrate directly into the Export menu, allowing you
+to instantly convert your recorded user journeys into automated scripts
+for:</p>
+<ul>
+<li>Playwright</li>
+<li>Cypress</li>
+<li>WebdriverIO</li>
+<li>Nightwatch</li>
+<li>Testing Library</li>
+</ul>
+<h3 id="modifying-scripts-before-export">Modifying Scripts Before
+Export</h3>
+<p>To ensure your exported scripts do not fail due to network lag or
+slow animations, the Recorder panel allows you to edit steps prior to
+exporting. You can expand any recorded step in the panel to change the
+target selector, adjust the timeout duration, or add an "Wait for
+element" assertion. Any modifications made in the UI are automatically
+reflected in the final exported code.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-the-chromium-recorder-panel-exports-automated-scripts';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

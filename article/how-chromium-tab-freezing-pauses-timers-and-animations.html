@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Tab Freezing Pauses Timers and Animations - chromium</title>
+    <meta name="description" content="This article explains the technical mechanisms behind Chromium&#39;s Tab Freezing feature, focusing on how the browser suspends CPU-intensive timers and animations after five minutes of background inactivity. By transitioning inactive tabs into a frozen lifec">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-tab-freezing-pauses-timers-and-animations">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Tab Freezing Pauses Timers and Animations - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-tab-freezing-pauses-timers-and-animations" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the technical mechanisms behind Chromium&#39;s Tab Freezing feature, focusing on how the browser suspends CPU-intensive timers and animations after five minutes of background inactivity. By transitioning inactive tabs into a frozen lifec" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-tab-freezing-pauses-timers-and-animations">How
+Chromium Tab Freezing Pauses Timers and Animations</h1>
+<p>This article explains the technical mechanisms behind Chromium's Tab
+Freezing feature, focusing on how the browser suspends CPU-intensive
+timers and animations after five minutes of background inactivity. By
+transitioning inactive tabs into a frozen lifecycle state, Chromium
+halts JavaScript execution, pauses rendering pipelines, and suspends
+task queues to significantly reduce CPU usage and battery drain without
+losing the user's current page state or requiring a full page reload
+upon return.</p>
+<h2 id="the-five-minute-inactivity-trigger">The Five-Minute Inactivity
+Trigger</h2>
+<p>When you switch away from a tab in a Chromium-based browser, the tab
+immediately enters a "Hidden" state. At this point, the browser applies
+standard background throttling, which limits how often JavaScript timers
+can fire.</p>
+<p>Simultaneously, Chromium starts an internal five-minute countdown. If
+the tab remains in the background and stays completely inactive for
+those five minutes, the browser initiates the Tab Freezing process. This
+process is governed by the Page Lifecycle API, which transitions the tab
+from a "Hidden" state to a "Frozen" state.</p>
+<h2 id="the-freeze-event-execution">The <code>freeze</code> Event
+Execution</h2>
+<p>Right before Chromium suspends the tab's processes, it dispatches a
+<code>freeze</code> event to the document. This gives the webpage a tiny
+fraction of a second to execute final synchronous tasks. Developers use
+this event to preserve user data to <code>localStorage</code>, close
+open IndexedDB transactions, or cleanly disconnect from servers before
+the CPU access is entirely cut off. Once the <code>freeze</code> event
+finishes executing, the suspension begins.</p>
+<h2 id="suspending-cpu-timers">Suspending CPU Timers</h2>
+<p>In Chromium, a webpage's activities are managed by the Blink
+Scheduler, which organizes work into different task queues on the main
+thread. CPU timers—specifically JavaScript functions like
+<code>setTimeout()</code> and <code>setInterval()</code>—rely on these
+task queues to execute their callbacks at specified times.</p>
+<p>When the five-minute mark is reached and the tab freezes, the Blink
+Scheduler pauses the task queues associated with that specific tab's
+frame.</p>
+<ul>
+<li><strong>Timer Queue Suspension:</strong> Any pending
+<code>setTimeout</code> or <code>setInterval</code> callbacks are locked
+in place. The internal clock for these timers stops ticking, and the
+browser refuses to push these tasks to the CPU for execution.</li>
+<li><strong>Zero CPU Allocation:</strong> Because the task queues are
+paused at the scheduler level, the tab's renderer process consumes zero
+CPU cycles for script execution.</li>
+<li><strong>Queue Preservation:</strong> The tasks are not deleted; they
+are simply held in memory. When you eventually return to the tab, the
+queues are unpaused, and expired timers will fire immediately.</li>
+</ul>
+<h2 id="halting-animations">Halting Animations</h2>
+<p>Animations on the web are generally driven by two mechanisms:
+JavaScript's <code>requestAnimationFrame()</code> and CSS
+transitions/animations. Chromium handles both to ensure a frozen tab
+does not waste system resources rendering invisible graphics.</p>
+<ul>
+<li><strong>JavaScript Animations:</strong> The
+<code>requestAnimationFrame()</code> API is designed to sync with the
+display's refresh rate. Chromium actually pauses
+<code>requestAnimationFrame()</code> callbacks almost immediately when a
+tab is hidden. However, Tab Freezing guarantees that any fallback
+timer-based animations (developers using <code>setInterval</code> to
+move elements) are also completely stopped at the five-minute mark.</li>
+<li><strong>CSS and Web Animations:</strong> CSS animations often run on
+the browser's compositor thread rather than the main JavaScript thread.
+When a tab is frozen, Chromium stops sending <code>BeginFrame</code>
+signals to the tab's renderer process. Without these signals, the
+compositor thread halts all rendering updates, freezing CSS animations
+and WebGL contexts on their exact current frame.</li>
+</ul>
+<h2 id="exceptions-to-tab-freezing">Exceptions to Tab Freezing</h2>
+<p>Chromium will not freeze a background tab at the five-minute mark if
+the tab is actively performing critical background work that the user
+relies on. A tab is exempt from freezing if it is:</p>
+<ul>
+<li>Playing audio or video.</li>
+<li>Using WebRTC for real-time communication (like a voice or video
+call).</li>
+<li>Connected to an external device via WebUSB, WebBluetooth, or
+WebHID.</li>
+<li>Holding a Web Lock or an active IndexedDB transaction (to prevent
+stops that would block other active tabs from accessing the same
+database).</li>
+<li>Capturing the screen, window, or microphone.</li>
+</ul>
+<h2 id="resuming-the-tab">Resuming the Tab</h2>
+<p>The moment a user clicks on a frozen tab, bringing it back to the
+foreground, Chromium immediately unpauses the Blink Scheduler's task
+queues and resumes sending <code>BeginFrame</code> signals. The browser
+fires a <code>resume</code> event on the document, delayed CPU timers
+execute, and animations continue seamlessly from where they left
+off.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-tab-freezing-pauses-timers-and-animations';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoringSSL vs. OpenSSL: Why It Was Created for Chromium - chromium</title>
+    <meta name="description" content="In 2014, Google introduced BoringSSL, a direct fork of the widely used OpenSSL cryptographic library, designed specifically to power the Chromium web browser and the Android operating system. This article explains why Google decided to build and maintain">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/boring-ssl-vs-open-ssl-why-it-was-created-for-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="BoringSSL vs. OpenSSL: Why It Was Created for Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/boring-ssl-vs-open-ssl-why-it-was-created-for-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2014, Google introduced BoringSSL, a direct fork of the widely used OpenSSL cryptographic library, designed specifically to power the Chromium web browser and the Android operating system. This article explains why Google decided to build and maintain" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="boringssl-vs-openssl-why-it-was-created-for-chromium">BoringSSL
+vs. OpenSSL: Why It Was Created for Chromium</h1>
+<p>In 2014, Google introduced BoringSSL, a direct fork of the widely
+used OpenSSL cryptographic library, designed specifically to power the
+Chromium web browser and the Android operating system. This article
+explains why Google decided to build and maintain its own cryptographic
+solution rather than rely on the standard OpenSSL distribution. It
+covers the historical challenges Chromium developers faced with OpenSSL
+and outlines the core architectural, operational, and security
+differences that separate the two libraries today.</p>
+<h2 id="why-boringssl-was-created-for-chromium">Why BoringSSL Was
+Created for Chromium</h2>
+<p>Before BoringSSL, Google relied heavily on OpenSSL for secure
+communications in Chromium, Chrome, and Android. However, Chromium is a
+rapidly evolving browser that frequently serves as a testing ground for
+new web standards and cutting-edge security protocols. OpenSSL, as a
+general-purpose library used by millions of servers and applications
+worldwide, could not move at the speed Chromium required.</p>
+<p>To implement new features—such as TLS False Start, ALPN
+(Application-Layer Protocol Negotiation), and experimental cipher
+suites—Google engineers had to write custom patches on top of OpenSSL.
+By 2014, Google was maintaining over 70 complex patches.</p>
+<p>Maintaining these patches became unsustainable for several
+reasons:</p>
+<ul>
+<li><strong>Integration Bottlenecks:</strong> Every time OpenSSL
+released an update or security fix, Google engineers had to manually
+port their 70+ patches to the new version, which was time-consuming and
+prone to human error.</li>
+<li><strong>Fragmentation:</strong> Chromium, Android, and Google’s
+internal servers were all using slightly different versions of OpenSSL
+with different sets of patches.</li>
+<li><strong>The Heartbleed Catalyst:</strong> The discovery of the
+catastrophic Heartbleed bug in OpenSSL in 2014 highlighted the dangers
+of a bloated, complex codebase. Google realized it needed a smaller,
+cleaner, and heavily audited library tailored strictly to its own
+ecosystem.</li>
+</ul>
+<p>BoringSSL was created to unify Google's cryptographic efforts into a
+single, streamlined codebase that Chromium could update seamlessly
+without waiting for upstream approval or managing fragile patch
+sets.</p>
+<h2 id="key-differences-between-boringssl-and-openssl">Key Differences
+Between BoringSSL and OpenSSL</h2>
+<p>While BoringSSL and OpenSSL share the same ancestry and continue to
+share bug fixes and code with one another, their goals and designs have
+diverged significantly.</p>
+<h3 id="1-api-and-abi-stability">1. API and ABI Stability</h3>
+<ul>
+<li><strong>OpenSSL:</strong> Strongly commits to API (Application
+Programming Interface) and ABI (Application Binary Interface) backward
+compatibility. When OpenSSL updates, existing applications using it
+generally do not need to rewrite their code.</li>
+<li><strong>BoringSSL:</strong> Explicitly offers no API or ABI
+stability guarantees. Because it is built directly into the Chromium
+source tree, Google engineers can change how BoringSSL works at any time
+and simultaneously update the Chromium code that calls it. This allows
+for rapid refactoring and security improvements without the burden of
+legacy support.</li>
+</ul>
+<h3 id="2-codebase-size-and-legacy-support">2. Codebase Size and Legacy
+Support</h3>
+<ul>
+<li><strong>OpenSSL:</strong> Designed to run on almost any hardware and
+operating system in existence, including decades-old mainframes and
+obscure embedded systems. It also retains support for deprecated
+cryptographic algorithms to avoid breaking older software.</li>
+<li><strong>BoringSSL:</strong> Strips away all legacy code, obscure
+hardware support, and weak cryptographic algorithms not needed by modern
+browsers or Android devices. By aggressively deleting unused code,
+BoringSSL drastically reduces its attack surface, making it easier to
+audit and secure.</li>
+</ul>
+<h3 id="3-target-audience">3. Target Audience</h3>
+<ul>
+<li><strong>OpenSSL:</strong> A public utility meant for everyone. It is
+the default cryptographic library for most Linux distributions and
+countless open-source projects.</li>
+<li><strong>BoringSSL:</strong> Built strictly for Google and Chromium.
+In fact, Google actively discourages outside developers from using
+BoringSSL as a general-purpose system library because its lack of
+stability guarantees will break third-party applications.</li>
+</ul>
+<h3 id="4-adoption-of-modern-cryptography">4. Adoption of Modern
+Cryptography</h3>
+<ul>
+<li><strong>OpenSSL:</strong> Moves deliberately and cautiously. It
+typically waits for internet standards (like those from the IETF) to be
+finalized before implementing them, ensuring stability for its massive
+user base.</li>
+<li><strong>BoringSSL:</strong> Acts as an incubator for the future of
+web security. Because it is tied to Chromium, Google uses BoringSSL to
+deploy and test draft versions of protocols at scale. For example,
+BoringSSL was used to pioneer TLS 1.3 and experiment with post-quantum
+cryptography in Chrome long before those standards were finalized.</li>
+</ul>
+<h3 id="5-programming-language-modernization">5. Programming Language
+Modernization</h3>
+<ul>
+<li><strong>OpenSSL:</strong> Written strictly in C to ensure maximum
+portability across all compilers and platforms.</li>
+<li><strong>BoringSSL:</strong> Has gradually migrated much of its
+internal codebase from C to modern C++. This allows Chromium developers
+to use safer memory management techniques and modern programming
+constructs, reducing the likelihood of memory-safety bugs like buffer
+overflows.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/boring-ssl-vs-open-ssl-why-it-was-created-for-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

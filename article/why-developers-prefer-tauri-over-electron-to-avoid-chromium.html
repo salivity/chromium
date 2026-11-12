@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Developers Prefer Tauri Over Electron to Avoid Chromium - chromium</title>
+    <meta name="description" content="This article explores the primary reasons why software developers are increasingly choosing Tauri over Electron for building cross-platform desktop applications. By replacing Electron&#39;s bundled Chromium browser and Node.js runtime with the operating syste">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-developers-prefer-tauri-over-electron-to-avoid-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Developers Prefer Tauri Over Electron to Avoid Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-developers-prefer-tauri-over-electron-to-avoid-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the primary reasons why software developers are increasingly choosing Tauri over Electron for building cross-platform desktop applications. By replacing Electron&#39;s bundled Chromium browser and Node.js runtime with the operating syste" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-developers-prefer-tauri-over-electron-to-avoid-chromium">Why
+Developers Prefer Tauri Over Electron to Avoid Chromium</h1>
+<p>This article explores the primary reasons why software developers are
+increasingly choosing Tauri over Electron for building cross-platform
+desktop applications. By replacing Electron's bundled Chromium browser
+and Node.js runtime with the operating system's native webview and a
+Rust-based backend, Tauri eliminates the need to ship a full web browser
+binary. This fundamental architectural shift drastically reduces
+application bundle sizes, lowers memory consumption, simplifies security
+updates, and enhances overall system performance.</p>
+<h2 id="native-os-webviews-instead-of-bundled-browsers">Native OS
+Webviews Instead of Bundled Browsers</h2>
+<p>The main reason developers switch to Tauri is how it renders the user
+interface. Electron achieves cross-platform consistency by bundling a
+complete Chromium binary and a Node.js runtime into every single
+application. This means if a user has five Electron apps installed, they
+effectively have five separate copies of the Chromium browser on their
+hard drive.</p>
+<p>Tauri avoids this entirely by using the operating system's existing
+rendering engine. Through a Rust library called WRY, Tauri dynamically
+links to Microsoft Edge WebView2 on Windows, WebKit on macOS, and
+WebKitGTK on Linux. Because these rendering engines are already present
+on the user's machine as part of the OS, Tauri does not need to package
+a browser binary with the application.</p>
+<h2 id="drastically-smaller-installer-and-bundle-sizes">Drastically
+Smaller Installer and Bundle Sizes</h2>
+<p>Because Electron must include the Chromium binary, even the simplest
+"Hello World" application starts at around 100 megabytes to 150
+megabytes on disk. This creates unnecessary bloat for small utilities or
+lightweight applications, leading to slower download times and higher
+bandwidth costs for developers distributing the software.</p>
+<p>By stripping out the Chromium binary and relying on native webviews,
+Tauri reduces the baseline application size to roughly 3 megabytes to 10
+megabytes. The final binary only contains the developer's compiled Rust
+code and the frontend assets (HTML, CSS, and JavaScript).</p>
+<h2 id="lower-memory-consumption">Lower Memory Consumption</h2>
+<p>Chromium is notoriously resource-intensive, designed to run as a
+full-featured web browser with complex sandboxing and multi-process
+architectures. When an Electron app runs, it spins up multiple Chromium
+processes, consuming hundreds of megabytes of RAM even when the
+application is idle.</p>
+<p>Tauri applications use significantly less memory. Utilizing the
+native OS webview allows the operating system to manage and share
+resources more efficiently across the system. Furthermore, Tauri
+replaces the heavier Node.js runtime with a compiled Rust backend, which
+operates without a garbage collector and maintains a minimal memory
+footprint.</p>
+<h2 id="automated-browser-engine-security-updates">Automated Browser
+Engine Security Updates</h2>
+<p>Bundling a full copy of Chromium introduces a major maintenance
+burden for Electron developers. Whenever a critical security
+vulnerability is discovered in Chromium, the developer must update their
+Electron version, rebuild the application, and push a massive update to
+all users. If a developer abandons an Electron project, that app becomes
+a permanent security risk containing an outdated browser.</p>
+<p>Tauri shifts the responsibility of browser engine security to the
+operating system vendor. Because Tauri uses the system's native webview,
+the rendering engine is updated automatically alongside standard
+Windows, macOS, or Linux system updates. Developers only need to worry
+about securing their own application code, resulting in a much smaller
+attack surface.</p>
+<h2 id="faster-startup-times">Faster Startup Times</h2>
+<p>Initializing a full Chromium instance and a V8 JavaScript engine for
+the Node.js backend takes time, which often leads to noticeable delays
+when launching Electron applications. Tauri applications launch almost
+instantaneously. The compiled Rust backend executes directly on the
+machine's processor as native code, and the OS webview initializes
+rapidly because its core components are often already cached in the
+system's memory.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-developers-prefer-tauri-over-electron-to-avoid-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

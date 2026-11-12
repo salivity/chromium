@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Privacy Budget Capped Identifiable API Calls - chromium</title>
+    <meta name="description" content="Chromium&#39;s Privacy Budget was an experimental anti-fingerprinting proposal designed to limit the amount of identifiable user data websites could extract through browser APIs. This article details how the proposal attempted to quantify data exposure using">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-privacy-budget-capped-identifiable-api-calls">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Privacy Budget Capped Identifiable API Calls - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-privacy-budget-capped-identifiable-api-calls" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Chromium&#39;s Privacy Budget was an experimental anti-fingerprinting proposal designed to limit the amount of identifiable user data websites could extract through browser APIs. This article details how the proposal attempted to quantify data exposure using" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-privacy-budget-capped-identifiable-api-calls">How
+Chromium's Privacy Budget Capped Identifiable API Calls</h1>
+<p>Chromium's Privacy Budget was an experimental anti-fingerprinting
+proposal designed to limit the amount of identifiable user data websites
+could extract through browser APIs. This article details how the
+proposal attempted to quantify data exposure using information entropy,
+assign privacy costs to specific browser requests, and enforce a strict
+cap on API calls to prevent cross-site user tracking without breaking
+standard web functionality.</p>
+<h2 id="quantifying-identifiability-with-entropy">Quantifying
+Identifiability with Entropy</h2>
+<p>To cap identifiable data, Chromium first needed a standardized way to
+measure it. The Privacy Budget proposal relied on Claude Shannon’s
+information theory, measuring user identifiability in "bits of
+entropy."</p>
+<p>Every browser API that reveals device or user characteristics—such as
+screen resolution, hardware concurrency, or installed fonts—was analyzed
+through large-scale telemetry across the broader population of Chrome
+users. The browser assigned a numerical cost to each API based on how
+uniquely its return value identified a user:</p>
+<ul>
+<li><strong>Low Entropy:</strong> An API returning a very common value,
+like a standard 1920x1080 screen resolution or a widely used timezone,
+carried a very low entropy cost.</li>
+<li><strong>High Entropy:</strong> An API revealing a rare combination
+of audio hardware, specific GPU models, and custom system fonts carried
+a high entropy cost.</li>
+</ul>
+<p>In information theory, one bit of entropy cuts the pool of possible
+users in half. Since roughly 33 bits of entropy are enough to uniquely
+identify a single person out of the entire global population, the
+Privacy Budget aimed to cap a website's data collection well below that
+threshold.</p>
+<h2 id="accounting-for-correlated-api-surfaces">Accounting for
+Correlated API Surfaces</h2>
+<p>Measuring individual API calls in isolation was not practical because
+many browser attributes are inherently linked. For example, querying the
+<code>navigator.platform</code> API and the
+<code>navigator.userAgent</code> API often reveals the exact same
+operating system data. If a website called both, charging the full
+entropy cost for each would unfairly deplete the website's budget, as
+the second call provided no new identifying information.</p>
+<p>To solve this, Chromium engineers grouped correlated APIs into
+"equivalence classes" and measured their joint entropy. The browser
+tracked which data points had already been exposed to a specific website
+during a session. It only deducted from the privacy budget when a new
+API call revealed fresh, uncorrelated identifying information. Passive
+data sent automatically with every network request, such as the IP
+address and standard HTTP headers, was considered the baseline cost
+before any JavaScript APIs were even executed.</p>
+<h2 id="enforcing-the-cap">Enforcing the Cap</h2>
+<p>The core mechanism of the proposal was the budget enforcement itself.
+Chromium aimed to set a maximum threshold of entropy that any single web
+origin (website) could consume.</p>
+<p>Every time a website's script executed a "high-entropy" API call, the
+browser subtracted the corresponding bit-value from that site's
+remaining allowance. The system was designed to differentiate between
+normal site operations and malicious tracking:</p>
+<ul>
+<li><strong>Benign Scripts:</strong> A website checking screen
+dimensions to load a mobile-friendly layout would consume a fraction of
+the budget and function normally.</li>
+<li><strong>Fingerprinting Scripts:</strong> Aggressive trackers that
+rapidly query dozens of obscure APIs related to WebGL, HTML5 Canvas, and
+AudioContext to build a unique hardware profile would quickly exhaust
+their allotted budget.</li>
+</ul>
+<h2 id="actions-taken-when-the-budget-runs-out">Actions Taken When the
+Budget Runs Out</h2>
+<p>Once a website hit its entropy cap, the browser intervened to prevent
+further identification. Chromium proposed several enforcement mechanisms
+for API calls made after the budget was depleted:</p>
+<ol type="1">
+<li><strong>Returning Generic Values:</strong> The browser would return
+a standardized "fallback" value, such as reporting a default system font
+or a generic 8-core CPU, regardless of the user's actual hardware.</li>
+<li><strong>Blocking Execution:</strong> The API call would simply fail
+or return an error, halting the fingerprinting script's ability to
+gather more data.</li>
+<li><strong>Adding Noise:</strong> The browser would introduce slight,
+random variations into the returned data (such as slightly altering
+canvas rendering metrics), invalidating the stability of the
+fingerprint.</li>
+</ol>
+<p>By forcing the APIs to return common or randomized values after the
+cap was reached, the browser ensured the user remained blended into a
+large crowd of similar devices.</p>
+<h2 id="the-challenges-that-ended-the-proposal">The Challenges That
+Ended the Proposal</h2>
+<p>Despite its strong mathematical foundation, the Privacy Budget
+proposal was eventually abandoned by the Chromium team. The primary
+hurdle was that legitimate, modern web applications—such as
+browser-based video editors, conferencing tools, and 3D gaming
+platforms—frequently requested the exact same hardware, audio, and
+graphics APIs as malicious fingerprinting scripts.</p>
+<p>Enforcing a strict entropy cap often broke these advanced web
+features because the browser could not reliably determine the
+<em>intent</em> behind an API call. Additionally, continuously
+calculating real-time joint entropy across thousands of evolving web
+APIs proved too complex to maintain accurately, leading Chromium to
+retire the Privacy Budget in favor of more targeted anti-fingerprinting
+defenses.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-privacy-budget-capped-identifiable-api-calls';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

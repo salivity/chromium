@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How MiraclePtr Mitigates Use-After-Free Bugs in Chromium - chromium</title>
+    <meta name="description" content="This article explores how the Chromium project introduced MiraclePtr to combat use-after-free (UaF) memory vulnerabilities. It covers the nature of UaF bugs in C++, the mechanics of the BackupRefPtr implementation behind MiraclePtr, how it neutralizes sec">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-miracle-ptr-mitigates-use-after-free-bugs-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How MiraclePtr Mitigates Use-After-Free Bugs in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-miracle-ptr-mitigates-use-after-free-bugs-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium project introduced MiraclePtr to combat use-after-free (UaF) memory vulnerabilities. It covers the nature of UaF bugs in C++, the mechanics of the BackupRefPtr implementation behind MiraclePtr, how it neutralizes sec" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-miracleptr-mitigates-use-after-free-bugs-in-chromium">How
+MiraclePtr Mitigates Use-After-Free Bugs in Chromium</h1>
+<p>This article explores how the Chromium project introduced MiraclePtr
+to combat use-after-free (UaF) memory vulnerabilities. It covers the
+nature of UaF bugs in C++, the mechanics of the BackupRefPtr
+implementation behind MiraclePtr, how it neutralizes security exploits
+by quarantining memory, and its overall impact on the security and
+performance of the Chrome web browser.</p>
+<h2 id="the-use-after-free-problem-in-chromium">The Use-After-Free
+Problem in Chromium</h2>
+<p>Chromium, the open-source project behind Google Chrome, is written
+primarily in C++. While C++ offers high performance, it requires manual
+memory management. This often leads to use-after-free (UaF)
+vulnerabilities, which occur when a program continues to use a pointer
+after the memory it references has been deallocated.</p>
+<p>Historically, UaF bugs have accounted for roughly half of all
+high-severity security vulnerabilities in Chrome. Attackers exploit
+these bugs by forcing the browser to place malicious data into the newly
+freed memory space. When the dangling pointer is used again, the browser
+processes the attacker's data, leading to arbitrary code execution and
+sandbox escapes.</p>
+<h2 id="what-is-miracleptr">What is MiraclePtr?</h2>
+<p>To solve this problem without rewriting millions of lines of C++
+code, the Chromium security team developed MiraclePtr. Implemented under
+the hood via an algorithm called <code>BackupRefPtr</code> and exposed
+to developers as the <code>raw_ptr&lt;T&gt;</code> class, MiraclePtr is
+a smart pointer wrapper that replaces standard C++ raw pointers across
+the Chromium codebase.</p>
+<p>Unlike traditional smart pointers that manage the lifecycle of an
+object, MiraclePtr allows developers to write code as they normally
+would while silently protecting the underlying memory from being
+exploited if a developer makes a mistake.</p>
+<h2 id="how-miracleptr-works">How MiraclePtr Works</h2>
+<p>MiraclePtr relies on tight integration with PartitionAlloc,
+Chromium’s custom memory allocator. Its mitigation strategy operates in
+three main steps:</p>
+<ol type="1">
+<li><strong>Reference Counting:</strong> Every time a
+<code>raw_ptr</code> points to an object allocated by PartitionAlloc, a
+hidden reference count associated with that memory allocation is
+incremented. When the pointer goes out of scope or is reassigned, the
+count is decremented.</li>
+<li><strong>Deallocation Check:</strong> When the application attempts
+to free the memory, PartitionAlloc checks the hidden reference count. If
+the count is zero, the memory is safely freed and can be reused
+immediately.</li>
+<li><strong>Memory Quarantine:</strong> If the reference count is
+greater than zero, it means at least one dangling <code>raw_ptr</code>
+still points to that memory. Instead of returning the memory to the
+system for reuse, PartitionAlloc places the memory chunk into a
+"quarantine" and overwrites it with poison values (dummy data).</li>
+</ol>
+<h2 id="turning-exploits-into-safe-crashes">Turning Exploits into Safe
+Crashes</h2>
+<p>The primary goal of a UaF exploit is to reallocate the freed memory
+with attacker-controlled data before the dangling pointer is used.
+MiraclePtr completely breaks this exploit technique.</p>
+<p>Because the memory remains quarantined until the last
+<code>raw_ptr</code> stops referencing it, an attacker cannot reclaim
+that memory address. If the browser attempts to use the dangling pointer
+to read or write data, it interacts only with the poisoned, quarantined
+memory. This neutralizes the security threat, effectively downgrading a
+critical remote code execution vulnerability into a harmless,
+deterministic browser crash or a benign logic bug.</p>
+<h2 id="impact-on-browser-security">Impact on Browser Security</h2>
+<p>To deploy MiraclePtr at scale, the Chromium team used automated tools
+to rewrite hundreds of thousands of raw C++ pointers to
+<code>raw_ptr&lt;T&gt;</code>. The rollout prioritized the highly
+privileged Browser process, where a compromise is most dangerous.</p>
+<p>The introduction of MiraclePtr has effectively eliminated over 50% of
+exploitable UaF vulnerabilities in the protected processes. While
+keeping memory in quarantine and tracking reference counts introduces a
+slight memory and CPU overhead, the Chromium team optimized the
+implementation so the performance cost remained low enough for
+production deployment, vastly improving the security posture of all
+Chromium-based browsers.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-miracle-ptr-mitigates-use-after-free-bugs-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

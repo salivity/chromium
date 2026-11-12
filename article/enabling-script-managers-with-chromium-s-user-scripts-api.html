@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enabling Script Managers with Chromium&#39;s User Scripts API - chromium</title>
+    <meta name="description" content="This article explores how the Chromium User Scripts API enables script manager extensions to function under the strict security constraints of Manifest V3. It covers the architectural challenges posed by the ban on remotely hosted code, the core methods p">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/enabling-script-managers-with-chromium-s-user-scripts-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Enabling Script Managers with Chromium&#39;s User Scripts API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/enabling-script-managers-with-chromium-s-user-scripts-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium User Scripts API enables script manager extensions to function under the strict security constraints of Manifest V3. It covers the architectural challenges posed by the ban on remotely hosted code, the core methods p" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="enabling-script-managers-with-chromiums-user-scripts-api">Enabling
+Script Managers with Chromium's User Scripts API</h1>
+<p>This article explores how the Chromium User Scripts API enables
+script manager extensions to function under the strict security
+constraints of Manifest V3. It covers the architectural challenges posed
+by the ban on remotely hosted code, the core methods provided by the API
+to register and update custom scripts, the isolated execution
+environments used to keep browsing secure, and the user-level
+permissions required to activate these features.</p>
+<h3 id="resolving-the-manifest-v3-restriction">Resolving the Manifest V3
+Restriction</h3>
+<p>Under Manifest V3, Chromium banned the execution of remotely hosted
+code to improve browser security. Standard extensions can no longer
+fetch external JavaScript and execute it dynamically. While this stops
+malicious actors from sneaking unreviewed code past the Chrome Web
+Store, it fundamentally breaks user script managers like Tampermonkey
+and Violentmonkey. The primary purpose of these extensions is to run
+arbitrary, user-supplied code that is not bundled within the extension's
+original package. The <code>chrome.userScripts</code> API was engineered
+specifically to allow this functionality without compromising the
+broader security model of Manifest V3.</p>
+<h3 id="registering-arbitrary-code">Registering Arbitrary Code</h3>
+<p>The core functionality of a script manager relies on the
+<code>chrome.userScripts.register()</code> method. Unlike the standard
+<code>chrome.scripting</code> API, which only allows executing static
+files packaged inside the extension, the User Scripts API accepts raw
+strings of code.</p>
+<p>A script manager can take a script written or downloaded by a user,
+save it in the extension's storage, and pass it directly as a string
+using the <code>js</code> property during registration. The API also
+provides the following lifecycle methods:</p>
+<ul>
+<li><strong><code>getScripts()</code></strong>: Retrieves all currently
+registered user scripts.</li>
+<li><strong><code>update()</code></strong>: Modifies the code, URL match
+patterns, or execution timing of existing scripts without needing to
+unregister them first.</li>
+<li><strong><code>unregister()</code></strong>: Removes scripts when a
+user disables or deletes them in the manager's dashboard.</li>
+</ul>
+<h3 id="dedicated-execution-worlds">Dedicated Execution Worlds</h3>
+<p>To ensure untrusted user scripts do not compromise the extension
+itself, the API executes code in a specialized context called the
+<code>USER_SCRIPT</code> world. This environment is isolated from the
+extension’s high-privilege background service worker and standard
+content scripts, preventing a malicious user script from accessing
+powerful extension APIs directly.</p>
+<p>Script managers can customize this environment using the
+<code>chrome.userScripts.configureWorld()</code> method. This allows the
+extension to perform two critical actions:</p>
+<ol type="1">
+<li><strong>Modify the Content Security Policy (CSP):</strong> The
+manager can relax the CSP for the <code>USER_SCRIPT</code> world,
+allowing user scripts to use functions like <code>eval()</code> if
+legacy scripts require them, without relaxing the security of the
+extension itself.</li>
+<li><strong>Enable Messaging:</strong> By setting the
+<code>messaging</code> property to <code>true</code>, the isolated user
+script can securely communicate with the extension's background service
+worker. This is how script managers safely provide privileged functions
+(such as <code>GM.xmlHttpRequest</code> or <code>GM.setValue</code>) to
+the user's script.</li>
+</ol>
+<p>If a user script needs to interact directly with the host webpage's
+JavaScript variables and functions, the API also gives the script
+manager the option to bypass the isolated world and inject the code
+directly into the webpage's <code>MAIN</code> world.</p>
+<h3 id="the-developer-mode-requirement">The Developer Mode
+Requirement</h3>
+<p>Because the User Scripts API reintroduces the ability to run
+unreviewed code, Chromium enforces a strict, user-facing security
+guardrail. Declaring the <code>"userScripts"</code> permission in the
+extension's <code>manifest.json</code> file is not enough to activate
+the API.</p>
+<p>The <code>chrome.userScripts</code> API remains undefined and
+inaccessible until the user manually enables the "Developer mode" toggle
+on the browser's extensions management page
+(<code>chrome://extensions</code>). Script managers must detect if this
+API is available and guide the user to turn on Developer mode, ensuring
+that users explicitly opt into the elevated risks associated with
+running custom scripts.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/enabling-script-managers-with-chromium-s-user-scripts-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

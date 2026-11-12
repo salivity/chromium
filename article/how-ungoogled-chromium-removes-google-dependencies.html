@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Ungoogled Chromium Removes Google Dependencies - chromium</title>
+    <meta name="description" content="Ungoogled Chromium is a privacy-focused derivative of the open-source Chromium browser that eliminates all integration with Google web services. This article provides a straightforward breakdown of the specific technical modifications the project applies">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-ungoogled-chromium-removes-google-dependencies">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Ungoogled Chromium Removes Google Dependencies - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-ungoogled-chromium-removes-google-dependencies" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Ungoogled Chromium is a privacy-focused derivative of the open-source Chromium browser that eliminates all integration with Google web services. This article provides a straightforward breakdown of the specific technical modifications the project applies" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-ungoogled-chromium-removes-google-dependencies">How
+Ungoogled Chromium Removes Google Dependencies</h1>
+<p>Ungoogled Chromium is a privacy-focused derivative of the open-source
+Chromium browser that eliminates all integration with Google web
+services. This article provides a straightforward breakdown of the
+specific technical modifications the project applies to the Chromium
+source code, including the neutralization of background network
+requests, the substitution of hardcoded Google domains, the removal of
+pre-compiled binary blobs, and the disabling of built-in telemetry,
+synchronization, and tracking features.</p>
+<h3 id="neutralizing-hardcoded-google-domains">Neutralizing Hardcoded
+Google Domains</h3>
+<p>Even though Chromium is open-source, its codebase contains thousands
+of hardcoded references to Google domains. To ensure the browser cannot
+accidentally connect to Google servers, the Ungoogled Chromium build
+process runs a script that replaces these URLs with non-existent dummy
+domains (most notably using the string <code>qjz9zk</code>). If a
+dormant browser feature attempts to communicate with a Google server,
+the DNS request immediately fails locally before ever reaching the
+internet.</p>
+<h3 id="disabling-background-google-services">Disabling Background
+Google Services</h3>
+<p>Standard Chromium relies on several Google-hosted APIs to provide
+quality-of-life features, all of which are completely stripped or
+disabled in Ungoogled Chromium:</p>
+<ul>
+<li><strong>Google Safe Browsing:</strong> Chromium constantly
+communicates with Google to download lists of malicious sites and
+occasionally sends URLs back to Google for verification. This entire
+system is removed.</li>
+<li><strong>Google Sync:</strong> The ability to sign into a Google
+account to synchronize bookmarks, history, passwords, and settings with
+Google Cloud is disabled.</li>
+<li><strong>Captive Portal Detection:</strong> Chromium checks for
+internet connectivity and Wi-Fi login pages by pinging
+<code>gstatic.com</code> every time the browser starts or changes
+networks. This background pinging is disabled.</li>
+<li><strong>Intranet Redirect Detector:</strong> Chromium generates
+random domain requests on startup to check if an ISP is hijacking DNS
+failures. Ungoogled Chromium removes this behavior to prevent
+unnecessary network noise.</li>
+<li><strong>Google Translate:</strong> The built-in page translation
+tool, which sends page content to Google servers for processing, is
+deactivated.</li>
+</ul>
+<h3 id="stripping-telemetry-and-tracking">Stripping Telemetry and
+Tracking</h3>
+<p>Chromium includes several mechanisms that report user behavior and
+browser performance back to Google. Ungoogled Chromium patches the
+source code to eliminate these tracking vectors:</p>
+<ul>
+<li><strong>Metrics and Crash Reporting:</strong> Systems that log
+browser performance, usage statistics, and crash dumps are removed.</li>
+<li><strong>Field Trials (Finch):</strong> Google uses a system called
+Finch to remotely enable or disable experimental features on users'
+browsers for A/B testing. This remote configuration capability is
+stripped out.</li>
+<li><strong>RLZ Tracking:</strong> The RLZ library, which tracks when
+and how the browser was downloaded for promotional and marketing
+analytics, is removed.</li>
+<li><strong>URL Tracker and Host Detector:</strong> Scripts that
+specifically monitor when a user visits a Google-owned domain to alter
+browser behavior are deleted.</li>
+</ul>
+<h3 id="pruning-pre-compiled-binaries">Pruning Pre-Compiled
+Binaries</h3>
+<p>The official Chromium source code tree contains various pre-compiled
+binary files (blobs) provided by Google to assist in building the
+browser or adding proprietary functionality. Because the source code for
+these binaries cannot be audited for privacy violations, the Ungoogled
+Chromium project deletes them entirely before compilation. The browser
+is built exclusively from inspectable source code and relies on standard
+system libraries instead.</p>
+<h3 id="blocking-component-updates-and-web-store-integration">Blocking
+Component Updates and Web Store Integration</h3>
+<p>Chromium features a background "Component Updater" that silently
+connects to Google servers to update specific browser parts—such as
+Digital Rights Management (DRM) modules, spellcheck dictionaries, and
+security certificates—independently of the main browser update cycle.
+Ungoogled Chromium disables this updater completely.</p>
+<p>Additionally, direct integration with the Chrome Web Store is
+removed. Because the Web Store tracks extension installations and
+automatically phones home to check for extension updates, users must
+install extensions manually via <code>.crx</code> files or configure
+custom flags to fetch them independently.</p>
+<h3 id="omnibox-and-privacy-enhancements">Omnibox and Privacy
+Enhancements</h3>
+<p>Beyond stripping out Google services, the project modifies existing
+features to prevent data leakage:</p>
+<ul>
+<li><strong>Omnibox Search Suggestions:</strong> The address bar is
+modified so it no longer sends real-time keystrokes to a search engine
+to generate autocomplete suggestions.</li>
+<li><strong>Default Search Engine:</strong> Google is removed as the
+default search provider, and a "No Search" option is added for users who
+want the address bar to function strictly for URL navigation.</li>
+<li><strong>Hyperlink Auditing:</strong> The browser disables support
+for the <code>&lt;a ping&gt;</code> HTML attribute by default,
+preventing websites from tracking clicks seamlessly in the
+background.</li>
+<li><strong>WebRTC:</strong> Settings are adjusted to prevent WebRTC
+from leaking local IP addresses when using a VPN or proxy.</li>
+<li><strong>Formatting URLs:</strong> The address bar is patched to
+always show the full URL, including the <code>http://</code> or
+<code>https://</code> protocol and <code>www</code> subdomain, which
+standard Chromium hides by default.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-ungoogled-chromium-removes-google-dependencies';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

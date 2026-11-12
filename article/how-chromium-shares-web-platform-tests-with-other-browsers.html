@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Shares Web Platform Tests With Other Browsers - chromium</title>
+    <meta name="description" content="Web Platform Tests (WPT) is a collaborative, cross-browser test suite designed to ensure that web specifications are implemented consistently across all major web engines. This article explains the automated two-way synchronization process that allows the">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-shares-web-platform-tests-with-other-browsers">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Shares Web Platform Tests With Other Browsers - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-shares-web-platform-tests-with-other-browsers" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Web Platform Tests (WPT) is a collaborative, cross-browser test suite designed to ensure that web specifications are implemented consistently across all major web engines. This article explains the automated two-way synchronization process that allows the" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-shares-web-platform-tests-with-other-browsers">How
+Chromium Shares Web Platform Tests With Other Browsers</h1>
+<p>Web Platform Tests (WPT) is a collaborative, cross-browser test suite
+designed to ensure that web specifications are implemented consistently
+across all major web engines. This article explains the automated
+two-way synchronization process that allows the Chromium project to
+share tests seamlessly with the central WPT repository, enabling other
+browser vendors like Mozilla (Firefox) and Apple (Safari) to run,
+update, and contribute to the exact same tests.</p>
+<h2 id="the-central-hub-the-wpt-github-repository">The Central Hub: The
+WPT GitHub Repository</h2>
+<p>At the core of the sharing mechanism is the central WPT repository
+hosted on GitHub. Rather than browser vendors sending code directly to
+one another, they all interact with this single, vendor-neutral
+repository. It acts as the ultimate source of truth for web standards
+testing.</p>
+<h2 id="chromiums-local-integration">Chromium's Local Integration</h2>
+<p>Chromium does not run tests directly from the external GitHub
+repository during its daily development. Instead, it maintains a copy of
+the WPT suite inside its own massive source tree (specifically within
+the Blink rendering engine directory). This setup allows Chromium
+developers to write browser features and WPT tests in the exact same
+commit using Chromium's native code review tool, Gerrit.</p>
+<h2 id="two-way-automated-synchronization">Two-Way Automated
+Synchronization</h2>
+<p>To keep its local copy aligned with the central GitHub repository,
+Chromium relies on two automated bots that handle exporting and
+importing continuously.</p>
+<h3 id="1-exporting-tests-from-chromium">1. Exporting Tests from
+Chromium</h3>
+<p>When a Chromium engineer writes a new test or modifies an existing
+one in the local WPT directory, the <strong>WPT Exporter</strong> bot
+detects the change.</p>
+<ul>
+<li>As soon as the engineer uploads the code change for review in
+Chromium, the bot automatically creates a corresponding Pull Request
+(PR) in the central WPT GitHub repository.</li>
+<li>Once the change passes review and is merged into Chromium's
+codebase, the bot automatically merges the PR on GitHub.</li>
+<li>This makes the Chromium test immediately available to Firefox,
+Safari, and other WPT consumers.</li>
+</ul>
+<h3 id="2-importing-tests-into-chromium">2. Importing Tests into
+Chromium</h3>
+<p>Conversely, the <strong>WPT Importer</strong> bot continuously
+fetches the latest changes from the central WPT GitHub repository and
+copies them into Chromium's codebase.</p>
+<ul>
+<li>The bot pulls commits that were recently added to GitHub by Mozilla,
+Apple, or independent specification authors.</li>
+<li>It runs the newly imported tests against the Chromium browser.</li>
+<li>If any imported tests fail in Chromium, the bot automatically
+updates Chromium's local "expectation files" (which mark the test as
+expected to fail) so the new tests can be merged without breaking
+Chromium's automated build pipeline.</li>
+<li>Finally, the bot files bug reports for Chromium engineers to
+investigate the new failures.</li>
+</ul>
+<h2 id="how-firefox-and-safari-participate">How Firefox and Safari
+Participate</h2>
+<p>Mozilla and Apple use similar workflows to connect their internal
+repositories to the central WPT hub, completing the sharing circle.</p>
+<ul>
+<li><strong>Firefox (Mozilla):</strong> Mozilla maintains a copy of WPT
+inside its <code>mozilla-central</code> repository. Just like Chromium,
+Mozilla uses an automated two-way synchronization system that creates
+GitHub PRs when Firefox developers write tests, and regularly imports
+upstream WPT changes (including those from Chromium) back into
+Firefox.</li>
+<li><strong>Safari (Apple):</strong> Apple integrates WPT directly into
+the WebKit repository. WebKit engineers use dedicated tooling to import
+tests from the central WPT repository and export their local WPT
+modifications back to GitHub.</li>
+</ul>
+<h2 id="managing-browser-differences">Managing Browser Differences</h2>
+<p>Because browsers implement web features at different paces, a shared
+test might pass in Chromium, fail in Safari, and time out in Firefox. To
+share the same test files without breaking each other's continuous
+integration systems, vendors only share the test logic, not the test
+results.</p>
+<p>Each browser vendor maintains its own metadata and expectation files
+locally within its own repository. When Chromium imports a new test
+written by a Firefox developer for a feature Chromium hasn't built yet,
+Chromium accepts the test file as-is, but logs a local exception
+acknowledging that the test will fail until Chromium builds the feature.
+This strict separation of shared test logic and local test expectations
+is what allows competing browser engines to share a single testing
+codebase effortlessly.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-shares-web-platform-tests-with-other-browsers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

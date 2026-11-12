@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Edge WebView2 Embeds Chromium Without the Bulk - chromium</title>
+    <meta name="description" content="This article explores how Microsoft Edge WebView2 enables developers to embed modern web technologies into native Windows applications without bloating installer sizes. By examining the Evergreen runtime model, the lightweight loader architecture, and ope">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-edge-web-view-2-embeds-chromium-without-the-bulk">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Edge WebView2 Embeds Chromium Without the Bulk - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-edge-web-view-2-embeds-chromium-without-the-bulk" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Microsoft Edge WebView2 enables developers to embed modern web technologies into native Windows applications without bloating installer sizes. By examining the Evergreen runtime model, the lightweight loader architecture, and ope" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-edge-webview2-embeds-chromium-without-the-bulk">How Edge
+WebView2 Embeds Chromium Without the Bulk</h1>
+<p>This article explores how Microsoft Edge WebView2 enables developers
+to embed modern web technologies into native Windows applications
+without bloating installer sizes. By examining the Evergreen runtime
+model, the lightweight loader architecture, and operating system-level
+resource sharing, this guide explains how WebView2 eliminates the need
+to bundle hundreds of megabytes of Chromium binaries with every
+individual application.</p>
+<h3 id="the-problem-with-traditional-browser-bundling">The Problem with
+Traditional Browser Bundling</h3>
+<p>Historically, developers wanting to use HTML, CSS, and JavaScript to
+build desktop user interfaces relied on frameworks like Electron or the
+Chromium Embedded Framework (CEF). While effective, these frameworks
+require the developer to package a complete, standalone version of the
+Chromium browser inside the application’s installation folder.</p>
+<p>Because a full Chromium build easily exceeds 100 to 150 megabytes,
+installing five different apps built this way results in five separate
+copies of the exact same browser engine sitting on the user's hard
+drive. Furthermore, the developer is responsible for updating their
+entire application just to deliver routine browser security patches.</p>
+<h3 id="decoupling-the-engine-from-the-application">Decoupling the
+Engine from the Application</h3>
+<p>Microsoft Edge WebView2 solves the bloat problem by decoupling the
+web rendering engine from the application itself. Instead of forcing
+every application to bring its own browser, WebView2 relies on a single,
+central installation of the Chromium-based Microsoft Edge rendering
+engine provided by the Windows operating system.</p>
+<p>This shared runtime is pre-installed on all Windows 11 machines and
+has been automatically rolled out to the vast majority of Windows 10
+devices. Because the heavy browser binaries already exist on the user's
+machine as an OS-level component, individual applications do not need to
+include them in their installers.</p>
+<h3 id="the-lightweight-loader-mechanism">The Lightweight Loader
+Mechanism</h3>
+<p>To connect an application to this shared system browser, developers
+only need to bundle a tiny file called <code>WebView2Loader.dll</code>
+alongside their application executable.</p>
+<p>Instead of weighing hundreds of megabytes, this loader file is only a
+few hundred kilobytes. When the Windows application launches and needs
+to display web content, the loader acts as a bridge:</p>
+<ol type="1">
+<li>It queries the Windows Registry to locate the centralized WebView2
+runtime on the hard drive.</li>
+<li>It initializes the shared Chromium engine from that central
+location.</li>
+<li>It embeds the resulting browser view directly into the native
+application window.</li>
+</ol>
+<h3 id="the-evergreen-runtime-model">The Evergreen Runtime Model</h3>
+<p>Microsoft refers to this shared architecture as the "Evergreen"
+distribution mode. The name signifies that the underlying web engine is
+always kept up to date, independent of the applications that use it.</p>
+<p>Microsoft updates the central WebView2 runtime silently in the
+background using the standard Windows and Edge update mechanisms. As a
+result, applications automatically benefit from the latest Chromium
+performance improvements, web standards, and security patches without
+the app developer needing to recompile code or push massive updates to
+their users.</p>
+<p>If an application is installed on an older machine that somehow lacks
+the WebView2 runtime, developers can include an "Evergreen
+Bootstrapper." This is a micro-installer (under 2 megabytes) that
+quietly instructs Windows to download and install the shared runtime
+from Microsoft's servers during the app's setup process.</p>
+<h3 id="memory-and-disk-optimization">Memory and Disk Optimization</h3>
+<p>Beyond saving disk space during installation, the shared runtime
+model optimizes system memory. When multiple applications using WebView2
+are running simultaneously, they do not share user data or browsing
+sessions—each app runs in its own isolated processes to ensure security
+and stability. If one app crashes, it will not affect another.</p>
+<p>However, because all these applications are calling upon the exact
+same core Chromium DLL files from the exact same folder on the hard
+drive, the Windows operating system can load those base binaries into
+physical RAM once and share the read-only memory pages across all the
+applications. This reduces the overall memory footprint compared to
+running multiple independent Electron applications, which must load
+completely separate, duplicate DLLs into RAM.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-edge-web-view-2-embeds-chromium-without-the-bulk';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

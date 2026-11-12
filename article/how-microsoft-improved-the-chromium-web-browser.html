@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Microsoft Improved the Chromium Web Browser - chromium</title>
+    <meta name="description" content="Since transitioning its Edge browser to the open-source Chromium project, Microsoft has become one of the most active contributors to the platform. By committing thousands of code changes directly to the upstream repository, Microsoft has significantly en">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-microsoft-improved-the-chromium-web-browser">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Microsoft Improved the Chromium Web Browser - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-microsoft-improved-the-chromium-web-browser" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Since transitioning its Edge browser to the open-source Chromium project, Microsoft has become one of the most active contributors to the platform. By committing thousands of code changes directly to the upstream repository, Microsoft has significantly en" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-microsoft-improved-the-chromium-web-browser">How Microsoft
+Improved the Chromium Web Browser</h1>
+<p>Since transitioning its Edge browser to the open-source Chromium
+project, Microsoft has become one of the most active contributors to the
+platform. By committing thousands of code changes directly to the
+upstream repository, Microsoft has significantly enhanced the core
+browser engine that powers not only Edge, but also Google Chrome, Brave,
+Vivaldi, and Opera. This article provides a direct look at Microsoft's
+key engineering contributions to Chromium, focusing on advancements in
+scrolling responsiveness, Windows accessibility, system performance, and
+hardware integration.</p>
+<h2 id="scrolling-responsiveness-and-input-latency">Scrolling
+Responsiveness and Input Latency</h2>
+<p>Before adopting Chromium, Microsoft’s legacy Edge browser was widely
+praised for its smooth and responsive scrolling. Upon joining the
+Chromium project, Microsoft engineers worked to bring that same fluidity
+to the open-source engine.</p>
+<ul>
+<li><strong>Percent-Based Scrolling:</strong> Microsoft overhauled how
+Chromium handles mouse wheel and scrollbar inputs. Instead of scrolling
+a fixed number of pixels, engineers implemented percent-based scrolling,
+which scrolls a percentage of the viewport. This made scrolling feel
+much more natural across screens of varying resolutions and sizes.</li>
+<li><strong>Main Thread Independence:</strong> Microsoft helped move
+scrolling operations away from the browser's busy main thread to the
+compositor thread. This ensures that even if a webpage is running heavy
+JavaScript, the user can still scroll smoothly without stuttering or
+freezing.</li>
+<li><strong>Touch and Touchpad Refinements:</strong> Engineers improved
+inertia curves and gesture recognition for Windows Precision Touchpads
+and touchscreens, eliminating the robotic feel that previously plagued
+Chromium browsers on Windows laptops.</li>
+</ul>
+<h2 id="windows-accessibility-overhaul">Windows Accessibility
+Overhaul</h2>
+<p>Microsoft made massive strides in modernizing how Chromium interacts
+with assistive technologies on the Windows operating system.</p>
+<ul>
+<li><strong>UI Automation (UIA) Support:</strong> Historically, Chromium
+relied on older accessibility APIs. Microsoft engineered native support
+for the modern Windows UI Automation framework. This allowed screen
+readers like Windows Narrator, JAWS, and NVDA to communicate much more
+efficiently with the browser, reducing crashes and improving navigation
+speed for visually impaired users.</li>
+<li><strong>High Contrast Mode:</strong> Microsoft introduced
+standardized support for Windows High Contrast themes. By implementing
+the CSS <code>forced-colors</code> media query upstream, Chromium
+browsers can now automatically adapt web content to respect the
+high-contrast color schemes set by the user in Windows.</li>
+<li><strong>Caret Browsing and Focus Indicators:</strong> Microsoft
+improved keyboard navigation by making focus rings more visible and
+refining Caret Browsing, which allows users to navigate webpage text
+using a movable cursor via the keyboard, just like in a word
+processor.</li>
+</ul>
+<h2 id="memory-usage-and-battery-efficiency">Memory Usage and Battery
+Efficiency</h2>
+<p>Chromium has a historical reputation for high RAM consumption and
+battery drain. Microsoft utilized its deep knowledge of the Windows
+operating system to optimize how the browser manages system
+resources.</p>
+<ul>
+<li><strong>Background Tab Throttling:</strong> Microsoft contributed
+code to more aggressively restrict the CPU usage of background tabs.
+This laid the groundwork for features like "Sleeping Tabs," which free
+up memory and prevent inactive websites from draining laptop
+batteries.</li>
+<li><strong>Media Caching:</strong> Engineers altered how Chromium
+buffers and caches streaming video. By reducing the frequency with which
+the browser wakes up the network hardware and disk drive during video
+playback, Microsoft significantly extended battery life for users
+streaming high-definition content.</li>
+<li><strong>Memory Allocation Improvements:</strong> Microsoft
+collaborated with Google to optimize memory management using
+Windows-specific APIs, ultimately helping the browser reclaim unused
+memory faster and reducing the overall RAM footprint of open tabs.</li>
+</ul>
+<h2 id="hardware-integration-and-ink-support">Hardware Integration and
+Ink Support</h2>
+<p>To make web applications feel as responsive as native desktop apps,
+Microsoft bridged the gap between web standards and hardware
+capabilities.</p>
+<ul>
+<li><strong>Delegated Ink Trails:</strong> Using a stylus on the web
+previously suffered from noticeable lag between the pen tip and the
+drawn line. Microsoft introduced the Delegated Ink API to Chromium,
+allowing the operating system's compositor to draw the ink trail one
+frame ahead of the browser. This reduced pen latency to near-zero on
+supported hardware.</li>
+<li><strong>Native ARM64 Support:</strong> Microsoft did the heavy
+lifting to compile and optimize Chromium natively for Windows on ARM
+processors. This prevented the browser from having to run in a slow
+emulation mode on ARM-powered laptops, drastically improving speed and
+battery life on those devices.</li>
+<li><strong>Spellcheck Integration:</strong> Instead of forcing Chromium
+to rely solely on its built-in open-source dictionary, Microsoft
+integrated the native Windows Spellcheck API. This allowed the browser
+to recognize custom user dictionaries, better handle multiple languages
+simultaneously, and correctly identify URLs and acronyms.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-microsoft-improved-the-chromium-web-browser';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

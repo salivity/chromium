@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s On-Click Extension Permissions Model Explained - chromium</title>
+    <meta name="description" content="This article explores the permissions model used by the Chromium web browser to grant extensions temporary host access exclusively when a user clicks the extension icon. It covers the technical foundation of this model—specifically the activeTab permissio">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-on-click-extension-permissions-model-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s On-Click Extension Permissions Model Explained - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-on-click-extension-permissions-model-explained" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the permissions model used by the Chromium web browser to grant extensions temporary host access exclusively when a user clicks the extension icon. It covers the technical foundation of this model—specifically the activeTab permissio" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromiums-on-click-extension-permissions-model-explained">Chromium's
+On-Click Extension Permissions Model Explained</h1>
+<p>This article explores the permissions model used by the Chromium web
+browser to grant extensions temporary host access exclusively when a
+user clicks the extension icon. It covers the technical foundation of
+this model—specifically the <code>activeTab</code> permission and the
+user-facing Runtime Host Permissions system—and explains how these
+mechanisms work together to protect user privacy and security while
+maintaining extension functionality.</p>
+<p>To let users grant host access to extensions only upon clicking the
+extension icon, Chromium uses a combination of two mechanisms: the
+<strong><code>activeTab</code> permission</strong> (implemented by
+developers) and <strong>Runtime Host Permissions</strong> (controlled by
+users).</p>
+<h3 id="1-the-activetab-permission-model">1. The <code>activeTab</code>
+Permission Model</h3>
+<p>At the core of Chromium's on-click access is the
+<code>activeTab</code> permission. Developers declare this permission in
+the extension's <code>manifest.json</code> file instead of requesting
+broad, permanent access to specific websites or all URLs.</p>
+<p>When an extension uses the <code>activeTab</code> model, it has zero
+access to the user's browsing data by default. Host access is granted
+only when the user explicitly invokes the extension, most commonly by
+clicking its icon in the browser toolbar.</p>
+<p>Once clicked, the <code>activeTab</code> permission grants the
+extension temporary capability to:</p>
+<ul>
+<li>Execute scripts or inject CSS into the currently active tab.</li>
+<li>Read the URL, title, and favicon of the active tab via the Tabs
+API.</li>
+<li>Intercept network requests on the active tab's main frame
+origin.</li>
+</ul>
+<p>This access lasts only as long as the user stays on that specific
+page. The moment the user navigates to a different URL (origin) within
+that tab or closes the tab entirely, Chromium automatically revokes the
+extension's host access.</p>
+<h3 id="2-runtime-host-permissions-user-controlled-on-click-access">2.
+Runtime Host Permissions (User-Controlled "On Click" Access)</h3>
+<p>Not all developers use the <code>activeTab</code> permission; many
+still build extensions that request continuous, broad access to all
+websites (using the <code>&lt;all_urls&gt;</code> or
+<code>*://*/*</code> match patterns). To give users control over these
+invasive extensions, Chromium uses the <strong>Runtime Host
+Permissions</strong> model.</p>
+<p>Runtime Host Permissions allow users to override an extension's
+requested permissions and force it to behave as if it uses the
+<code>activeTab</code> model. Users can configure an extension's site
+access to one of three states:</p>
+<ul>
+<li><strong>On click:</strong> The extension is denied all background
+host access. It can only read and change data on the current site when
+the user clicks the extension icon.</li>
+<li><strong>On specific sites:</strong> The extension is granted
+continuous access only to a user-defined list of URLs.</li>
+<li><strong>On all sites:</strong> The default state for extensions
+requesting broad permissions, allowing continuous access
+everywhere.</li>
+</ul>
+<p>When a user selects the "On click" setting, Chromium withholds the
+host permissions the extension originally requested at installation.
+When the user clicks the extension icon, Chromium dynamically injects
+the required host permission for the active tab at runtime. Just like
+<code>activeTab</code>, this access is temporary and is revoked once the
+tab is closed or navigated to a new domain.</p>
+<h3 id="summary-of-security-benefits">Summary of Security Benefits</h3>
+<p>By utilizing the <code>activeTab</code> and Runtime Host Permissions
+models, Chromium applies the principle of least privilege. It prevents
+extensions from silently harvesting browsing history or injecting
+unwanted code in the background. Users remain entirely in control,
+granting extensions access to sensitive webpage data strictly on a
+need-to-know, on-demand basis.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-on-click-extension-permissions-model-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

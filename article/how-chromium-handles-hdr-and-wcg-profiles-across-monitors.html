@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Handles HDR and WCG Profiles Across Monitors - chromium</title>
+    <meta name="description" content="This article provides an overview of the architecture behind the Chromium web browser&#39;s color management system, specifically focusing on how it processes High Dynamic Range (HDR) color spaces and Wide Color Gamut (WCG) ICC profiles. It covers how Chromiu">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-handles-hdr-and-wcg-profiles-across-monitors">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Handles HDR and WCG Profiles Across Monitors - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-handles-hdr-and-wcg-profiles-across-monitors" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the architecture behind the Chromium web browser&#39;s color management system, specifically focusing on how it processes High Dynamic Range (HDR) color spaces and Wide Color Gamut (WCG) ICC profiles. It covers how Chromiu" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-handles-hdr-and-wcg-profiles-across-monitors">How
+Chromium Handles HDR and WCG Profiles Across Monitors</h1>
+<p>This article provides an overview of the architecture behind the
+Chromium web browser's color management system, specifically focusing on
+how it processes High Dynamic Range (HDR) color spaces and Wide Color
+Gamut (WCG) ICC profiles. It covers how Chromium reads operating system
+display data, utilizes its internal graphics engine for color
+transformations, manages luminance levels, and dynamically adapts
+rendering when browser windows move across different monitors with
+varying capabilities.</p>
+<h2 id="os-integration-and-reading-icc-profiles">OS Integration and
+Reading ICC Profiles</h2>
+<p>Chromium does not manage hardware displays directly; instead, it
+queries the host operating system for display characteristics. On
+Windows, it utilizes DirectX Graphics Infrastructure (DXGI) and Windows
+Color System APIs. On macOS, it relies on CoreGraphics and
+ColorSync.</p>
+<p>When a monitor is connected, the operating system reads its Extended
+Display Identification Data (EDID) or loads a user-calibrated ICC
+profile. Chromium retrieves this profile data from the OS to understand
+the exact color primaries, white point, and transfer function (gamma) of
+the target display. This serves as the destination profile for the
+browser's rendering pipeline.</p>
+<h2 id="the-internal-color-pipeline-and-skia">The Internal Color
+Pipeline and Skia</h2>
+<p>By default, the web operates in the sRGB color space, and Chromium
+assumes all untagged web content is sRGB. However, when Chromium
+encounters CSS elements, images, or videos tagged with a Wide Color
+Gamut profile—such as Display P3, ProPhoto RGB, or Adobe RGB—it flags
+the content for color transformation.</p>
+<p>Chromium uses its 2D graphics engine, Skia, to manage these
+conversions. Skia extracts the embedded ICC profile of the source
+content and converts the colors into an intermediate profile connection
+space (typically XYZ D50). From there, Skia maps the colors directly to
+the destination monitor's ICC profile. If a user has a WCG monitor, P3
+colors are displayed natively. If the user is on a standard sRGB
+monitor, Skia compresses the wide gamut colors to fit within the sRGB
+boundaries, preventing oversaturation or color clipping.</p>
+<h2 id="processing-high-dynamic-range-hdr">Processing High Dynamic Range
+(HDR)</h2>
+<p>HDR content requires both a wider color gamut (typically Rec. 2020)
+and a much higher range of luminance, governed by Perceptual Quantizer
+(PQ) or Hybrid Log-Gamma (HLG) transfer functions.</p>
+<p>To display HDR video or images alongside standard web text without
+blinding the user, Chromium changes how it composites the page. When HDR
+content is detected on an HDR-capable monitor, Chromium upgrades its
+internal compositing buffer to a 16-bit floating-point (FP16) linear
+color space.</p>
+<p>Chromium queries the OS for the user's preferred "SDR white level"
+(e.g., 200 nits). It pins all Standard Dynamic Range (SDR) elements—such
+as the browser UI, text, and untagged images—to this maximum brightness.
+The remaining luminance capability of the monitor (the "HDR headroom,"
+which might reach 1000 nits or more) is allocated exclusively to the HDR
+elements. If HDR content is viewed on an SDR monitor, Chromium applies
+tone mapping algorithms to compress the bright highlights into the
+standard luminance range so visual details are preserved.</p>
+<h2 id="managing-multi-monitor-environments">Managing Multi-Monitor
+Environments</h2>
+<p>Modern computing setups frequently combine monitors with vastly
+different capabilities, such as pairing an SDR sRGB office monitor with
+an HDR-capable Display P3 monitor. Chromium handles this by treating
+color management on a per-window basis rather than globally.</p>
+<p>The browser's compositor tracks the specific display on which each
+browser window resides and assigns a distinct target color space to that
+window.</p>
+<p>When a user drags a Chromium window from an SDR monitor to an HDR/WCG
+monitor, the following sequence occurs:</p>
+<ol type="1">
+<li>The operating system detects that the majority of the window's
+surface area has crossed into a new display boundary and fires a display
+change event.</li>
+<li>Chromium intercepts this event and queries the OS for the new
+monitor's ICC profile and HDR headroom capabilities.</li>
+<li>The browser updates the destination profile for that specific
+window's compositor.</li>
+<li>Skia and the GPU process immediately recalculate the color
+transformations and tone mapping for the new display, re-rendering the
+frame buffer in real-time.</li>
+</ol>
+<p>This architecture ensures that colors do not appear washed out or
+overly saturated when moving between displays, adapting seamlessly
+without requiring the user to refresh the web page.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-handles-hdr-and-wcg-profiles-across-monitors';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

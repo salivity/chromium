@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Protocol Monitor Exposes Raw CDP Messages - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Protocol Monitor in the Chromium web browser intercepts, processes, and displays raw JSON-RPC 2.0 messages transmitted over the Chrome DevTools Protocol (CDP). By examining the DevTools frontend archit">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-protocol-monitor-exposes-raw-cdp-messages">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Protocol Monitor Exposes Raw CDP Messages - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-protocol-monitor-exposes-raw-cdp-messages" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Protocol Monitor in the Chromium web browser intercepts, processes, and displays raw JSON-RPC 2.0 messages transmitted over the Chrome DevTools Protocol (CDP). By examining the DevTools frontend archit" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-protocol-monitor-exposes-raw-cdp-messages">How
+Chromium's Protocol Monitor Exposes Raw CDP Messages</h1>
+<p>This article provides a technical overview of how the Protocol
+Monitor in the Chromium web browser intercepts, processes, and displays
+raw JSON-RPC 2.0 messages transmitted over the Chrome DevTools Protocol
+(CDP). By examining the DevTools frontend architecture, internal message
+routing hooks, and UI rendering pipelines, you will understand how
+browser instrumentation traffic is exposed in real-time for debugging
+and development.</p>
+<h2 id="the-devtools-frontend-architecture">The DevTools Frontend
+Architecture</h2>
+<p>Chrome DevTools is a web application written in TypeScript that runs
+in its own renderer process. To inspect and debug a web page, the
+DevTools frontend communicates with the Chromium browser backend and its
+various processes using the Chrome DevTools Protocol (CDP).</p>
+<p>Every action taken in the DevTools UI—such as inspecting a DOM node,
+pausing on a JavaScript breakpoint, or recording network activity—is
+translated into a raw JSON-RPC 2.0 message. The Protocol Monitor is a
+built-in experimental panel within DevTools designed to tap directly
+into this communication channel and reveal these underlying
+payloads.</p>
+<h2 id="message-interception-via-inspectorbackend">Message Interception
+via InspectorBackend</h2>
+<p>The core mechanism that exposes raw CDP messages lies within the
+<code>protocol_client</code> module of the DevTools frontend source
+code. All CDP traffic is routed through a central management class known
+as <code>InspectorBackend</code>.</p>
+<p>Rather than parsing traffic at the network socket level, the Protocol
+Monitor hooks directly into the <code>InspectorBackend</code> message
+dispatcher. When the Protocol Monitor panel is opened by the user, it
+registers callback functions onto internal instrumentation hooks:
+<code>onMessageSent</code> and <code>onMessageReceived</code>. Because
+these hooks sit at the boundary between the DevTools application logic
+and the transport layer, they have access to the exact JSON payloads
+moving in both directions.</p>
+<h2 id="capturing-outgoing-requests">Capturing Outgoing Requests</h2>
+<p>When a DevTools panel requests data from the browser, it invokes a
+CDP command. The frontend serializes this command into a JSON-RPC
+request object containing three primary properties:</p>
+<ul>
+<li><code>id</code>: A sequentially generated integer used to track the
+request.</li>
+<li><code>method</code>: The CDP domain and command name (e.g.,
+<code>Page.navigate</code> or <code>DOM.getDocument</code>).</li>
+<li><code>params</code>: An object containing the arguments required by
+the method.</li>
+</ul>
+<p>Right before this serialized JSON string is passed to the underlying
+transport layer (which is either a WebSocket connection for remote
+debugging or Chromium's internal <code>InspectorFrontendHost</code> C++
+bindings for local debugging), the <code>onMessageSent</code> hook
+fires. It passes a clone of the raw JSON object and the target metadata
+directly to the Protocol Monitor controller, which logs the outgoing
+request immediately.</p>
+<h2 id="capturing-incoming-responses-and-events">Capturing Incoming
+Responses and Events</h2>
+<p>Traffic flowing from the Chromium backend to the DevTools frontend
+consists of two types of JSON-RPC messages: command responses and
+asynchronous events. When the transport layer receives a raw JSON string
+from the browser, it parses the string into a JavaScript object and
+immediately triggers the <code>onMessageReceived</code> hook before
+routing the data to the rest of the DevTools UI.</p>
+<p>The Protocol Monitor inspects the incoming object to determine its
+type:</p>
+<ul>
+<li><strong>Responses:</strong> If the JSON object contains an
+<code>id</code> property, the Protocol Monitor identifies it as a
+response to a previously sent command. It extracts the
+<code>result</code> object (or the <code>error</code> object if the
+command failed) and pairs it with the matching outgoing request
+<code>id</code>. This pairing allows the monitor to calculate the exact
+round-trip execution time in milliseconds.</li>
+<li><strong>Events:</strong> If the JSON object lacks an <code>id</code>
+but contains a <code>method</code> and <code>params</code>, it is
+classified as an asynchronous event (e.g.,
+<code>Network.requestWillBeSent</code>). The Protocol Monitor logs this
+as a standalone incoming message.</li>
+</ul>
+<h2 id="handling-multiplexed-sessions">Handling Multiplexed
+Sessions</h2>
+<p>Modern Chromium architecture uses a flat session hierarchy to debug
+multiple targets—such as iframes, web workers, and service workers—over
+a single shared connection. To route messages to the correct target, CDP
+appends a <code>sessionId</code> field to the root of the JSON-RPC
+payload.</p>
+<p>The Protocol Monitor extracts this <code>sessionId</code> directly
+from the raw message and cross-references it with the active Target
+Manager in DevTools. This allows the monitor to expose not just the raw
+JSON payload, but also the specific execution context or target that
+generated or received the message.</p>
+<h2 id="rendering-and-injecting-raw-payloads">Rendering and Injecting
+Raw Payloads</h2>
+<p>Once the <code>ProtocolMonitor</code> module intercepts the raw
+objects, it appends them to an internal array and renders them inside a
+virtualized data grid. To ensure performance does not degrade during
+heavy browser activity, the UI only renders the text for visible
+rows.</p>
+<p>When a user selects a specific message in the grid, the Protocol
+Monitor passes the unmutated JavaScript object representation of the
+JSON-RPC payload into a read-only object tree viewer. Furthermore, the
+Protocol Monitor exposes a command input bar at the bottom of the panel.
+When a developer types a raw JSON string into this input, the monitor
+bypasses the standard DevTools UI modules and injects the payload
+directly into the <code>MainConnection.sendRawMessage</code> method,
+sending the custom JSON-RPC command straight to the Chromium
+backend.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-protocol-monitor-exposes-raw-cdp-messages';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Preload Scanner Discovers External Resources - chromium</title>
+    <meta name="description" content="This article provides a complete overview of how Chromium&#39;s preload scanner operates to accelerate web page loading. It explains why the main HTML parser frequently gets blocked, how the preload scanner activates during these pauses, the lightweight token">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-preload-scanner-discovers-external-resources">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Preload Scanner Discovers External Resources - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-preload-scanner-discovers-external-resources" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a complete overview of how Chromium&#39;s preload scanner operates to accelerate web page loading. It explains why the main HTML parser frequently gets blocked, how the preload scanner activates during these pauses, the lightweight token" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-preload-scanner-discovers-external-resources">How
+Chromium's Preload Scanner Discovers External Resources</h1>
+<p>This article provides a complete overview of how Chromium's preload
+scanner operates to accelerate web page loading. It explains why the
+main HTML parser frequently gets blocked, how the preload scanner
+activates during these pauses, the lightweight tokenization method it
+uses to read raw HTML ahead of time, and how it triggers speculative
+network requests for critical external resources like scripts,
+stylesheets, and images before the main parser ever reaches them.</p>
+<h2 id="the-bottleneck-of-the-main-html-parser">The Bottleneck of the
+Main HTML Parser</h2>
+<p>When Chromium loads a webpage, the main HTML parser reads the markup
+from top to bottom to construct the Document Object Model (DOM).
+However, this process is frequently interrupted. When the main parser
+encounters a synchronous <code>&lt;script&gt;</code> tag, it must halt
+DOM construction, wait for the resource to download, and execute the
+code. This pause is required because the script might use
+<code>document.write()</code> or otherwise alter the HTML structure.
+While the main parser waits, it is completely blind to any HTML that
+follows the blocking script, which would normally leave the network
+idle.</p>
+<h2 id="activation-of-the-preload-scanner">Activation of the Preload
+Scanner</h2>
+<p>To eliminate this idle network time, Chromium utilizes a secondary,
+speculative parser called the preload scanner (implemented as
+<code>HTMLPreloadScanner</code> in Chromium's Blink rendering engine).
+The exact moment the main HTML parser is blocked by a script, the
+preload scanner steps in. It takes the raw, unparsed chunks of HTML
+bytes that have already arrived from the network and begins scanning the
+markup ahead of the paused main parser.</p>
+<h2 id="fast-lightweight-tokenization">Fast, Lightweight
+Tokenization</h2>
+<p>The preload scanner can read ahead quickly because it performs only
+the bare minimum work required to find URLs. Unlike the main parser, the
+preload scanner does not build a DOM tree, does not execute JavaScript,
+and does not construct the CSS Object Model (CSSOM).</p>
+<p>Instead, it runs a stripped-down HTML tokenizer over the raw text.
+This tokenizer breaks the HTML into basic chunks, looking almost
+exclusively at start tags and their attributes. By ignoring tree
+construction, layout rules, and deep syntax validation, the preload
+scanner can process thousands of lines of HTML in a fraction of a
+millisecond.</p>
+<h2 id="identifying-and-fetching-resources">Identifying and Fetching
+Resources</h2>
+<p>As the tokenizer moves through the raw HTML, the preload scanner
+inspects the generated tokens for specific tags that reference external
+files. It specifically hunts for:</p>
+<ul>
+<li><code>&lt;script&gt;</code> tags with a <code>src</code>
+attribute.</li>
+<li><code>&lt;link&gt;</code> tags with <code>rel="stylesheet"</code> or
+<code>rel="preload"</code>.</li>
+<li><code>&lt;img&gt;</code> tags with <code>src</code> or
+<code>srcset</code> attributes.</li>
+<li><code>&lt;video&gt;</code> tags with a <code>poster</code>
+attribute.</li>
+<li>CSS <code>@import</code> rules within inline
+<code>&lt;style&gt;</code> blocks.</li>
+</ul>
+<p>When the scanner identifies one of these tokens, it extracts the URL
+and immediately hands it off to Chromium's <code>ResourceFetcher</code>.
+The browser's network stack then initiates a speculative background
+download for the file, prioritizing the requests based on resource type
+(for example, fetching CSS and scripts at a higher priority than
+images).</p>
+<h2 id="context-aware-scanning">Context-Aware Scanning</h2>
+<p>Although the preload scanner does not build a DOM tree, it is not
+entirely blind to document context. If it were completely stateless, it
+might download the wrong files. To prevent wasted bandwidth, the scanner
+maintains a lightweight internal state to track specific tags that
+affect how URLs are resolved:</p>
+<ul>
+<li><strong><code>&lt;base&gt;</code> tags:</strong> The scanner notes
+the <code>href</code> attribute of base tags so it can accurately
+resolve relative URLs found later in the document.</li>
+<li><strong><code>&lt;meta name="viewport"&gt;</code>:</strong> It reads
+viewport configurations to understand the intended screen
+dimensions.</li>
+<li><strong><code>&lt;picture&gt;</code> and
+<code>srcset</code>:</strong> By combining its knowledge of the viewport
+with <code>&lt;source&gt;</code> media queries, the scanner accurately
+selects and preloads the correct responsive image size for the user's
+device.</li>
+<li><strong><code>&lt;template&gt;</code> tags:</strong> The scanner
+tracks when it enters and exits a template tag so it does not
+accidentally preload inert resources that are not meant to be rendered
+immediately.</li>
+</ul>
+<h2 id="handoff-to-the-main-parser">Handoff to the Main Parser</h2>
+<p>Once the blocking script finishes downloading and executing, the
+preload scanner pauses, and the main HTML parser resumes building the
+DOM. As the main parser moves down the document and finally reaches the
+<code>&lt;script&gt;</code>, <code>&lt;link&gt;</code>, or
+<code>&lt;img&gt;</code> tags that the preload scanner discovered
+earlier, it requests those files. Because the preload scanner already
+initiated the network requests, the files are either already sitting in
+the browser's memory cache or are currently in flight, drastically
+reducing the overall page load time.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-preload-scanner-discovers-external-resources';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

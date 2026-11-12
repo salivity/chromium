@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How V8 Snapshot Deserialization Speeds Up Chromium Startup - chromium</title>
+    <meta name="description" content="This article explains how the V8 JavaScript engine utilizes snapshot deserialization to drastically reduce the time required to initialize new execution contexts in the Chromium web browser. By pre-compiling built-in JavaScript objects, functions, and Web">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-v-8-snapshot-deserialization-speeds-up-chromium-startup">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How V8 Snapshot Deserialization Speeds Up Chromium Startup - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-v-8-snapshot-deserialization-speeds-up-chromium-startup" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the V8 JavaScript engine utilizes snapshot deserialization to drastically reduce the time required to initialize new execution contexts in the Chromium web browser. By pre-compiling built-in JavaScript objects, functions, and Web" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-v8-snapshot-deserialization-speeds-up-chromium-startup">How
+V8 Snapshot Deserialization Speeds Up Chromium Startup</h1>
+<p>This article explains how the V8 JavaScript engine utilizes snapshot
+deserialization to drastically reduce the time required to initialize
+new execution contexts in the Chromium web browser. By pre-compiling
+built-in JavaScript objects, functions, and Web APIs into a binary
+snapshot during the browser's build process, Chromium avoids the costly
+overhead of bootstrapping these elements from scratch every time a user
+opens a new tab, iframe, or web worker. The following sections break
+down the mechanics of context creation, how serialization works at build
+time, and why deserializing this data directly into memory results in
+near-instantaneous startup speeds.</p>
+<h3 id="the-bottleneck-of-context-initialization">The Bottleneck of
+Context Initialization</h3>
+<p>In Chromium, every webpage, iframe, and web extension runs in its own
+isolated JavaScript environment, known as a V8 Context. This guarantees
+that unrelated scripts cannot interfere with one another.</p>
+<p>However, every V8 Context requires a massive standard library to
+function. Before a single line of a website's JavaScript can run, the
+context must have access to standard JavaScript built-ins (such as
+<code>Object</code>, <code>Array</code>, <code>Promise</code>, and
+<code>Math</code>) as well as Chromium's Blink DOM APIs (such as
+<code>window</code>, <code>document</code>, and
+<code>HTMLElement</code>).</p>
+<p>If V8 had to parse, compile, and execute the code to generate all of
+these objects from scratch every time a new context was requested,
+initializing a single browser tab or loading a page with multiple
+iframes would take hundreds of milliseconds and consume significant CPU
+power.</p>
+<h3 id="what-is-a-v8-snapshot">What is a V8 Snapshot?</h3>
+<p>To bypass the repetitive work of building a new context from the
+ground up, Chromium uses a technique called snapshotting.</p>
+<p>During the process of compiling the Chromium browser itself (before
+it is ever shipped to users), a temporary V8 instance is spun up. This
+instance initializes a clean context, loads all the JavaScript
+built-ins, registers all the Blink DOM bindings, and creates the initial
+memory heap. Once this pristine environment is fully constructed in
+memory, V8 freezes it and serializes the entire memory heap into a
+binary file on disk.</p>
+<h3 id="how-deserialization-accelerates-startup">How Deserialization
+Accelerates Startup</h3>
+<p>When you actually use Chromium and open a new tab or load an iframe,
+V8 does not execute setup scripts. Instead, it performs snapshot
+deserialization. This process speeds up startup time through three main
+mechanisms:</p>
+<ol type="1">
+<li><strong>Direct Memory Copying:</strong> Instead of parsing code and
+allocating objects one by one, V8 reads the pre-built binary snapshot
+file and copies the serialized object graph directly into the new
+context's memory heap. Reading a sequential block of binary data into
+RAM is orders of magnitude faster than executing initialization
+logic.</li>
+<li><strong>Pointer Relocation:</strong> Because memory addresses change
+every time a program runs, the memory pointers inside the snapshot are
+stored as relative offsets rather than absolute addresses. During
+deserialization, V8 quickly iterates through the copied data and updates
+these offsets to point to the actual memory addresses allocated for the
+new context.</li>
+<li><strong>Pre-Compiled Bytecode:</strong> The snapshot does not just
+contain empty objects; it contains the already-compiled bytecode and
+machine code stubs for built-in functions. V8 skips the parser and
+compiler stages entirely for standard functions.</li>
+</ol>
+<h3 id="the-chromium-context-snapshot">The Chromium Context
+Snapshot</h3>
+<p>While V8 has a default snapshot for standard JavaScript features,
+Chromium takes this optimization further by generating a custom snapshot
+(often found in the Chromium directory as
+<code>v8_context_snapshot.bin</code>).</p>
+<p>Chromium's rendering engine, Blink, injects its C++ DOM
+templates—like the global <code>window</code> object and
+<code>EventTarget</code> interfaces—into the V8 context <em>before</em>
+the snapshot is taken at build time. Because setting up the bridge
+between V8's JavaScript engine and Blink's C++ DOM is historically one
+of the slowest parts of creating a web page environment, baking these
+bindings directly into the snapshot eliminates a massive bottleneck.</p>
+<h3 id="the-result">The Result</h3>
+<p>By replacing code execution with memory deserialization, V8 reduces
+the time it takes to create a fully functional JavaScript and DOM
+environment from tens or hundreds of milliseconds down to just a few
+milliseconds. This ensures that opening new tabs feels instantaneous and
+web pages containing multiple iframes do not freeze the browser during
+load.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-v-8-snapshot-deserialization-speeds-up-chromium-startup';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

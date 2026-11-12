@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Content Security Policy Mitigates XSS - chromium</title>
+    <meta name="description" content="This article explores how the Chromium web browser implements Content Security Policy (CSP) to defend against Cross-Site Scripting (XSS) attacks. By examining the browser&#39;s internal architecture—specifically the Blink rendering engine and V8 JavaScript en">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-content-security-policy-mitigates-xss">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Content Security Policy Mitigates XSS - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-content-security-policy-mitigates-xss" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium web browser implements Content Security Policy (CSP) to defend against Cross-Site Scripting (XSS) attacks. By examining the browser&#39;s internal architecture—specifically the Blink rendering engine and V8 JavaScript en" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-content-security-policy-mitigates-xss">How
+Chromium's Content Security Policy Mitigates XSS</h1>
+<p>This article explores how the Chromium web browser implements Content
+Security Policy (CSP) to defend against Cross-Site Scripting (XSS)
+attacks. By examining the browser's internal architecture—specifically
+the Blink rendering engine and V8 JavaScript engine—we will cover how
+Chromium parses CSP headers, restricts unauthorized resource loading,
+blocks malicious inline scripts, disables dynamic code evaluation, and
+enforces Trusted Types to neutralize XSS vulnerabilities before they can
+execute.</p>
+<h3 id="architecture-and-policy-parsing">Architecture and Policy
+Parsing</h3>
+<p>Chromium enforces CSP primarily within Blink, its rendering engine,
+alongside the V8 JavaScript engine. When a web page loads, Chromium's
+network stack receives the <code>Content-Security-Policy</code> HTTP
+response header (or reads the <code>&lt;meta&gt;</code> tag) and passes
+it to Blink.</p>
+<p>Blink parses these directives and binds a
+<code>ContentSecurityPolicy</code> object directly to the document's
+<code>ExecutionContext</code>. Every security-sensitive action the page
+takes—from fetching an external file to executing a script—must pass
+through this central object for validation. If multiple policies are
+defined, Chromium enforces all of them simultaneously, requiring an
+action to pass every policy before it is allowed.</p>
+<h3 id="neutralizing-inline-scripts">Neutralizing Inline Scripts</h3>
+<p>The most common vector for XSS is the injection of malicious inline
+scripts into a page's HTML. By default, when a <code>script-src</code>
+or <code>default-src</code> directive is active, Chromium blocks all
+inline <code>&lt;script&gt;</code> blocks, inline event handlers (such
+as <code>onerror</code> or <code>onload</code>), and
+<code>javascript:</code> URLs.</p>
+<p>When Blink's HTML parser encounters an inline script or event
+handler, it queries the document's <code>ContentSecurityPolicy</code>
+object before doing anything else. If the <code>unsafe-inline</code>
+directive is not present, Blink refuses to pass the script payload to
+the V8 engine for compilation and execution. This immediately stops
+reflected and stored XSS attacks that rely on injecting raw script
+tags.</p>
+<h3 id="cryptographic-nonces-hashes-and-strict-dynamic">Cryptographic
+Nonces, Hashes, and <code>strict-dynamic</code></h3>
+<p>To allow legitimate inline scripts while still blocking injected XSS
+payloads, Chromium supports cryptographic nonces (numbers used once) and
+hashes.</p>
+<ul>
+<li><strong>Nonces:</strong> Before executing an inline script, Blink
+checks if the <code>&lt;script&gt;</code> tag contains a
+<code>nonce</code> attribute that matches the random value defined in
+the server's CSP header. Because an attacker cannot guess this random
+value, their injected scripts are blocked. To prevent attackers from
+stealing the nonce via DOM inspection, Chromium hides the attribute
+value from the DOM API after the page loads.</li>
+<li><strong>Hashes:</strong> Alternatively, Blink calculates the
+SHA-256, SHA-384, or SHA-512 hash of a script's exact text content. It
+only passes the code to V8 if the calculated hash matches an authorized
+hash listed in the CSP header.</li>
+<li><strong><code>strict-dynamic</code>:</strong> Chromium also supports
+the <code>strict-dynamic</code> keyword. When active, Blink grants trust
+to a nonce- or hash-validated script, allowing that specific script to
+dynamically create and load new scripts via DOM APIs like
+<code>document.createElement('script')</code>. At the same time, it
+instructs Blink to ignore host-based whitelists, which attackers
+frequently bypass using open redirects or JSONP endpoints.</li>
+</ul>
+<h3 id="restricting-dynamic-code-execution">Restricting Dynamic Code
+Execution</h3>
+<p>XSS attacks frequently rely on converting plain text strings into
+executable code using functions like <code>eval()</code>,
+<code>setTimeout()</code>, <code>setInterval()</code>, or
+<code>new Function()</code>. Chromium mitigates this through a tight
+integration between Blink and the V8 engine.</p>
+<p>Unless the <code>unsafe-eval</code> keyword is explicitly defined in
+the CSP, Blink configures the current V8 context to block dynamic code
+generation from strings. When V8 encounters an <code>eval()</code> call
+during runtime, it triggers a callback to Blink to verify permissions.
+Blink denies the request, and V8 throws an <code>EvalError</code>
+exception instead of compiling and running the injected payload.</p>
+<h3 id="controlling-external-script-loads">Controlling External Script
+Loads</h3>
+<p>Attackers often attempt to load large, malicious scripts from
+external domains they control. Chromium prevents this at the resource
+fetching layer.</p>
+<p>Before initiating any network request for a subresource, Blink’s
+<code>ResourceFetcher</code> consults the
+<code>ContentSecurityPolicy</code> object. If an attacker injects a
+<code>&lt;script src="https://attacker.com/xss.js"&gt;</code> tag, Blink
+compares the target URL against the origins whitelisted in the
+<code>script-src</code> directive. Because the attacker's domain is not
+on the allowlist, Blink aborts the request entirely before it ever
+reaches Chromium's Network Service.</p>
+<h3 id="defeating-dom-based-xss-with-trusted-types">Defeating DOM-Based
+XSS with Trusted Types</h3>
+<p>Traditional CSP directives focus on network requests and HTML
+parsing, leaving applications vulnerable to DOM-based XSS, where
+client-side JavaScript unsafely manipulates the DOM at runtime. To solve
+this, Chromium pioneered the implementation of Trusted Types, which is
+activated via the <code>require-trusted-types-for 'script'</code> CSP
+directive.</p>
+<p>When this directive is parsed, Blink locks down over 60 dangerous DOM
+injection sinks, such as <code>Element.innerHTML</code>,
+<code>document.write()</code>, and <code>HTMLScriptElement.src</code>.
+Instead of accepting raw, potentially malicious strings, Blink requires
+developers to pass specialized, type-checked objects (such as
+<code>TrustedHTML</code>, <code>TrustedScript</code>, or
+<code>TrustedScriptURL</code>). These objects can only be created
+through a secure, developer-defined sanitization policy. If an attacker
+successfully injects a malicious string into a variable that flows into
+a sink like <code>innerHTML</code>, Blink detects that the input is a
+raw string rather than a <code>TrustedHTML</code> object, throws a
+<code>TypeError</code>, and blocks the DOM modification.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-content-security-policy-mitigates-xss';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

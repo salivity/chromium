@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Pinpoint Finds Chromium Performance Regressions - chromium</title>
+    <meta name="description" content="This article explains the Pinpoint bisect service, an automated diagnostic tool used by the Chromium project to maintain web browser speed and efficiency. It covers what the Pinpoint service is, how it integrates with Chromium&#39;s continuous integration inf">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-pinpoint-finds-chromium-performance-regressions">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Pinpoint Finds Chromium Performance Regressions - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-pinpoint-finds-chromium-performance-regressions" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the Pinpoint bisect service, an automated diagnostic tool used by the Chromium project to maintain web browser speed and efficiency. It covers what the Pinpoint service is, how it integrates with Chromium&#39;s continuous integration inf" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-pinpoint-finds-chromium-performance-regressions">How
+Pinpoint Finds Chromium Performance Regressions</h1>
+<p>This article explains the Pinpoint bisect service, an automated
+diagnostic tool used by the Chromium project to maintain web browser
+speed and efficiency. It covers what the Pinpoint service is, how it
+integrates with Chromium's continuous integration infrastructure, and
+the step-by-step binary search and statistical methods it uses to
+automatically isolate the exact code commit responsible for a
+performance regression.</p>
+<h2 id="what-is-the-pinpoint-bisect-service">What is the Pinpoint Bisect
+Service?</h2>
+<p>Pinpoint is a microservice developed by the Chrome Operations team to
+automate the process of tracking down performance regressions and
+improvements in the Chromium codebase. Hundreds of commits land in the
+Chromium repository every day. Because running comprehensive performance
+benchmarks takes hours, Chromium cannot test every single commit in real
+time. Instead, benchmarks are run periodically, meaning a detected
+performance regression could be caused by any one of dozens or hundreds
+of commits that landed between two test runs.</p>
+<p>Pinpoint solves this problem by automatically performing a "bisect"—a
+systematic search through the commit history—to find the exact change
+(culprit) that altered the browser's performance, without requiring
+human intervention.</p>
+<h2 id="how-pinpoint-isolates-the-exact-commit">How Pinpoint Isolates
+the Exact Commit</h2>
+<p>When the Chromium performance dashboard detects a significant
+degradation in a metric (such as page load time, memory usage, or frame
+rate), it automatically files a bug and triggers a Pinpoint job.
+Pinpoint then executes the following workflow to find the culprit.</p>
+<h3 id="1-defining-the-commit-range">1. Defining the Commit Range</h3>
+<p>Pinpoint starts with two known points: the "last known good" commit
+(before the regression occurred) and the "first known bad" commit (where
+the regression was first detected). This establishes the search
+range.</p>
+<h3 id="2-binary-search-bisection">2. Binary Search (Bisection)</h3>
+<p>Testing every commit in the range sequentially would take too much
+time and computing power. Instead, Pinpoint uses a binary search
+algorithm. It selects the commit exactly in the middle of the "good" and
+"bad" range.</p>
+<p>If the range is 100 commits, Pinpoint tests Commit 50.</p>
+<ul>
+<li>If Commit 50 shows the normal performance, the regression must have
+happened <em>after</em> it (between Commit 50 and 100).</li>
+<li>If Commit 50 shows the degraded performance, the regression must
+have happened <em>before</em> it (between Commit 1 and 50).</li>
+</ul>
+<p>By repeating this process, Pinpoint cuts the search space in half
+with every step, reducing 100 commits to a single culprit in just about
+seven steps.</p>
+<h3 id="3-automated-building-and-swarming-execution">3. Automated
+Building and Swarming Execution</h3>
+<p>For each commit it needs to test, Pinpoint coordinates with
+Chromium's build infrastructure. It requests a freshly compiled binary
+of the Chromium browser at that exact revision. Once built, Pinpoint
+sends the binary to "Swarming," Chromium's distributed test lab. The
+test is executed on the exact same physical hardware configuration (such
+as a specific Android phone, MacBook, or Windows desktop) where the
+original regression was detected. This ensures environment
+consistency.</p>
+<h3 id="4-statistical-analysis-to-handle-noise">4. Statistical Analysis
+to Handle Noise</h3>
+<p>Unlike functional bugs, which either pass or fail, performance
+metrics are inherently noisy. Running the same benchmark twice on the
+exact same build will yield slightly different numbers due to CPU
+temperature, background OS tasks, and network variance.</p>
+<p>To prevent false positives, Pinpoint does not rely on a single test
+run. It runs the benchmark multiple times for each commit and collects a
+distribution of results. It then uses statistical hypothesis
+testing—specifically the Mann-Whitney U test and the Kolmogorov-Smirnov
+test—to compare the midpoint commit's results against the known "good"
+and "bad" distributions.</p>
+<ul>
+<li><strong>High Confidence:</strong> If the statistical p-value
+confirms the results are significantly different, Pinpoint confidently
+narrows the search range.</li>
+<li><strong>Low Confidence:</strong> If the difference is lost in the
+noise, Pinpoint automatically schedules more benchmark runs on that
+commit to gather more data until statistical significance is
+achieved.</li>
+</ul>
+<h3 id="5-drilling-into-dependency-rolls-deps">5. Drilling into
+Dependency Rolls (DEPS)</h3>
+<p>Chromium relies on massive external sub-repositories, such as the V8
+JavaScript engine, the Skia graphics library, and WebRTC. Changes to
+these projects are brought into Chromium via "DEPS rolls"—single commits
+that update Chromium to use a newer version of the sub-repository, often
+containing dozens of individual changes.</p>
+<p>If Pinpoint isolates a DEPS roll as the culprit, its job is not
+finished. Pinpoint automatically reads the dependency file, opens the
+sub-repository's commit history, and continues the binary search
+<em>inside</em> that third-party repository. This allows it to find the
+exact V8 or Skia commit that slowed down the browser.</p>
+<h3 id="6-culprit-reporting-and-action">6. Culprit Reporting and
+Action</h3>
+<p>Once the binary search narrows the range down to a single commit
+where the performance distribution clearly shifts from "good" to "bad,"
+Pinpoint concludes the job. It automatically posts a detailed report to
+the issue tracker, graphs the performance shift, and assigns the bug
+directly to the engineer who authored the commit. In many clear-cut
+cases, the system can even automatically generate a revert of the
+offending commit to keep the browser fast while the developer
+investigates the issue.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-pinpoint-finds-chromium-performance-regressions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

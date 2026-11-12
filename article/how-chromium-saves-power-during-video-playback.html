@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Saves Power During Video Playback - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser leverages native operating system APIs—specifically DirectComposition on Windows and CoreAnimation on macOS—to significantly reduce power consumption during video playback. By offloading video composition">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-saves-power-during-video-playback">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Saves Power During Video Playback - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-saves-power-during-video-playback" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser leverages native operating system APIs—specifically DirectComposition on Windows and CoreAnimation on macOS—to significantly reduce power consumption during video playback. By offloading video composition" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-saves-power-during-video-playback">How Chromium
+Saves Power During Video Playback</h1>
+<p>This article explains how the Chromium web browser leverages native
+operating system APIs—specifically DirectComposition on Windows and
+CoreAnimation on macOS—to significantly reduce power consumption during
+video playback. By offloading video composition and rendering tasks from
+its internal graphics engine directly to the operating system and
+display hardware, Chromium minimizes CPU and GPU usage, resulting in
+lower system temperatures and extended battery life.</p>
+<h2 id="the-traditional-rendering-bottleneck">The Traditional Rendering
+Bottleneck</h2>
+<p>To understand how Chromium saves power, it helps to look at how
+browsers traditionally render video. Normally, the browser decodes a
+video frame, converts its color format from YUV (the standard for video)
+to RGB (the standard for monitors), scales it to the correct size, and
+draws it onto a single texture alongside the rest of the web page (text,
+images, and UI).</p>
+<p>The browser's internal compositor performs this work using
+general-purpose 3D GPU shaders. Doing this 30 to 60 times per second
+consumes a massive amount of memory bandwidth and electricity. To solve
+this, Chromium bypasses its own compositor and delegates the work to the
+operating system.</p>
+<h2 id="windows-directcomposition-and-hardware-overlays">Windows:
+DirectComposition and Hardware Overlays</h2>
+<p>On Windows, Chromium utilizes the DirectComposition API to separate
+video playback from the rest of the browser's rendering pipeline.</p>
+<p>Instead of drawing the video onto the web page's main canvas,
+Chromium decodes the video frames into a dedicated DirectX swap chain.
+Chromium then passes a reference to this swap chain directly to the
+Windows Desktop Window Manager (DWM) using DirectComposition.</p>
+<p>When supported by the graphics card and monitor, Windows uses a
+feature called Multiplane Overlays (MPO). MPO allows the display
+controller to read the raw video frames directly from the swap chain
+memory. The display hardware then merges the video with the browser
+window on the fly as it sends the signal to the monitor. Because the
+display controller has dedicated, low-power circuits for scaling and
+converting YUV to RGB, the main GPU cores can remain largely idle.</p>
+<h2 id="macos-coreanimation-and-iosurface">macOS: CoreAnimation and
+IOSurface</h2>
+<p>On macOS, Chromium achieves the same power-saving results using
+Apple’s CoreAnimation framework. Rather than sending a single, fully
+rendered image of the web page to the operating system, Chromium
+constructs a hierarchy of <code>CALayer</code> objects and hands that
+tree over to the macOS WindowServer.</p>
+<p>During video playback, Chromium decodes the video frames into an
+<code>IOSurface</code>, which is a shared memory buffer managed by the
+macOS kernel. Chromium assigns this <code>IOSurface</code> to a
+dedicated video <code>CALayer</code>.</p>
+<p>Once the macOS WindowServer receives this layer tree, it routes the
+<code>IOSurface</code> directly to the display engine. Modern Mac
+hardware (especially Apple Silicon) features specialized fixed-function
+display engines designed to handle multiple layers, color conversion,
+and scaling at a fraction of the power required by the GPU's shader
+cores.</p>
+<h2 id="key-mechanisms-of-power-reduction">Key Mechanisms of Power
+Reduction</h2>
+<p>By utilizing DirectComposition and CoreAnimation, Chromium reduces
+power consumption through three primary mechanisms:</p>
+<ul>
+<li><strong>Zero-Copy Architecture:</strong> In traditional rendering,
+video frames are copied multiple times between different memory buffers
+before reaching the screen. Moving large amounts of data across memory
+buses drains the battery rapidly. With OS-level composition, the display
+hardware reads the video frame from the exact same memory location where
+the decoder placed it.</li>
+<li><strong>Fixed-Function Hardware:</strong> General-purpose GPU
+shaders are powerful, flexible, and energy-intensive. By handing raw YUV
+video buffers to the OS, Chromium ensures that scaling and color
+conversion are handled by fixed-function hardware—tiny, specialized
+silicon circuits built to do only that specific job using minimal
+electricity.</li>
+<li><strong>Independent Refresh Rates:</strong> When you watch a video
+on a static webpage, the browser UI does not change. By separating the
+video into its own OS-managed layer, Chromium can completely stop
+rendering the webpage. The operating system updates only the video layer
+at the video's native frame rate (such as 24 or 30 frames per second),
+allowing both the CPU and GPU to enter deep, power-saving sleep states
+between frames.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-saves-power-during-video-playback';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

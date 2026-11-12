@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Performance Manager Tracks Resource Usage - chromium</title>
+    <meta name="description" content="This article explores the Performance Manager component within the Chromium web browser and its critical role in monitoring and managing system resources. It breaks down how this system builds a real-time graph of tabs, frames, and processes to accurately">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-performance-manager-tracks-resource-usage">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Performance Manager Tracks Resource Usage - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-performance-manager-tracks-resource-usage" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the Performance Manager component within the Chromium web browser and its critical role in monitoring and managing system resources. It breaks down how this system builds a real-time graph of tabs, frames, and processes to accurately" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-performance-manager-tracks-resource-usage">How
+Chromium's Performance Manager Tracks Resource Usage</h1>
+<p>This article explores the Performance Manager component within the
+Chromium web browser and its critical role in monitoring and managing
+system resources. It breaks down how this system builds a real-time
+graph of tabs, frames, and processes to accurately track CPU and memory
+consumption. Furthermore, it explains how Chromium uses this granular
+data to optimize browser performance through interventions like tab
+throttling, freezing, and discarding.</p>
+<h3 id="the-challenge-of-modern-browser-architecture">The Challenge of
+Modern Browser Architecture</h3>
+<p>Operating systems track resource usage—such as CPU time and RAM—at
+the process level. However, because Chromium uses a multi-process
+architecture and enforces Site Isolation, a single browser tab often
+spans multiple operating system processes. Conversely, a single process
+might host multiple frames from different tabs if they share the same
+web origin.</p>
+<p>Because there is no one-to-one mapping between a browser tab and an
+OS process, Chromium cannot rely solely on the operating system to know
+how much memory or CPU a specific tab or iframe is using. The
+Performance Manager exists to solve this problem.</p>
+<h3 id="the-node-graph-architecture">The Node Graph Architecture</h3>
+<p>To track resources per tab and per frame, the Performance Manager
+operates in the main browser process and maintains a real-time, directed
+graph of the browser's current state. This graph is made up of four
+primary node types:</p>
+<ul>
+<li><strong>PageNode:</strong> Represents a visible or background
+browser tab.</li>
+<li><strong>FrameNode:</strong> Represents a specific document within a
+tab, such as the main frame or an embedded <code>&lt;iframe&gt;</code>.
+A <code>PageNode</code> contains a tree of one or more
+<code>FrameNodes</code>.</li>
+<li><strong>ProcessNode:</strong> Represents an underlying OS process,
+such as a renderer process or GPU process.</li>
+<li><strong>WorkerNode:</strong> Represents background execution
+contexts like Web Workers or Service Workers.</li>
+</ul>
+<p>As you browse the web, open tabs, and load iframes, the Performance
+Manager dynamically links these nodes together. It knows which
+<code>ProcessNode</code> hosts which <code>FrameNode</code>, and which
+<code>PageNode</code> owns that <code>FrameNode</code>.</p>
+<h3 id="granular-resource-attribution">Granular Resource
+Attribution</h3>
+<p>Once the graph is established, the Performance Manager uses its
+Resource Attribution framework to collect metrics and assign them to the
+correct nodes.</p>
+<p><strong>Memory Tracking</strong> When the Performance Manager queries
+a renderer process for its memory usage, it does not just look at the
+total process footprint. Instead, it asks the V8 JavaScript engine and
+the Blink rendering engine to break down memory allocations by execution
+context. This allows the Performance Manager to see the exact memory
+footprint of an individual <code>FrameNode</code> or
+<code>WorkerNode</code>. It then sums the memory of all frames and
+workers associated with a specific <code>PageNode</code> to calculate
+the true memory cost of that tab.</p>
+<p><strong>CPU Tracking</strong> To track CPU usage per frame, the
+Performance Manager monitors the task scheduler inside the renderer
+processes. Every time a script runs, a layout is calculated, or a frame
+is painted, the scheduler records the time taken and links it to the
+specific <code>FrameNode</code> that initiated the work. The Performance
+Manager aggregates these execution times to determine how much CPU a
+single frame is consuming, even if it shares a process with several
+other frames.</p>
+<h3 id="how-chromium-uses-this-data">How Chromium Uses This Data</h3>
+<p>The Performance Manager does not just passively collect data; it uses
+these per-tab and per-frame metrics to actively manage browser health
+and inform the user.</p>
+<ul>
+<li><strong>Background Tab Throttling:</strong> If the Performance
+Manager detects that a <code>FrameNode</code> in a background tab (or a
+cross-origin ad iframe in an active tab) is consuming excessive CPU
+cycles, it instructs the renderer process to throttle that specific
+frame's JavaScript timers. This saves battery life without breaking the
+rest of the page.</li>
+<li><strong>Tab Freezing and Discarding (Memory Saver):</strong> By
+monitoring the aggregated memory data on <code>PageNodes</code>, the
+Performance Manager identifies inactive tabs that are hogging RAM. When
+system memory runs low, or when the browser's Memory Saver mode is
+active, it uses this data to freeze or discard the heaviest,
+least-recently-used tabs.</li>
+<li><strong>User-Facing Diagnostics:</strong> The Performance Manager
+feeds its aggregated data directly into the browser's user interface.
+When you hover over a tab in Chromium and see its exact memory usage, or
+when you open the browser's built-in Task Manager to see a breakdown of
+subframes, you are looking at the real-time calculations of the
+Performance Manager.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-performance-manager-tracks-resource-usage';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

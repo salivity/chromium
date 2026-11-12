@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Role of BUILD.gn in Chromium&#39;s Module Dependencies - chromium</title>
+    <meta name="description" content="In the massive codebase of the Chromium web browser, maintaining architectural integrity across thousands of modules is a critical challenge. This article provides an overview of how BUILD.gn files—the configuration files for Chromium&#39;s meta-build system,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/the-role-of-build-gn-in-chromium-s-module-dependencies">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Role of BUILD.gn in Chromium&#39;s Module Dependencies - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/the-role-of-build-gn-in-chromium-s-module-dependencies" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the massive codebase of the Chromium web browser, maintaining architectural integrity across thousands of modules is a critical challenge. This article provides an overview of how BUILD.gn files—the configuration files for Chromium&#39;s meta-build system," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-role-of-buildgn-in-chromiums-module-dependencies">The Role
+of BUILD.gn in Chromium's Module Dependencies</h1>
+<p>In the massive codebase of the Chromium web browser, maintaining
+architectural integrity across thousands of modules is a critical
+challenge. This article provides an overview of how
+<code>BUILD.gn</code> files—the configuration files for Chromium's
+meta-build system, GN (Generate Ninja)—do much more than just define how
+code is compiled. Specifically, it examines how these files act as
+architectural gatekeepers by enforcing strict target visibility rules
+and executing automated C++ header dependency checks, ensuring that
+modules only interact in explicitly approved ways.</p>
+<h2 id="understanding-buildgn-in-chromium">Understanding BUILD.gn in
+Chromium</h2>
+<p>Chromium uses GN to generate build files for Ninja, the actual build
+system. Every module or directory in Chromium contains a
+<code>BUILD.gn</code> file that defines build targets, such as
+executables, shared libraries, or source sets. Because C++ lacks a
+native module system in the standards historically used by Chromium, the
+project relies on <code>BUILD.gn</code> files to define module
+boundaries, encapsulate internal logic, and control how different parts
+of the browser communicate.</p>
+<h2 id="enforcing-visibility-rules">Enforcing Visibility Rules</h2>
+<p>By default, any target defined in a <code>BUILD.gn</code> file is
+public, meaning any other target in the Chromium repository can depend
+on it. To prevent tightly coupled "spaghetti code" and enforce
+encapsulation, <code>BUILD.gn</code> provides the
+<code>visibility</code> attribute.</p>
+<p>The <code>visibility</code> attribute is a list of label patterns
+that explicitly defines which other targets are allowed to depend on the
+current target. If Target A attempts to add Target B to its
+dependencies, GN checks Target B's <code>visibility</code> list. If
+Target A is not on that list, the build configuration step fails
+immediately.</p>
+<p>Common ways Chromium uses <code>visibility</code> include:</p>
+<ul>
+<li><strong>File-Private Targets:</strong> Setting
+<code>visibility = [ ":*" ]</code> restricts a target so that only other
+targets within the exact same <code>BUILD.gn</code> file can depend on
+it. This is commonly used for internal helper libraries or split
+targets.</li>
+<li><strong>Directory-Level Encapsulation:</strong> Setting
+<code>visibility = [ "//content/browser/*" ]</code> allows any target
+within the <code>//content/browser/</code> directory tree to use the
+target, while blocking access from the rest of the browser, such as
+<code>//chrome/</code> or <code>//ui/</code>.</li>
+<li><strong>Strict Allowlisting:</strong> A target can specify exact
+targets, such as
+<code>visibility = [ "//chrome/browser:browser_process" ]</code>,
+ensuring only one specific module in the entire codebase can utilize
+it.</li>
+</ul>
+<p>Through these rules, component owners can expose a clean public API
+target while hiding the messy implementation targets behind strict
+visibility walls.</p>
+<h2 id="header-dependency-checks">Header Dependency Checks</h2>
+<p>In C++, it is easy for a developer to write an <code>#include</code>
+directive for a header file that happens to be available on the
+compiler's include path, without actually declaring a build dependency
+on the module that owns that header. This leads to fragile builds that
+break when compilation order changes, as well as violations of layered
+architecture.</p>
+<p><code>BUILD.gn</code> files prevent this through header dependency
+checking, which is executed via the <code>gn check</code> command (and
+run automatically on Chromium's continuous integration servers).</p>
+<h3 id="controlling-header-exposure-with-public">Controlling Header
+Exposure with <code>public</code></h3>
+<p>Within a <code>BUILD.gn</code> target, source files are listed in the
+<code>sources</code> array. By default, if a header file
+(<code>.h</code>) is listed in <code>sources</code>, GN considers it
+publicly includable by any direct dependent.</p>
+<p>However, to enforce stricter boundaries, a target can define a
+<code>public</code> array alongside <code>sources</code>.</p>
+<ul>
+<li>Headers listed in <code>public</code> are the official API of the
+module.</li>
+<li>Headers listed only in <code>sources</code> become private to that
+target.</li>
+</ul>
+<p>If an external module attempts to <code>#include</code> a header that
+is in <code>sources</code> but not in <code>public</code>,
+<code>gn check</code> will throw an error, even if the external module
+properly depends on the target.</p>
+<h3 id="validating-the-include-graph">Validating the Include Graph</h3>
+<p>When <code>gn check</code> runs, it parses the C++ source code to
+find every <code>#include</code> statement and cross-references them
+against the dependency graph defined in the <code>BUILD.gn</code> files.
+For an <code>#include</code> to be valid, two conditions must be
+met:</p>
+<ol type="1">
+<li>The target containing the <code>#include</code> must have a declared
+dependency path to the target that owns the header.</li>
+<li>The included header must be marked as <code>public</code> in the
+owning target.</li>
+</ol>
+<h3 id="the-role-of-deps-vs-public_deps">The Role of <code>deps</code>
+vs. <code>public_deps</code></h3>
+<p>Header checks rely heavily on the distinction between
+<code>deps</code> and <code>public_deps</code> in <code>BUILD.gn</code>
+files.</p>
+<ul>
+<li><strong><code>deps</code> (Private Dependencies):</strong> If Target
+A lists Target B in its <code>deps</code>, Target A can include Target
+B's public headers in its own <code>.cc</code> files. However, if Target
+C depends on Target A, Target C <em>cannot</em> include Target B's
+headers. The dependency is not transitive.</li>
+<li><strong><code>public_deps</code> (Public Dependencies):</strong> If
+Target A includes one of Target B's headers inside Target A's own
+<em>public header file</em>, Target A must list Target B in
+<code>public_deps</code>. This tells GN to forward Target B's public
+headers to anyone who depends on Target A.</li>
+</ul>
+<p>If a developer uses <code>deps</code> instead of
+<code>public_deps</code> when exposing a dependency's types in a public
+header, <code>gn check</code> will detect the missing transitive link
+and fail the build.</p>
+<h2 id="handling-exceptions">Handling Exceptions</h2>
+<p>In rare cases, legacy code or platform-specific configurations cannot
+strictly adhere to GN's header rules. <code>BUILD.gn</code> provides two
+main escape hatches for these scenarios:</p>
+<ul>
+<li><strong><code>check_includes = false</code>:</strong> Added to a
+target in <code>BUILD.gn</code> to completely disable header checking
+for that specific target.</li>
+<li><strong><code>// nogncheck</code>:</strong> A comment placed on the
+same line as an <code>#include</code> directive in a C++ file,
+instructing GN to ignore that specific inclusion during verification
+(often used for conditional includes guarded by preprocessor macros that
+GN cannot evaluate).</li>
+</ul>
+<p>By combining <code>visibility</code> rules with <code>public</code>
+header definitions and <code>gn check</code>, <code>BUILD.gn</code>
+files transform Chromium's build system into an active static analysis
+tool that preserves modularity at scale.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/the-role-of-build-gn-in-chromium-s-module-dependencies';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

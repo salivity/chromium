@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How LayoutNG Improved Text Layout and Stability in Chromium - chromium</title>
+    <meta name="description" content="Project LayoutNG was a multi-year architectural rewrite of the Blink rendering engine’s layout system in the Chromium web browser. This article explains how LayoutNG drastically improved text layout accuracy and eliminated thousands of edge-case stability">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-layout-ng-improved-text-layout-and-stability-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How LayoutNG Improved Text Layout and Stability in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-layout-ng-improved-text-layout-and-stability-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Project LayoutNG was a multi-year architectural rewrite of the Blink rendering engine’s layout system in the Chromium web browser. This article explains how LayoutNG drastically improved text layout accuracy and eliminated thousands of edge-case stability" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-layoutng-improved-text-layout-and-stability-in-chromium">How
+LayoutNG Improved Text Layout and Stability in Chromium</h1>
+<p>Project LayoutNG was a multi-year architectural rewrite of the Blink
+rendering engine’s layout system in the Chromium web browser. This
+article explains how LayoutNG drastically improved text layout accuracy
+and eliminated thousands of edge-case stability bugs by replacing a
+decades-old mutable layout tree with an immutable fragment tree,
+adopting paragraph-level text shaping, and standardizing subpixel
+geometry.</p>
+<h3 id="the-legacy-architecture-problem">The Legacy Architecture
+Problem</h3>
+<p>Before LayoutNG, Chromium’s layout engine relied on a single, mutable
+tree of objects originally inherited from WebKit. During a layout pass,
+nodes modified their own states and the states of their children
+simultaneously. This tight coupling caused severe stability issues,
+particularly when handling complex CSS combinations like nested floats,
+tables, and flexbox. Incremental layout updates often left the tree in
+an inconsistent state, leading to memory corruption, crashes, and visual
+rendering glitches.</p>
+<h3 id="the-immutable-fragment-tree-for-stability">The Immutable
+Fragment Tree for Stability</h3>
+<p>LayoutNG solved edge-case stability issues by strictly separating
+layout inputs and outputs, inspired by functional programming
+principles. The engine takes the DOM node, applies a read-only
+<code>ConstraintSpace</code> (input), and generates an immutable
+<code>PhysicalFragment</code> tree (output).</p>
+<p>Because output fragments cannot be altered once they are created, the
+engine completely prevents state-corruption bugs during layout passes.
+This architectural shift eliminated entire classes of crashes related to
+unexpected layout invalidations, out-of-order tree mutations, and
+infinite recursion loops in complex CSS edge cases. It also made caching
+layout results entirely predictable and safe.</p>
+<h3 id="paragraph-level-text-shaping">Paragraph-Level Text Shaping</h3>
+<p>The most significant leap in text layout accuracy came from how
+LayoutNG interacts with HarfBuzz, Chromium's text-shaping engine. The
+legacy engine broke text into isolated inline elements before shaping
+it. If a single word was split by a <code>&lt;span&gt;</code> tag—for
+example, to change the color of the first letter—the browser treated the
+segments as entirely separate words. This broke font kerning, ligatures,
+and connected cursive scripts like Arabic.</p>
+<p>LayoutNG processes and shapes the entire paragraph as a single flat
+string of text before breaking it into lines or applying inline box
+boundaries. By feeding the whole paragraph to HarfBuzz at once, Chromium
+maintains full contextual awareness. Ligatures, kerning, and complex
+script connections are now preserved seamlessly, even across multiple
+<code>&lt;span&gt;</code> tags with different borders, margins, or
+colors.</p>
+<h3 id="accurate-bidirectional-text-and-line-breaking">Accurate
+Bidirectional Text and Line Breaking</h3>
+<p>Handling right-to-left (RTL) and left-to-right (LTR) text in the same
+paragraph was previously a major source of edge-case rendering bugs.
+LayoutNG integrates the International Components for Unicode (ICU)
+library directly into the paragraph-level pipeline.</p>
+<p>By resolving bidirectional (Bidi) text levels across the entire
+paragraph before line breaking occurs, Chromium accurately renders
+mixed-direction text without misplacing punctuation or scrambling word
+orders at line wraps. Additionally, line breaking is more accurate
+because LayoutNG calculates breaks using pre-shaped glyph clusters
+rather than raw characters, ensuring hyphenation and word-wrapping
+strictly adhere to Unicode standards.</p>
+<h3 id="eliminating-subpixel-rounding-errors">Eliminating Subpixel
+Rounding Errors</h3>
+<p>In the legacy engine, text measurement and box positioning used
+different rounding methods for fractional pixel values. Across long
+lines of text or deeply nested inline elements, these tiny subpixel
+discrepancies accumulated. This often caused text to unexpectedly
+overflow its container, overlap adjacent elements, or wrap to a new line
+prematurely when zooming the page.</p>
+<p>LayoutNG unified the geometry system to use consistent fixed-point
+arithmetic (<code>LayoutUnit</code>) throughout the entire inline layout
+pipeline. By measuring and positioning shaped text fragments using the
+exact same subpixel grid, LayoutNG ensures that the sum of individual
+text segments always equals the total measured paragraph width,
+eradicating zoom-related text reflow bugs.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-layout-ng-improved-text-layout-and-stability-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

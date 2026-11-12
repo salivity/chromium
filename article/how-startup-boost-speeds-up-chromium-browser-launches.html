@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Startup Boost Speeds Up Chromium Browser Launches - chromium</title>
+    <meta name="description" content="This article explains the Startup Boost feature on Windows, detailing how it dramatically reduces launch times for Chromium-based web browsers, most notably Microsoft Edge. You will learn what the feature is, how it utilizes a lightweight background proce">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-startup-boost-speeds-up-chromium-browser-launches">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Startup Boost Speeds Up Chromium Browser Launches - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-startup-boost-speeds-up-chromium-browser-launches" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the Startup Boost feature on Windows, detailing how it dramatically reduces launch times for Chromium-based web browsers, most notably Microsoft Edge. You will learn what the feature is, how it utilizes a lightweight background proce" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-startup-boost-speeds-up-chromium-browser-launches">How
+Startup Boost Speeds Up Chromium Browser Launches</h1>
+<p>This article explains the Startup Boost feature on Windows, detailing
+how it dramatically reduces launch times for Chromium-based web
+browsers, most notably Microsoft Edge. You will learn what the feature
+is, how it utilizes a lightweight background process to achieve
+near-instant browser launches, its overall impact on your computer's
+system resources, and how to manage the setting.</p>
+<h3 id="what-is-startup-boost">What is Startup Boost?</h3>
+<p>Startup Boost is a performance optimization feature on Windows
+designed for Chromium-based browsers, primarily Microsoft Edge.
+Normally, when you open a web browser from a "cold" state, the computer
+has to read the application files from your storage drive, load them
+into the system memory (RAM), initialize the browser engine, and load
+your extensions. This process can take several seconds. Startup Boost
+eliminates this waiting period by keeping the core parts of the browser
+pre-loaded in the background.</p>
+<h3 id="how-the-lightweight-background-process-works">How the
+Lightweight Background Process Works</h3>
+<p>Startup Boost achieves instant launches by altering the lifecycle of
+the browser's processes in Windows. It operates in three distinct
+phases:</p>
+<ol type="1">
+<li><strong>System Logon:</strong> As soon as you log into your Windows
+account, Startup Boost automatically initiates a minimal set of core
+Chromium processes in the background, even before you click the browser
+icon.</li>
+<li><strong>Active Launch:</strong> When you click the browser icon to
+open it, Windows does not need to build the application from scratch.
+Because the foundation of the Chromium engine is already sitting in your
+RAM, the system only needs to draw the user interface (the window, tabs,
+and address bar). This makes the browser appear almost
+instantaneously.</li>
+<li><strong>Browser Closure:</strong> When you close the browser window
+by clicking the "X" button, the application does not fully terminate.
+Instead, it sheds the memory used by your open web pages and extensions,
+scaling itself back down into that minimal, dormant background state,
+ready for the next time you click the icon.</li>
+</ol>
+<h3 id="why-the-process-remains-lightweight">Why the Process Remains
+"Lightweight"</h3>
+<p>Modern Chromium browsers use a multi-process architecture, meaning
+every tab, extension, and utility runs as a separate process in the
+Windows Task Manager. A fully active browser can easily consume
+gigabytes of RAM.</p>
+<p>Startup Boost avoids this heavy resource drain by strictly limiting
+what is allowed to run in the background. When the browser is closed,
+the background process does not render graphics, play audio, or execute
+complex JavaScript from websites. It only keeps the base browser broker
+process active in the RAM. When idle in the background, this process
+uses practically zero CPU power and a very small fraction of the RAM
+required by an open browser. Furthermore, if Windows detects that your
+computer is running low on memory due to other heavy applications, it
+can dynamically suspend or reclaim the memory used by Startup Boost.</p>
+<h3 id="how-to-manage-startup-boost">How to Manage Startup Boost</h3>
+<p>While Startup Boost is beneficial for most modern computers, users
+with older hardware or severely limited RAM might prefer to turn it off
+to free up every possible megabyte of memory.</p>
+<p>To turn the feature on or off in Microsoft Edge:</p>
+<ol type="1">
+<li>Open the browser and click the three-dot menu icon in the top-right
+corner.</li>
+<li>Select <strong>Settings</strong>.</li>
+<li>Click on <strong>System and performance</strong> in the left-hand
+menu.</li>
+<li>Toggle the switch next to <strong>Startup boost</strong> to your
+preferred state.</li>
+</ol>
+<p>If you disable this feature, closing the browser will terminate all
+associated Chromium processes in the Windows Task Manager, freeing up
+all browser-related RAM at the cost of slower initial launch times.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-startup-boost-speeds-up-chromium-browser-launches';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

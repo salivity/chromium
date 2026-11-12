@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Brave Customizes Chromium for Ad Blocking and Crypto - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Brave browser modifies the open-source Chromium codebase to integrate native features. It covers the architectural strategy Brave uses to patch Chromium without breaking upstream updates, the Foreign F">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-brave-customizes-chromium-for-ad-blocking-and-crypto">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Brave Customizes Chromium for Ad Blocking and Crypto - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-brave-customizes-chromium-for-ad-blocking-and-crypto" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Brave browser modifies the open-source Chromium codebase to integrate native features. It covers the architectural strategy Brave uses to patch Chromium without breaking upstream updates, the Foreign F" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-brave-customizes-chromium-for-ad-blocking-and-crypto">How
+Brave Customizes Chromium for Ad Blocking and Crypto</h1>
+<p>This article provides a technical overview of how the Brave browser
+modifies the open-source Chromium codebase to integrate native features.
+It covers the architectural strategy Brave uses to patch Chromium
+without breaking upstream updates, the Foreign Function Interface (FFI)
+pipeline used to embed a Rust-based ad-blocking engine into a C++
+browser, and the multi-process architecture utilized to build a native
+cryptocurrency wallet directly into the browser core.</p>
+<h3 id="the-chromium-customization-strategy">The Chromium Customization
+Strategy</h3>
+<p>Chromium consists of tens of millions of lines of C++ code that
+update constantly. If Brave simply forked Chromium and rewrote the core
+files, merging upstream security patches from Google would quickly
+become impossible. To solve this, Brave isolates its modifications in a
+separate repository called <code>brave-core</code>, which is mounted at
+<code>src/brave</code> inside the standard Chromium source tree.</p>
+<p>Brave modifies Chromium's behavior using three primary
+mechanisms:</p>
+<ol type="1">
+<li><strong>The <code>chromium_src</code> Override System:</strong>
+During compilation, Brave alters the compiler's include path so that
+files in <code>src/brave/chromium_src</code> are checked before standard
+Chromium files. This allows Brave developers to intercept
+<code>#include</code> directives, wrap original Chromium classes, and
+inject custom logic without touching the original file.</li>
+<li><strong>Git Patching:</strong> When modifying an upstream file is
+unavoidable, Brave maintains a series of <code>.patch</code> files. As
+part of the build process, a script automatically applies these patches
+to the Chromium source tree before compilation begins.</li>
+<li><strong>Build Configuration (GN and Ninja):</strong> Chromium uses
+GN to generate build files for Ninja. Brave injects its own
+<code>.gn</code> and <code>.gni</code> configuration files into the
+build pipeline, instructing the compiler to include Brave-specific C++
+and Rust source files alongside the standard browser components.</li>
+</ol>
+<h3 id="embedding-the-rust-based-ad-blocker">Embedding the Rust-Based Ad
+Blocker</h3>
+<p>Standard ad blockers operate as browser extensions, relying on
+JavaScript APIs that introduce performance bottlenecks and memory
+overhead. Brave bypasses the extension system entirely by embedding an
+ad-blocking engine called <code>adblock-rust</code> directly into the
+browser's C++ network stack.</p>
+<p>Because Chromium is written in C++ and the ad blocker is written in
+Rust, Brave bridges the two languages using a Foreign Function Interface
+(FFI):</p>
+<ul>
+<li><strong>Compilation and Linking:</strong> Brave extends Chromium’s
+GN build system with custom templates that invoke the Rust compiler
+(<code>rustc</code> and <code>cargo</code>). The
+<code>adblock-rust</code> crate is compiled into a static library, which
+the Ninja build system then links directly into the main browser
+binary.</li>
+<li><strong>The FFI Bridge:</strong> Brave uses tools like
+<code>cbindgen</code> and the <code>cxx</code> crate to automatically
+generate C++ header files for the Rust code. This exposes Rust structs
+and functions in a format that Chromium’s C++ compiler can understand
+and execute safely.</li>
+<li><strong>Network Interception:</strong> In Chromium, network requests
+are managed by the Network Service. Brave implements a custom
+<code>content::URLLoaderThrottle</code> in C++. Before Chromium
+dispatches any network request (such as loading an image, script, or
+tracking pixel), it passes through this throttle. The C++ throttle takes
+the request URL, origin, and resource type, and passes them across the
+FFI boundary to the <code>adblock-rust</code> engine. The Rust engine
+evaluates the request against memory-mapped filter lists in microseconds
+and returns a boolean decision to the C++ code, which then either
+allows, blocks, or redirects the request before a network connection is
+ever made.</li>
+</ul>
+<h3 id="integrating-the-native-cryptocurrency-wallet">Integrating the
+Native Cryptocurrency Wallet</h3>
+<p>Like its ad blocker, the Brave Wallet is built natively into the
+browser rather than running as a downloadable Web3 extension. This
+eliminates the risk of extension-spoofing and reduces CPU and RAM usage.
+Embedding a crypto wallet requires deep integration with Chromium’s
+multi-process security model, which separates the unprivileged
+"Renderer" processes (which run websites) from the privileged "Browser"
+process (which has access to the operating system and disk).</p>
+<p>Brave achieves this through the following architecture:</p>
+<ul>
+<li><strong>The Core Service:</strong> The heart of the wallet is the
+<code>BraveWalletService</code>, a C++ component that runs securely
+inside the privileged Browser process. This service manages encrypted
+state, handles RPC communications with blockchain nodes, and coordinates
+transaction signing.</li>
+<li><strong>Rust for Cryptography:</strong> Cryptocurrency wallets
+require complex cryptographic operations, such as hierarchical
+deterministic (HD) key derivation and elliptic curve signing. To ensure
+memory safety when handling private keys, Brave offloads many of these
+cryptographic primitives to Rust crates, linking them to the C++
+<code>BraveWalletService</code> using the same FFI pipeline used by the
+ad blocker.</li>
+<li><strong>Web3 Provider Injection:</strong> For decentralized
+applications (dApps) to detect the wallet, the browser must inject
+JavaScript objects—such as <code>window.ethereum</code> for EVM chains
+and <code>window.solana</code> for Solana—into the webpage. Brave uses a
+Chromium <code>RenderFrameObserver</code> in the Renderer process to
+monitor when a new webpage context is created. It then uses Chromium's
+Gin library to bind native C++ functions to these JavaScript
+objects.</li>
+<li><strong>Mojo Inter-Process Communication (IPC):</strong> Because the
+webpage runs in the untrusted Renderer process and the wallet lives in
+the secure Browser process, they cannot share memory directly. When a
+user clicks "Connect Wallet" on a website, the injected JavaScript calls
+the C++ binding in the Renderer. The Renderer then sends a message
+across Chromium’s native IPC system, known as Mojo. The
+<code>BraveWalletService</code> in the Browser process receives the Mojo
+message, triggers the native C++ browser UI to ask for user permission,
+signs the data, and sends the cryptographic response back through the
+Mojo pipe to the webpage.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-brave-customizes-chromium-for-ad-blocking-and-crypto';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

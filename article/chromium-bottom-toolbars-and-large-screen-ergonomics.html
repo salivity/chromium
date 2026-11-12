@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Bottom Toolbars and Large Screen Ergonomics - chromium</title>
+    <meta name="description" content="This article explores how experimental bottom toolbars in the mobile Chromium web browser solved the ergonomic challenges of navigating large smartphone screens with one hand. By relocating essential controls like the address bar, tab switcher, and search">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-bottom-toolbars-and-large-screen-ergonomics">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Bottom Toolbars and Large Screen Ergonomics - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-bottom-toolbars-and-large-screen-ergonomics" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how experimental bottom toolbars in the mobile Chromium web browser solved the ergonomic challenges of navigating large smartphone screens with one hand. By relocating essential controls like the address bar, tab switcher, and search" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-bottom-toolbars-and-large-screen-ergonomics">Chromium
+Bottom Toolbars and Large Screen Ergonomics</h1>
+<p>This article explores how experimental bottom toolbars in the mobile
+Chromium web browser solved the ergonomic challenges of navigating large
+smartphone screens with one hand. By relocating essential controls like
+the address bar, tab switcher, and search triggers to the bottom of the
+display, iterations such as Chrome Home and Chrome Duet brought browser
+navigation directly into the user's natural thumb zone. Ultimately,
+these experiments demonstrated how shifting user interface elements
+downward significantly reduces physical strain, prevents accidental
+device drops, and improves browsing efficiency on modern, tall
+devices.</p>
+<h2 id="the-ergonomic-challenge-of-tall-screens">The Ergonomic Challenge
+of Tall Screens</h2>
+<p>As smartphones transitioned to taller aspect ratios (such as 18:9 and
+20:9) and screen sizes surpassed six inches, traditional user interface
+design became ergonomically flawed. Historically, mobile browsers placed
+the address bar (known in Chromium as the Omnibox) and tab management
+controls at the very top of the screen.</p>
+<p>For a person using their phone one-handed, the natural arc of the
+thumb—the "thumb zone"—only comfortably covers the bottom third and
+middle of the display. Reaching the top of a large screen requires the
+user to physically shift the phone downward in their palm, a precarious
+movement that causes hand fatigue and increases the risk of dropping the
+device. Chromium’s bottom toolbar experiments were specifically
+engineered to eliminate this reach.</p>
+<h2 id="chrome-home-full-omnibox-relocation">Chrome Home: Full Omnibox
+Relocation</h2>
+<p>The first major experiment, dubbed "Chrome Home" and introduced via
+hidden browser flags in 2016, tackled the problem through complete
+relocation. It took the entire top toolbar—including the URL bar, the
+tab switcher button, and the menu button—and anchored it to the bottom
+of the screen.</p>
+<p>This addressed one-handed ergonomics in three specific ways:</p>
+<ul>
+<li><strong>Immediate URL Access:</strong> Users could tap the address
+bar with their thumb without adjusting their grip.</li>
+<li><strong>Swipe-Up Navigation:</strong> Swiping up on the bottom bar
+smoothly revealed frequently visited sites, bookmarks, and news feeds,
+turning a difficult top-down reach into a natural upward thumb
+flick.</li>
+<li><strong>Consolidated Controls:</strong> By grouping the keyboard
+(which naturally appears at the bottom) and the address bar together,
+users no longer had to shift their visual focus and thumb position from
+the top of the screen to the bottom just to type a search query.</li>
+</ul>
+<h2 id="chrome-duet-the-split-toolbar-approach">Chrome Duet: The
+Split-Toolbar Approach</h2>
+<p>Following user feedback that a bottom URL bar felt visually cramped
+and interfered with web page footers, Chromium developers pivoted to a
+split-toolbar experiment originally called "Chrome Duplex" and later
+renamed "Chrome Duet."</p>
+<p>Instead of moving the address bar, Duet left the URL display at the
+top of the screen primarily for visual reference, while introducing a
+dedicated action bar at the bottom. This bottom bar went through several
+layouts, eventually settling on a three-button configuration: Home,
+Search, and Tab Switcher.</p>
+<p>Duet solved the one-handed reach problem through <strong>proxy
+actions</strong>:</p>
+<ul>
+<li><strong>The Search Button:</strong> Tapping the magnifying glass
+icon at the bottom of the screen instantly activated the top Omnibox and
+brought up the keyboard. This meant users never actually had to touch
+the top of the screen to enter a new URL or search term.</li>
+<li><strong>Bottom Tab Switching:</strong> One of the most frequent
+browser actions is switching tabs. Placing the tab overview button in
+the bottom right corner allowed users to jump between open pages
+effortlessly with a single thumb tap.</li>
+<li><strong>Contextual Sharing:</strong> In certain iterations of Duet,
+a share button was placed in the bottom bar, removing the need to reach
+for the top-right three-dot menu to send a link.</li>
+</ul>
+<h2 id="tab-groups-and-the-bottom-strip">Tab Groups and the Bottom
+Strip</h2>
+<p>Alongside Duet, Chromium experimented with a conditional bottom
+toolbar for Tab Groups. When a user grouped multiple tabs together, a
+persistent strip appeared at the bottom of the screen displaying
+favicons for every page in that group.</p>
+<p>Ergonomically, this allowed users to conduct research across multiple
+related pages—such as comparing product prices—by tapping icons right
+above their thumb, bypassing the multi-step process of opening the
+full-screen tab grid.</p>
+<h2 id="the-lasting-impact-on-mobile-browsing">The Lasting Impact on
+Mobile Browsing</h2>
+<p>Although Google eventually deprecated the Chrome Home and Duet flags
+in the main Android version of Chrome, the ergonomic data gathered from
+these experiments permanently altered the mobile browsing landscape.</p>
+<p>The code and design philosophies developed during these trials
+remained in the open-source Chromium project. Consequently, third-party
+Chromium-based browsers like Brave, Vivaldi, and Kiwi Browser adopted
+the bottom toolbar as a permanent, core feature for their Android users.
+Furthermore, Google eventually brought a native, fully supported bottom
+Omnibox toggle to Chrome for iOS, finally cementing the bottom toolbar
+as the definitive solution for one-handed ergonomics on large
+smartphones.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-bottom-toolbars-and-large-screen-ergonomics';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

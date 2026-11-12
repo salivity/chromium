@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Retired Its Built-In FTP Protocol Support - chromium</title>
+    <meta name="description" content="The Chromium project officially retired its built-in File Transfer Protocol (FTP) implementation in early 2021, ending decades of legacy web support. This decision was driven by three primary factors: the inherent security vulnerabilities of the aging pro">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-retired-its-built-in-ftp-protocol-support">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Retired Its Built-In FTP Protocol Support - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-retired-its-built-in-ftp-protocol-support" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium project officially retired its built-in File Transfer Protocol (FTP) implementation in early 2021, ending decades of legacy web support. This decision was driven by three primary factors: the inherent security vulnerabilities of the aging pro" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-retired-its-built-in-ftp-protocol-support">Why
+Chromium Retired Its Built-In FTP Protocol Support</h1>
+<p>The Chromium project officially retired its built-in File Transfer
+Protocol (FTP) implementation in early 2021, ending decades of legacy
+web support. This decision was driven by three primary factors: the
+inherent security vulnerabilities of the aging protocol, vanishingly low
+usage metrics among everyday internet users, and the high maintenance
+burden required to keep legacy code secure. By removing FTP, Chromium
+reduced its browser attack surface, pushed the web further toward
+universal encryption, and offloaded specialized file transfers to
+dedicated third-party applications.</p>
+<h2 id="severe-security-vulnerabilities">Severe Security
+Vulnerabilities</h2>
+<p>The primary reason for retiring FTP in the browser is that the
+protocol is fundamentally insecure by design. Created in the 1970s,
+standard FTP does not support encryption.</p>
+<p>When a user connects to an FTP server through a browser, all
+data—including usernames, passwords, and the files themselves—is
+transmitted in cleartext. This makes the connection highly susceptible
+to man-in-the-middle (MitM) attacks, allowing anyone on the same network
+to intercept, read, or modify the transferred files. As the modern web
+transitioned toward an "HTTPS everywhere" standard, maintaining a
+completely unencrypted protocol inside a web browser contradicted core
+security principles.</p>
+<h2 id="lack-of-encrypted-ftp-support">Lack of Encrypted FTP
+Support</h2>
+<p>While secure versions of the protocol exist, such as FTPS (FTP
+Secure) and SFTP (SSH File Transfer Protocol), the Chromium team chose
+not to implement them. Instead of investing significant engineering
+resources to build support for FTPS or SFTP into the browser, the team
+recognized that HTTPS already solved the problem of secure file
+distribution on the web. Implementing new, complex protocol handlers for
+a shrinking user base was deemed unnecessary.</p>
+<h2 id="abysmally-low-usage">Abysmally Low Usage</h2>
+<p>Before deprecating a feature, the Chromium team relies heavily on
+telemetry data to measure how many people actually use it. Prior to the
+removal of FTP, Google reported that usage had dropped to an
+infinitesimal fraction of overall web traffic—less than 0.002% of users
+accessed FTP links. Because virtually the entire consumer internet had
+already migrated to HTTP and HTTPS for file downloads, removing FTP
+impacted almost no regular browser users.</p>
+<h2 id="reducing-the-browser-attack-surface">Reducing the Browser Attack
+Surface</h2>
+<p>Every line of code in a web browser is a potential target for
+malicious hackers. Chromium’s FTP implementation consisted of very old
+legacy code that was rarely updated. Maintaining this code required
+ongoing security audits and bug fixes to ensure that a maliciously
+configured FTP server could not exploit the browser and compromise the
+user's operating system. By deleting the FTP codebase entirely, Chromium
+engineers permanently eliminated a potential vector for zero-day
+exploits and freed up resources to focus on modern web standards.</p>
+<h2 id="superior-dedicated-alternatives">Superior Dedicated
+Alternatives</h2>
+<p>Web browsers were only ever capable of basic FTP directory listing
+and file downloading; they were never robust FTP clients. When Chromium
+removed built-in support, it transitioned to passing <code>ftp://</code>
+links directly to the host operating system. Users who still rely on FTP
+for server management or legacy archival access are now prompted to open
+these links in dedicated third-party applications like FileZilla,
+Cyberduck, or WinSCP. These specialized programs are actively
+maintained, offer vastly superior interfaces for file transfers, and
+fully support secure protocols like SFTP and FTPS.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-retired-its-built-in-ftp-protocol-support';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

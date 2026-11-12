@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rebuilding Chromium&#39;s Windowing for the Arc Browser Sidebar - chromium</title>
+    <meta name="description" content="This article explores the architectural modifications The Browser Company made to the open-source Chromium engine to create the Arc browser&#39;s signature vertical sidebar. By stripping away Chromium&#39;s default C++ user interface layer and replacing it with a">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/rebuilding-chromium-s-windowing-for-the-arc-browser-sidebar">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Rebuilding Chromium&#39;s Windowing for the Arc Browser Sidebar - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/rebuilding-chromium-s-windowing-for-the-arc-browser-sidebar" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architectural modifications The Browser Company made to the open-source Chromium engine to create the Arc browser&#39;s signature vertical sidebar. By stripping away Chromium&#39;s default C++ user interface layer and replacing it with a" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="rebuilding-chromiums-windowing-for-the-arc-browser-sidebar">Rebuilding
+Chromium's Windowing for the Arc Browser Sidebar</h1>
+<p>This article explores the architectural modifications The Browser
+Company made to the open-source Chromium engine to create the Arc
+browser's signature vertical sidebar. By stripping away Chromium's
+default C++ user interface layer and replacing it with a native Swift
+framework, the engineering team decoupled tab management from web
+rendering, enabling features like Spaces, Split View, and single-window
+multi-profile switching.</p>
+<h2 id="bypassing-the-chromium-views-framework">Bypassing the Chromium
+Views Framework</h2>
+<p>In a standard Chromium browser, the entire application
+window—including the frame, horizontal tab strip, address bar, and
+viewport—is managed by a cross-platform C++ layout engine called
+<code>Views</code>.</p>
+<p>To build Arc’s vertical sidebar, The Browser Company chose not to
+modify this existing C++ UI framework. Instead, they bypassed it almost
+entirely. They treated Chromium not as a complete application, but as a
+headless rendering and networking library. Arc takes ownership of the
+top-level operating system window using native platform toolkits (AppKit
+and SwiftUI on macOS, and WinUI on Windows) and embeds Chromium’s
+rendering viewports directly into their custom-built native window
+hierarchy.</p>
+<h2 id="building-the-swift-to-c-bridge">Building the Swift-to-C++
+Bridge</h2>
+<p>Because Chromium is written in C++ and Arc’s windowing architecture
+is written in Swift, the engineering team had to build a massive
+interoperability layer.</p>
+<p>Whenever a user interacts with the vertical sidebar—such as clicking
+a tab, dragging a folder, or triggering the command bar—those events are
+handled natively in Swift. The custom bridging layer translates these
+Swift actions into C++ commands that Chromium can understand,
+instructing the underlying engine when to navigate, halt network
+requests, or free up memory. Conversely, when a webpage changes its
+title, favicon, or audio-playing state, the bridge passes those C++
+notifications back up to the Swift layer to update the sidebar UI.</p>
+<h2 id="abstracting-the-tabstripmodel">Abstracting the
+TabStripModel</h2>
+<p>Chromium’s native windowing architecture relies on a class called
+<code>TabStripModel</code>, which assumes tabs exist in a flat, linear,
+horizontal array tied to a specific window. Arc’s vertical sidebar
+fundamentally breaks this assumption by introducing three distinct tab
+states within the same view: Favorites (persistent apps), Pinned Tabs
+(persistent bookmarks per Space), and Today Tabs (ephemeral tabs).</p>
+<p>To achieve this, The Browser Company abstracted tab state management
+away from Chromium’s <code>TabStripModel</code>. Arc maintains its own
+source-of-truth data model in the native UI layer. Chromium is only used
+to manage the <code>WebContents</code> (the actual rendered webpage).
+This decoupling allows Arc to unload a tab's <code>WebContents</code> to
+save memory while keeping the tab visually present in the sidebar, or
+move tabs seamlessly between different organizational hierarchies
+without triggering Chromium's native tab-detachment logic.</p>
+<h2 id="reparenting-webcontents-for-split-view-and-peek">Reparenting
+WebContents for Split View and Peek</h2>
+<p>Standard Chromium windows are architected to display a single active
+<code>WebContents</code> view at a time. When you switch tabs in Chrome,
+the window swaps out one <code>WebContents</code> view for another.</p>
+<p>Arc’s workflow relies heavily on viewing multiple web pages at once
+via Split View, or previewing links in a modal overlay using a feature
+called Peek. To make this work, The Browser Company modified how
+<code>WebContents</code> views are hosted. Instead of binding a single
+viewport to the window frame, Arc’s window manager acts as a flexible
+compositor. It can instantiate multiple active Chromium
+<code>RenderWidgetHostView</code> objects simultaneously, placing them
+side-by-side for Split View or layering them on top of one another for
+Peek, while handling focus states and keyboard routing independently of
+Chromium's default window controller.</p>
+<h2 id="breaking-the-one-profile-per-window-rule">Breaking the
+One-Profile-Per-Window Rule</h2>
+<p>One of the deepest architectural changes made for the Arc sidebar is
+how it handles Chromium <code>Profile</code> objects. In standard
+Chromium, a <code>Browser</code> window instance is strictly bound to a
+single <code>Profile</code>. If a user wants to separate their work
+cookies and history from their personal ones, Chromium forces them to
+open two entirely separate operating system windows.</p>
+<p>Arc’s sidebar allows users to swipe between different "Spaces" within
+the exact same window, and each Space can be linked to a completely
+different Chromium <code>Profile</code>. To accomplish this, The Browser
+Company decoupled the OS window from the Chromium <code>Browser</code>
+object. A single Arc window can simultaneously host multiple hidden
+Chromium <code>Browser</code> instances in the background—each tied to a
+different profile. When a user swipes to a new Space in the sidebar,
+Arc’s windowing layer instantly swaps the active rendering viewports on
+the screen, creating the illusion of a single unified browser window
+that effortlessly spans multiple isolated Chromium profiles.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/rebuilding-chromium-s-windowing-for-the-arc-browser-sidebar';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

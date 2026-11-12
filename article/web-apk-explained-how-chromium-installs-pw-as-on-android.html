@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAPK Explained: How Chromium Installs PWAs on Android - chromium</title>
+    <meta name="description" content="This article explores WebAPK technology and the exact process the Chromium web browser on Android uses to transform Progressive Web Apps (PWAs) into installable native application packages. By examining the architecture of WebAPKs, the role of the Web App">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/web-apk-explained-how-chromium-installs-pw-as-on-android">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebAPK Explained: How Chromium Installs PWAs on Android - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/web-apk-explained-how-chromium-installs-pw-as-on-android" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores WebAPK technology and the exact process the Chromium web browser on Android uses to transform Progressive Web Apps (PWAs) into installable native application packages. By examining the architecture of WebAPKs, the role of the Web App" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="webapk-explained-how-chromium-installs-pwas-on-android">WebAPK
+Explained: How Chromium Installs PWAs on Android</h1>
+<p>This article explores WebAPK technology and the exact process the
+Chromium web browser on Android uses to transform Progressive Web Apps
+(PWAs) into installable native application packages. By examining the
+architecture of WebAPKs, the role of the Web App Manifest, and the
+cloud-based minting process, you will understand how web applications
+achieve deep integration within the Android operating system without
+going through a traditional app store.</p>
+<h3 id="what-is-webapk-technology">What is WebAPK Technology?</h3>
+<p>WebAPK (Web Android Package Kit) is a technology developed for
+Chromium-based browsers on Android that packages a Progressive Web App
+into a real, installable <code>.apk</code> file. Before WebAPK, adding a
+website to the Android home screen only created a simple bookmark
+shortcut.</p>
+<p>With WebAPK, the PWA is treated as a native application by the
+Android operating system. Once installed, a WebAPK:</p>
+<ul>
+<li>Appears in the Android app drawer and system settings.</li>
+<li>Can register intent filters, meaning clicking a link to the website
+will open the installed PWA directly instead of a browser tab.</li>
+<li>Has its own dedicated storage, permissions, and data usage tracking
+in the Android OS.</li>
+<li>Runs in its own standalone window in the Android task switcher,
+separate from the main browser.</li>
+</ul>
+<h3 id="prerequisites-for-webapk-creation">Prerequisites for WebAPK
+Creation</h3>
+<p>Chromium will not generate a WebAPK for standard websites. To trigger
+the WebAPK generation process, a web application must meet specific PWA
+installability criteria:</p>
+<ol type="1">
+<li><strong>HTTPS:</strong> The web app must be served over a secure
+network connection.</li>
+<li><strong>Service Worker:</strong> The app must register a Service
+Worker with a fetch handler, allowing the app to load and function while
+offline.</li>
+<li><strong>Web App Manifest:</strong> The site must include a valid
+<code>manifest.json</code> file containing metadata such as the app's
+name, icons, start URL, theme colors, and display mode (such as
+<code>standalone</code> or <code>fullscreen</code>).</li>
+</ol>
+<h3 id="how-chromium-generates-the-native-package">How Chromium
+Generates the Native Package</h3>
+<p>When a user taps "Install App" in a Chromium browser (such as Google
+Chrome), the browser does not compile the APK locally on the phone.
+Android devices lack the necessary SDK build tools and cryptographic
+signing keys required to build apps locally. Instead, Chromium uses a
+cloud-based generation process:</p>
+<ol type="1">
+<li><strong>Manifest Parsing:</strong> Chromium reads the website's
+<code>manifest.json</code> file and extracts the app's metadata, icons,
+and configuration rules.</li>
+<li><strong>The Minting Server Request:</strong> Chromium bundles this
+metadata into a protocol buffer and sends it over the internet to a
+remote server known as the <strong>WebAPK Minting Server</strong>, which
+is maintained by the browser vendor.</li>
+<li><strong>Compilation and Signing:</strong> The Minting Server takes
+the manifest data and injects it into a lightweight, pre-made Android
+application template. The server then compiles this into a standard
+<code>.apk</code> file and cryptographically signs it using the vendor's
+official key.</li>
+<li><strong>Silent Installation:</strong> The signed WebAPK is
+downloaded back to the user's device. On standard Android devices,
+Google Play Services intercepts the package and installs it silently in
+the background. Because the APK is signed by a trusted entity and
+handled by Play Services, the user does not have to enable the "Install
+from Unknown Sources" security setting.</li>
+</ol>
+<h3 id="how-a-webapk-operates-on-the-device">How a WebAPK Operates on
+the Device</h3>
+<p>A generated WebAPK is extremely small—often less than a megabyte.
+This is because the APK does not contain a web rendering engine, nor
+does it contain the actual HTML, CSS, or JavaScript of the web app.</p>
+<p>Instead, the WebAPK is merely a native wrapper containing the app's
+manifest data and a set of instructions. When the user taps the app icon
+on their home screen, the WebAPK launches and calls upon the host
+Chromium browser already installed on the device. Chromium then opens a
+dedicated rendering instance (known as a Custom Tab) configured
+according to the WebAPK's instructions, hiding the address bar and
+standard browser UI to provide a native-like experience.</p>
+<h3 id="updating-a-webapk">Updating a WebAPK</h3>
+<p>Because web applications change frequently, WebAPKs must be able to
+update dynamically.</p>
+<p>Changes to the actual web content (HTML, CSS, JavaScript) do not
+require a WebAPK update, as those files are fetched live from the web or
+managed directly by the Service Worker cache. However, if a developer
+changes the app's name, updates the home screen icon, or alters the
+orientation rules, the native APK must be rebuilt.</p>
+<p>Whenever the user launches the installed PWA, Chromium compares the
+live <code>manifest.json</code> file on the web server with the
+configuration stored inside the installed WebAPK. If Chromium detects a
+change in the manifest, it automatically requests a new package from the
+WebAPK Minting Server and updates the app silently in the background
+when the app is closed.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/web-apk-explained-how-chromium-installs-pw-as-on-android';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

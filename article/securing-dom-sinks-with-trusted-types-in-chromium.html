@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Securing DOM Sinks with Trusted Types in Chromium - chromium</title>
+    <meta name="description" content="This article explores the purpose and functionality of Trusted Types in the Chromium web browser. It covers how this security API prevents DOM-based Cross-Site Scripting (DOM XSS) by locking down dangerous Document Object Model (DOM) manipulation sinks, h">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/securing-dom-sinks-with-trusted-types-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Securing DOM Sinks with Trusted Types in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/securing-dom-sinks-with-trusted-types-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the purpose and functionality of Trusted Types in the Chromium web browser. It covers how this security API prevents DOM-based Cross-Site Scripting (DOM XSS) by locking down dangerous Document Object Model (DOM) manipulation sinks, h" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="securing-dom-sinks-with-trusted-types-in-chromium">Securing DOM
+Sinks with Trusted Types in Chromium</h1>
+<p>This article explores the purpose and functionality of Trusted Types
+in the Chromium web browser. It covers how this security API prevents
+DOM-based Cross-Site Scripting (DOM XSS) by locking down dangerous
+Document Object Model (DOM) manipulation sinks, how developers use
+security policies to sanitize data, and why this browser-level
+enforcement significantly reduces the web application attack
+surface.</p>
+<h3 id="the-problem-with-dom-manipulation-sinks">The Problem with DOM
+Manipulation Sinks</h3>
+<p>For years, DOM-based Cross-Site Scripting (DOM XSS) has been one of
+the most persistent security vulnerabilities on the web. It occurs when
+an application takes untrusted data—such as user input from a URL
+parameter—and passes it directly into a DOM manipulation sink that
+executes code.</p>
+<p>DOM sinks are browser APIs that allow JavaScript to modify the
+structure, style, or content of a webpage. Common risky sinks
+include:</p>
+<ul>
+<li><code>Element.innerHTML</code></li>
+<li><code>document.write()</code></li>
+<li><code>eval()</code></li>
+<li><code>HTMLScriptElement.src</code></li>
+</ul>
+<p>By default, these APIs accept raw text strings. Because the browser
+cannot inherently tell the difference between a safe string created by a
+developer and a malicious string injected by an attacker, passing
+unvalidated strings into these sinks often results in unintended script
+execution.</p>
+<h3 id="the-purpose-of-trusted-types">The Purpose of Trusted Types</h3>
+<p>The primary purpose of Trusted Types in Chromium is to eliminate DOM
+XSS vulnerabilities by fundamentally changing how data is passed to DOM
+manipulation sinks. Instead of trying to catch every malicious string
+before it hits a sink, Trusted Types secures the sinks themselves.</p>
+<p>When Trusted Types are enabled in Chromium via a Content Security
+Policy (CSP) header, the browser locks down all risky DOM sinks. They
+will no longer accept raw strings. If a developer attempts to pass a
+standard string into a sink like <code>innerHTML</code>, Chromium will
+block the action and throw a JavaScript <code>TypeError</code>.</p>
+<p>To successfully manipulate the DOM, the application must instead pass
+a specific, strongly-typed object that indicates the data has been
+explicitly vetted as safe.</p>
+<h3 id="the-three-trusted-type-objects">The Three Trusted Type
+Objects</h3>
+<p>Chromium enforces security by requiring one of three specific
+objects, depending on the sink being used:</p>
+<ol type="1">
+<li><strong>TrustedHTML:</strong> Required for sinks that parse and
+render HTML, such as <code>Element.innerHTML</code> or
+<code>document.write()</code>.</li>
+<li><strong>TrustedScript:</strong> Required for sinks that execute
+JavaScript code, such as <code>eval()</code> or
+<code>HTMLScriptElement.text</code>.</li>
+<li><strong>TrustedScriptURL:</strong> Required for sinks that load
+external code for execution, such as <code>HTMLScriptElement.src</code>
+or <code>Worker()</code>.</li>
+</ol>
+<h3 id="how-chromium-enforces-security-through-policies">How Chromium
+Enforces Security Through Policies</h3>
+<p>Developers cannot simply instantiate a Trusted Type object directly;
+they must create it using a Trusted Type Policy. A policy is a
+user-defined JavaScript object that acts as a gatekeeper, enforcing
+specific security rules—such as running an HTML sanitizer like
+DOMPurify—before converting a raw string into a Trusted Type.</p>
+<p>This mechanism serves two main purposes:</p>
+<ul>
+<li><strong>Centralized Sanitization:</strong> All potentially dangerous
+data must pass through a centralized policy to become a Trusted Type. If
+data does not go through the policy, the browser rejects it at the
+sink.</li>
+<li><strong>Simplified Security Audits:</strong> Instead of reviewing
+thousands of lines of application code to find every instance of
+<code>innerHTML</code>, security teams only need to audit the few lines
+of code that define the Trusted Type Policies. If the policy is secure,
+the DOM sinks are secure.</li>
+</ul>
+<h3 id="shifting-security-to-the-browser-engine">Shifting Security to
+the Browser Engine</h3>
+<p>Before Trusted Types, preventing DOM XSS relied entirely on developer
+discipline. A single forgotten sanitization check anywhere in the
+codebase could result in a vulnerability.</p>
+<p>By integrating Trusted Types directly into Blink (Chromium’s
+rendering engine), the responsibility of enforcement shifts from the
+developer to the browser. Chromium monitors the sinks at the engine
+level, ensuring that insecure strings are rejected by default and making
+DOM XSS virtually impossible when the policies are properly
+configured.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/securing-dom-sinks-with-trusted-types-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

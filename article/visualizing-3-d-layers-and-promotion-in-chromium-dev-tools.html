@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizing 3D Layers and Promotion in Chromium DevTools - chromium</title>
+    <meta name="description" content="This article provides a direct guide to the Layers panel in Chromium-based web browsers. It explains how developers can use this built-in DevTools feature to visualize a webpage&#39;s document object model (DOM) as three-dimensional composited layers and how">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/visualizing-3-d-layers-and-promotion-in-chromium-dev-tools">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Visualizing 3D Layers and Promotion in Chromium DevTools - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/visualizing-3-d-layers-and-promotion-in-chromium-dev-tools" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a direct guide to the Layers panel in Chromium-based web browsers. It explains how developers can use this built-in DevTools feature to visualize a webpage&#39;s document object model (DOM) as three-dimensional composited layers and how" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="visualizing-3d-layers-and-promotion-in-chromium-devtools">Visualizing
+3D Layers and Promotion in Chromium DevTools</h1>
+<p>This article provides a direct guide to the Layers panel in
+Chromium-based web browsers. It explains how developers can use this
+built-in DevTools feature to visualize a webpage's document object model
+(DOM) as three-dimensional composited layers and how to diagnose the
+exact technical reasons the browser engine promoted specific elements to
+their own independent layers.</p>
+<p>The Chromium rendering engine optimizes page performance by
+separating certain elements into their own composited layers, which are
+rendered independently by the GPU. The Layers panel in DevTools
+translates this behind-the-scenes process into an interactive diagnostic
+tool. To open it, open DevTools, press <code>Ctrl+Shift+P</code> (or
+<code>Cmd+Shift+P</code> on Mac) to open the Command Menu, type "Show
+Layers", and press Enter.</p>
+<h3 id="visualizing-3d-composited-layers">Visualizing 3D Composited
+Layers</h3>
+<p>The primary workspace of the Layers panel is an interactive 3D canvas
+that renders the active webpage's layer tree. Instead of displaying a
+flat website, the panel pulls the page apart along the Z-axis, allowing
+you to see the spatial hierarchy and how layers stack on top of one
+another.</p>
+<ul>
+<li><strong>Layer Selection:</strong> A list of all active layers is
+displayed in a tree view on the left pane, while the right pane renders
+the 3D visualization.</li>
+<li><strong>Rotate and Pan:</strong> Using the toolbar controls at the
+top of the viewport, you can click and drag to rotate the 3D model of
+the webpage in any direction. This perspective makes it easy to see the
+depth of your stacking contexts and spot elements that have been
+positioned far off-screen.</li>
+<li><strong>Layer Boundaries:</strong> Each outlined box in the 3D view
+represents a distinct composited layer sent to the GPU, rather than a
+standard DOM node.</li>
+<li><strong>Visual Toggles:</strong> The toolbar allows you to toggle
+the actual painted content (textures) on and off. Turning off textures
+leaves only wireframes, which is useful for inspecting complex,
+overlapping layouts. You can also toggle views for slow-scroll rects,
+which highlight areas of the page that interfere with
+hardware-accelerated scrolling.</li>
+</ul>
+<h3 id="explaining-why-an-element-was-promoted">Explaining Why an
+Element Was Promoted</h3>
+<p>While promoting elements to the GPU improves animation and scrolling
+performance, creating too many layers—a problem known as "layer
+explosion"—can quickly exhaust system memory. The Layers panel removes
+the guesswork of layer management by explicitly stating why a layer
+exists.</p>
+<p>To find out why an element was promoted:</p>
+<ol type="1">
+<li>Select a layer by clicking on it directly in the 3D canvas or by
+choosing it from the layer tree list on the left.</li>
+<li>Observe the <strong>Details</strong> pane that opens at the bottom
+of the panel.</li>
+<li>Locate the <strong>Compositing Reasons</strong> section within this
+pane.</li>
+</ol>
+<h3 id="common-compositing-reasons">Common Compositing Reasons</h3>
+<p>The Details pane translates complex Blink rendering engine logic into
+readable explanations. Some of the most common promotion reasons
+reported by the panel include:</p>
+<ul>
+<li><strong>Direct CSS Properties:</strong> The element has explicit CSS
+rules forcing promotion, such as <code>transform: translate3d()</code>,
+<code>backface-visibility: hidden</code>, or
+<code>will-change: transform</code>.</li>
+<li><strong>Active Animations:</strong> The element is currently running
+a hardware-accelerated CSS transition or animation on properties like
+<code>opacity</code>, <code>transform</code>, or
+<code>filter</code>.</li>
+<li><strong>Accelerated Content Types:</strong> The element is a
+<code>&lt;video&gt;</code>, <code>&lt;canvas&gt;</code>, or
+<code>&lt;iframe&gt;</code> that relies on its own backing store for
+rendering.</li>
+<li><strong>Overlap (Implicit Promotion):</strong> An element might have
+no promotion properties of its own, but it renders on top of another
+composited layer in the stacking order. To maintain the correct visual
+appearance (Z-index), the browser is forced to promote the overlapping
+element to its own layer as well.</li>
+<li><strong>Layer Squashing:</strong> If multiple elements overlap a
+promoted layer, Chromium attempts to merge them into a single layer to
+save memory. The panel will explain if an element was combined into a
+"squashed" layer or explain why squashing failed.</li>
+</ul>
+<h3 id="profiling-memory-and-paint-performance">Profiling Memory and
+Paint Performance</h3>
+<p>Alongside the promotion reasons, the Details pane provides critical
+metrics tied to the 3D visualization. The <strong>Memory
+estimate</strong> tells you exactly how much GPU memory the selected
+layer consumes based on its pixel dimensions. Additionally, the
+<strong>Paint count</strong> metric tracks how many times the browser
+has had to repaint that specific layer. By watching this number while
+interacting with the page, developers can verify that animated elements
+are truly being handled by the GPU compositor without triggering
+expensive CPU repaints.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/visualizing-3-d-layers-and-promotion-in-chromium-dev-tools';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

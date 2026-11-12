@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Defends Against IDN Homograph Attacks - chromium</title>
+    <meta name="description" content="Internationalized Domain Names (IDNs) allow web addresses to contain non-ASCII characters, enabling native-language URLs for users worldwide. However, cybercriminals exploit this system through homograph attacks, registering domains with foreign character">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-defends-against-idn-homograph-attacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Defends Against IDN Homograph Attacks - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-defends-against-idn-homograph-attacks" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Internationalized Domain Names (IDNs) allow web addresses to contain non-ASCII characters, enabling native-language URLs for users worldwide. However, cybercriminals exploit this system through homograph attacks, registering domains with foreign character" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-defends-against-idn-homograph-attacks">How Chromium
+Defends Against IDN Homograph Attacks</h1>
+<p>Internationalized Domain Names (IDNs) allow web addresses to contain
+non-ASCII characters, enabling native-language URLs for users worldwide.
+However, cybercriminals exploit this system through homograph attacks,
+registering domains with foreign characters that look visually identical
+to standard Latin letters to phish unsuspecting users. To protect
+against this, the Chromium web browser employs a multi-layered defense
+system that evaluates domain names using script-mixing rules, confusable
+character tables, and top-domain comparisons, automatically unmasking
+deceptive URLs by reverting them to their raw ASCII format in the
+address bar.</p>
+<h3 id="the-core-defense-punycode-fallback">The Core Defense: Punycode
+Fallback</h3>
+<p>To understand Chromium's defense, it is necessary to understand how
+IDNs work. The Domain Name System (DNS) historically only understood
+ASCII characters. To accommodate international characters (Unicode),
+browsers use a translation system called Punycode. Punycode translates
+Unicode strings into an ASCII-compatible encoding format, which always
+begins with the prefix <code>xn--</code>.</p>
+<p>For example, if an attacker registers <code>apple.com</code> using
+the Cyrillic small letter "а" instead of the Latin "a", the browser
+translates this behind the scenes to <code>xn--pple-43d.com</code>.</p>
+<p>Chromium does not necessarily block users from visiting suspected
+homograph domains. Instead, its primary defense is <strong>Punycode
+fallback</strong>. If Chromium’s algorithms determine a domain name is
+attempting to spoof another, it refuses to render the Unicode characters
+in the address bar. The user sees <code>xn--pple-43d.com</code> instead
+of <code>apple.com</code>, making the deception obvious.</p>
+<h3 id="1-script-mixing-restrictions">1. Script-Mixing Restrictions</h3>
+<p>The most common homograph attack involves replacing a single Latin
+character in a well-known domain name with a look-alike character from
+another alphabet (like Greek or Cyrillic).</p>
+<p>Chromium prevents this by analyzing the scripts used within each
+label of a domain name (a label is the text between the dots).
+Legitimate domain names rarely mix different writing systems within the
+same word. Chromium follows the Unicode Technical Standard #39 (UTS #39)
+to enforce strict script-mixing rules:</p>
+<ul>
+<li><strong>Single Script Rule:</strong> By default, a domain label must
+consist of characters from a single script. Mixing Latin and Cyrillic in
+the same word immediately triggers the Punycode fallback.</li>
+<li><strong>Allowed Combinations:</strong> Chromium allows specific,
+logical exceptions for languages that naturally mix scripts. For
+example, Japanese domains are permitted to mix Kanji, Hiragana,
+Katakana, and Latin ASCII characters.</li>
+</ul>
+<h3 id="2-whole-script-confusable-detection">2. Whole-Script Confusable
+Detection</h3>
+<p>Attackers bypassed early script-mixing rules by creating
+"whole-script" confusables. Instead of mixing one Cyrillic letter into a
+Latin word, the attacker writes the entire word using only Cyrillic
+letters that happen to look like Latin letters (such as
+<code>аррӏе.com</code>, written entirely in Cyrillic).</p>
+<p>Because the domain uses only one script, it passes the script-mixing
+check. To stop this, Chromium uses whole-script confusable
+detection:</p>
+<ul>
+<li>Chromium maintains lists of characters in non-Latin scripts (like
+Cyrillic, Greek, and Hebrew) that are visually indistinguishable from
+Latin characters.</li>
+<li>If a domain label is written entirely in a non-Latin script,
+Chromium checks if <em>every</em> character in that label belongs to the
+look-alike list.</li>
+<li>If the entire word is composed of look-alike characters, Chromium
+assumes it is spoofing a Latin word and displays the domain in
+Punycode.</li>
+</ul>
+<h3 id="3-skeleton-matching-against-top-domains">3. Skeleton Matching
+Against Top Domains</h3>
+<p>Some attacks are more subtle and try to mimic top-tier websites using
+characters from allowed script combinations or by exploiting
+similar-looking Latin characters (like using a lowercase "L" to mimic an
+uppercase "i", or combining <code>r</code> and <code>n</code> to look
+like <code>m</code>).</p>
+<p>To defend high-value targets, Chromium utilizes a "skeleton" matching
+algorithm:</p>
+<ul>
+<li><strong>Generating a Skeleton:</strong> Chromium converts the
+visited domain name into a visual "skeleton." This process strips
+diacritics (accents) and maps all visually similar characters across all
+languages to a single, standardized base character.</li>
+<li><strong>Top Domain Comparison:</strong> Chromium ships with a
+pre-compiled list of the skeletons of the most popular domains on the
+internet (e.g., Google, PayPal, Amazon).</li>
+<li><strong>Collision Detection:</strong> When a user visits an IDN,
+Chromium generates its skeleton and compares it against the top-domains
+list. If there is a match—and the visited domain is not the actual top
+domain—Chromium forces the URL to display as Punycode.</li>
+</ul>
+<h3 id="4-character-blacklisting-and-contextual-rules">4. Character
+Blacklisting and Contextual Rules</h3>
+<p>Unicode contains hundreds of thousands of characters, including
+emojis, mathematical symbols, and invisible formatting spaces, many of
+which have no business being in a URL. Chromium enforces strict
+character-level policies to eliminate abuse:</p>
+<ul>
+<li><strong>Disallowed Characters:</strong> Symbols that look like
+slashes (/) or dots (.) are strictly forbidden from rendering as
+Unicode, as attackers use them to fake directory paths or
+subdomains.</li>
+<li><strong>Contextual Checks:</strong> Certain characters, such as
+combining marks (accents and umlauts), are only allowed in specific
+contexts. Chromium prevents attackers from stacking multiple accents on
+a single letter to obscure it, and blocks invisible characters (like the
+Zero-Width Joiner) unless they are strictly required to render a
+specific script, such as Arabic or Indic languages.</li>
+<li><strong>Digit Mixing:</strong> Digits from different numbering
+systems (such as standard ASCII numbers and Eastern Arabic numerals)
+cannot be mixed within the same domain label.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-defends-against-idn-homograph-attacks';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

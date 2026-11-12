@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Reading Mode: Creating Dyslexia-Friendly Layouts - chromium</title>
+    <meta name="description" content="This article explores how the Chromium web browser&#39;s Reading Mode side panel transforms cluttered web pages into clean, accessible text. It covers the underlying content extraction technology, the use of machine learning to identify core article text, and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-reading-mode-creating-dyslexia-friendly-layouts">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Reading Mode: Creating Dyslexia-Friendly Layouts - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-reading-mode-creating-dyslexia-friendly-layouts" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium web browser&#39;s Reading Mode side panel transforms cluttered web pages into clean, accessible text. It covers the underlying content extraction technology, the use of machine learning to identify core article text, and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-reading-mode-creating-dyslexia-friendly-layouts">Chromium
+Reading Mode: Creating Dyslexia-Friendly Layouts</h1>
+<p>This article explores how the Chromium web browser's Reading Mode
+side panel transforms cluttered web pages into clean, accessible text.
+It covers the underlying content extraction technology, the use of
+machine learning to identify core article text, and the specific
+typographical and visual customizations designed to support readers with
+dyslexia.</p>
+<h3 id="content-distillation-and-machine-learning">Content Distillation
+and Machine Learning</h3>
+<p>To remove clutter, Chromium must first separate the primary article
+from advertisements, navigation bars, and pop-ups. It achieves this
+through a process called DOM (Document Object Model) distillation.
+Chromium uses an on-device machine learning model, known as Screen2x,
+which analyzes the browser's accessibility tree.</p>
+<p>Instead of merely looking at raw HTML code, the model evaluates the
+visual layout and semantic structure of the rendered page. It identifies
+the main text blocks and headers while discarding irrelevant elements
+like user comments, sidebars, and embedded media. This ensures only the
+necessary reading material is extracted.</p>
+<h3 id="rendering-in-the-side-panel">Rendering in the Side Panel</h3>
+<p>Once the core text is extracted, Chromium injects it into an isolated
+WebUI side panel. This panel completely ignores the original website's
+complex styling and applies a stripped-down, standardized
+stylesheet.</p>
+<p>By moving the text into a narrow, dedicated column alongside the main
+webpage, the browser automatically shortens the length of each line of
+text. Shorter lines prevent the reader's eyes from losing their place
+when tracking from the end of one line to the beginning of the next,
+addressing a common tracking challenge for people with dyslexia.</p>
+<h3 id="reducing-visual-crowding-with-spacing">Reducing Visual Crowding
+with Spacing</h3>
+<p>Visual crowding occurs when letters, words, or lines of text appear
+to blend together, making word decoding difficult for dyslexic readers.
+Chromium's Reading Mode counters this by offering granular spacing
+controls in the side panel toolbar.</p>
+<p>Users can increase the vertical space between lines (line height) and
+expand the horizontal space between individual letters and words. These
+adjustments create distinct visual boundaries around words and
+characters, making them easier to isolate, recognize, and process.</p>
+<h3 id="typography-and-font-selection">Typography and Font
+Selection</h3>
+<p>Many websites use decorative fonts (serifs) or tightly packed
+typefaces that can confuse dyslexic readers. The Reading Mode side panel
+overrides the website's original typography and allows the user to apply
+uniform, accessible fonts.</p>
+<p>Users can select clean, sans-serif typefaces, including Lexend—a font
+specifically engineered to reduce visual stress and improve reading
+speed. They can also choose fonts like Comic Sans, which is favored by
+many dyslexic readers because it features distinct, non-mirrored
+letterforms (making it easier to tell the difference between letters
+like "b" and "d"). Additionally, users can scale the font size up or
+down without breaking the layout of the text.</p>
+<h3 id="color-themes-and-contrast-control">Color Themes and Contrast
+Control</h3>
+<p>Stark black text on a bright white background creates high contrast
+that can cause visual fatigue and make text appear to blur or move on
+the screen. Chromium provides preset color themes to mitigate this
+glare.</p>
+<p>Readers can switch the side panel to low-contrast backgrounds, such
+as warm yellow (sepia), soft gray, or a muted dark mode. These softer
+color palettes reduce eye strain and stabilize the appearance of the
+text.</p>
+<h3 id="synchronized-text-to-speech">Synchronized Text-to-Speech</h3>
+<p>Chromium further supports dyslexic users by integrating a "Read
+Aloud" feature directly into the Reading Mode panel. This tool uses
+text-to-speech voices to read the distilled article aloud.</p>
+<p>As the audio plays, the interface visually highlights the current
+sentence and the exact word being spoken in real time. This bimodal
+approach—combining auditory processing with visual tracking—helps anchor
+the reader's attention, aids in decoding unfamiliar words, and improves
+overall reading comprehension.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-reading-mode-creating-dyslexia-friendly-layouts';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

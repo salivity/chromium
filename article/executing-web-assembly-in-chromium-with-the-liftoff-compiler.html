@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executing WebAssembly in Chromium with the Liftoff Compiler - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser rapidly executes WebAssembly (Wasm) modules using Liftoff, the baseline compiler within the V8 engine. It covers the tiered compilation pipeline, the mechanics of Liftoff&#39;s single-pass code generation, ho">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/executing-web-assembly-in-chromium-with-the-liftoff-compiler">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Executing WebAssembly in Chromium with the Liftoff Compiler - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/executing-web-assembly-in-chromium-with-the-liftoff-compiler" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser rapidly executes WebAssembly (Wasm) modules using Liftoff, the baseline compiler within the V8 engine. It covers the tiered compilation pipeline, the mechanics of Liftoff&#39;s single-pass code generation, ho" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="executing-webassembly-in-chromium-with-the-liftoff-compiler">Executing
+WebAssembly in Chromium with the Liftoff Compiler</h1>
+<p>This article explains how the Chromium web browser rapidly executes
+WebAssembly (Wasm) modules using Liftoff, the baseline compiler within
+the V8 engine. It covers the tiered compilation pipeline, the mechanics
+of Liftoff's single-pass code generation, how it manages memory and
+registers for instant startup, and how it transitions to the optimizing
+compiler for peak performance.</p>
+<h3 id="the-v8-tiered-compilation-pipeline">The V8 Tiered Compilation
+Pipeline</h3>
+<p>Chromium relies on the V8 engine to run both JavaScript and
+WebAssembly. To balance fast application startup times with high
+execution speeds, V8 uses a tiered compilation strategy for
+WebAssembly.</p>
+<p>Liftoff is the first tier in this pipeline. Its sole responsibility
+is to translate WebAssembly bytecode into native machine code as fast as
+possible. By prioritizing compilation speed over code optimization,
+Liftoff ensures that web applications can begin executing almost
+immediately after loading.</p>
+<h3 id="streaming-and-single-pass-compilation">Streaming and Single-Pass
+Compilation</h3>
+<p>Traditional compilers read code multiple times to build complex
+internal data structures, such as Abstract Syntax Trees (AST) or
+Intermediate Representations (IR), to analyze and optimize the program.
+Liftoff skips these steps entirely.</p>
+<p>Liftoff is a single-pass compiler. It reads the WebAssembly bytecode
+once, from beginning to end, and translates it directly into machine
+code. Because it operates in a single pass, Chromium uses Liftoff for
+streaming compilation. As the browser downloads the WebAssembly module
+bytes from the network, it feeds them directly into Liftoff. Compilation
+happens concurrently with the download, meaning the module is often
+ready to execute the exact millisecond the download finishes.</p>
+<h3 id="the-virtual-stack-and-register-allocation">The Virtual Stack and
+Register Allocation</h3>
+<p>WebAssembly is designed as a stack machine, meaning its instructions
+push values onto an operand stack and pop them off to perform
+operations. However, constantly reading and writing to a physical stack
+in system memory is slow on modern CPUs, which rely on hardware
+registers for fast data access.</p>
+<p>To generate reasonably fast code without doing multi-pass analysis,
+Liftoff uses a "virtual stack" during its single compilation pass. Here
+is how it works:</p>
+<ol type="1">
+<li><strong>Tracking State:</strong> As Liftoff reads each bytecode
+instruction, it updates an internal data structure (the virtual stack)
+that keeps track of where values are located.</li>
+<li><strong>Deferred Execution:</strong> Instead of immediately emitting
+machine code to push a value to memory, Liftoff simply notes on its
+virtual stack that a value exists and assigns it to an available CPU
+register.</li>
+<li><strong>Consuming Values:</strong> When Liftoff encounters an
+instruction that uses those values (like an addition operation), it
+checks the virtual stack, sees which registers hold the values, and
+emits a single CPU instruction to add those registers together.</li>
+<li><strong>Spilling:</strong> Liftoff only emits instructions to write
+data to the actual memory stack if the CPU runs out of free registers, a
+process known as "spilling."</li>
+</ol>
+<h3 id="direct-machine-code-emission">Direct Machine Code Emission</h3>
+<p>As Liftoff iterates through the bytecode and manipulates the virtual
+stack, it directly emits native machine code tailored to the user's
+specific CPU architecture (such as x86-64 or ARM64).</p>
+<p>Because WebAssembly bytecode is already structured and validated
+before it reaches the compiler, Liftoff does not need to perform complex
+type checking. It simply maps the WebAssembly instructions and virtual
+stack states to the corresponding CPU instructions. This stripped-down
+approach allows Liftoff to compile code at speeds of tens of megabytes
+per second.</p>
+<h3 id="tiering-up-to-turbofan">Tiering Up to TurboFan</h3>
+<p>Once Liftoff finishes compiling a WebAssembly function, Chromium
+executes the generated machine code immediately. While the code runs,
+V8's execution pipeline moves to the next phase to improve
+performance.</p>
+<p>Because Liftoff does not perform advanced optimizations (like loop
+unrolling or instruction reordering), its output is slower than fully
+optimized code. While the user interacts with the application running on
+Liftoff code, V8 sends the WebAssembly bytecode to background threads
+running TurboFan, V8's optimizing compiler.</p>
+<p>TurboFan takes significantly longer to compile the code because it
+builds an Intermediate Representation and runs heavy optimization
+passes. As soon as TurboFan finishes compiling a function, V8
+dynamically replaces the Liftoff machine code with the newly optimized
+TurboFan machine code in memory. This process, known as "tiering up,"
+gives Chromium users the benefit of instant startup via Liftoff and
+maximum execution speed via TurboFan.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/executing-web-assembly-in-chromium-with-the-liftoff-compiler';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

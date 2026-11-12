@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Accelerates AV1, VP9, and HEVC Video Decoding - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Chromium web browser utilizes hardware acceleration to decode high-efficiency video streams, specifically focusing on the AV1, VP9, and HEVC (H.265) codecs. It explains the journey of a video stream fr">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-accelerates-av-1-vp-9-and-hevc-video-decoding">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Accelerates AV1, VP9, and HEVC Video Decoding - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-accelerates-av-1-vp-9-and-hevc-video-decoding" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Chromium web browser utilizes hardware acceleration to decode high-efficiency video streams, specifically focusing on the AV1, VP9, and HEVC (H.265) codecs. It explains the journey of a video stream fr" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-accelerates-av1-vp9-and-hevc-video-decoding">How
+Chromium Accelerates AV1, VP9, and HEVC Video Decoding</h1>
+<p>This article provides a technical overview of how the Chromium web
+browser utilizes hardware acceleration to decode high-efficiency video
+streams, specifically focusing on the AV1, VP9, and HEVC (H.265) codecs.
+It explains the journey of a video stream from the web page through
+Chromium's sandboxed architecture, the operating system APIs used to
+communicate with the graphics card, the specific nuances of each codec,
+and how the final video frames are rendered to the display with minimal
+CPU overhead.</p>
+<h2 id="the-chromium-media-pipeline-and-sandboxing">The Chromium Media
+Pipeline and Sandboxing</h2>
+<p>For security reasons, Chromium separates its operations into
+different processes. When you play a video on a webpage, the HTML5
+<code>&lt;video&gt;</code> element runs inside a restricted "Renderer"
+process. Because of strict sandboxing, the Renderer process is blocked
+from directly accessing your computer’s graphics hardware (GPU).</p>
+<p>To achieve hardware acceleration, Chromium uses an inter-process
+communication system called Mojo. The Renderer process uses a component
+called <code>MojoVideoDecoder</code> to send compressed video data (the
+bitstream) across the sandbox boundary into the privileged "GPU
+Process." The GPU Process houses the actual hardware decoder
+implementations, allowing Chromium to safely offload the heavy lifting
+of video decoding to dedicated silicon on the GPU without compromising
+browser security.</p>
+<h2 id="software-parsing-before-hardware-decoding">Software Parsing
+Before Hardware Decoding</h2>
+<p>Before the GPU can decode a video frame, it needs to know the
+structure of the incoming data. Chromium does not just dump the raw
+video file into the GPU; it first parses the bitstream in software.</p>
+<ol type="1">
+<li><strong>Demuxing:</strong> Chromium uses FFmpeg (or
+platform-specific demuxers) to separate the audio and video tracks from
+the container format (like MP4 or WebM).</li>
+<li><strong>Bitstream Parsing:</strong> Chromium uses specialized,
+lightweight software parsers—such as <code>Vp9Parser</code>,
+<code>H265Parser</code>, and <code>libgav1</code> (for AV1)—to read the
+headers of each video frame. This extracts critical metadata like
+resolution, color depth, reference frames, and quantization
+parameters.</li>
+<li><strong>Buffer Submission:</strong> Once the metadata and raw
+compressed slice data are organized into standardized structures, they
+are passed to the platform-specific hardware decoder.</li>
+</ol>
+<h2 id="operating-system-hardware-apis">Operating System Hardware
+APIs</h2>
+<p>Chromium is a cross-platform browser, meaning it cannot write code
+for every individual graphics card from NVIDIA, AMD, Intel, or Apple.
+Instead, the GPU Process translates the parsed video data into commands
+for the host operating system's native hardware acceleration APIs. The
+OS and GPU drivers then handle the actual silicon-level execution.</p>
+<ul>
+<li><strong>Windows:</strong> Chromium primarily uses the Direct3D 11
+(<code>D3D11VideoDecoder</code>) and DirectX Video Acceleration (DXVA)
+APIs. On newer systems, it also leverages Media Foundation.</li>
+<li><strong>macOS:</strong> Chromium interfaces with Apple's
+<code>VideoToolbox</code> framework, which bridges the browser to the
+media engines on Intel Macs and Apple Silicon (M-series) chips.</li>
+<li><strong>Linux and ChromeOS:</strong> On devices with Intel and AMD
+GPUs, Chromium uses VA-API (Video Acceleration API). For ARM-based
+Chromebooks and Linux devices, it uses the V4L2 (Video4Linux2) Stateless
+and Stateful APIs.</li>
+<li><strong>Android:</strong> Chromium routes the bitstream through
+Android’s native <code>MediaCodec</code> API, which communicates
+directly with the mobile System-on-Chip (SoC) hardware blocks.</li>
+</ul>
+<h2 id="codec-specific-implementations">Codec-Specific
+Implementations</h2>
+<p>While the pipeline remains largely the same, AV1, VP9, and HEVC are
+handled differently due to hardware availability and licensing
+constraints.</p>
+<h3 id="vp9">VP9</h3>
+<p>Developed by Google, VP9 has the most mature hardware acceleration
+path in Chromium. Hardware decoding is broadly supported on GPUs
+released since 2016. Chromium easily handles both 8-bit (Profile 0) and
+10-bit HDR (Profile 2) VP9 streams. If the user's GPU does not support
+VP9, Chromium seamlessly falls back to <code>libvpx</code> or FFmpeg for
+software decoding on the CPU.</p>
+<h3 id="av1">AV1</h3>
+<p>AV1 is a modern, royalty-free codec designed to succeed VP9. Because
+it is newer, hardware acceleration requires relatively recent GPUs (such
+as NVIDIA RTX 30-series, AMD RX 6000-series, Intel Iris Xe, or Apple M3
+and newer). In the GPU process, Chromium packs AV1 data into Tile Group
+buffers and submits them to the OS API. If hardware acceleration fails
+or is unavailable, Chromium falls back to a highly optimized software
+decoder called <code>dav1d</code>, which allows smooth playback on the
+CPU.</p>
+<h3 id="hevc-h265">HEVC (H.265)</h3>
+<p>Unlike VP9 and AV1, HEVC is heavily patented and requires licensing
+fees. Consequently, Chromium does not bundle a software decoder for
+HEVC. However, starting in Chromium 107, developers implemented
+"pass-through" hardware decoding. If a user's operating system has a
+licensed HEVC implementation (like the HEVC Video Extensions on Windows
+or native support on macOS) and a supported GPU, Chromium will parse the
+HEVC bitstream and pass it to the OS API for hardware decoding. If
+hardware decoding is unavailable, the video simply will not play, as
+there is no software fallback.</p>
+<h2 id="zero-copy-rendering">Zero-Copy Rendering</h2>
+<p>Once the dedicated media engine on the GPU finishes decoding the AV1,
+VP9, or HEVC frames, the uncompressed video frames reside in the GPU's
+video memory (VRAM), typically in an NV12 (8-bit) or P010 (10-bit) color
+format.</p>
+<p>To maximize performance and save battery life, Chromium uses a
+technique called "Zero-Copy." Instead of copying the decoded frame from
+the GPU back to the CPU, and then back to the GPU to be drawn on the web
+page, the frame never leaves the GPU. The hardware decoder wraps the
+decoded frame in a shared GPU texture (such as a <code>DXGI</code>
+shared handle on Windows or an <code>IOSurface</code> on macOS) and
+passes a lightweight pointer to Chromium's "Viz" display compositor. The
+compositor then blends the video frame directly with the rest of the web
+page elements and sends it to the monitor.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-accelerates-av-1-vp-9-and-hevc-video-decoding';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

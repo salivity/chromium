@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Protects V8 Internals from Prototype Pollution - chromium</title>
+    <meta name="description" content="This article explores the architectural defenses used by the Chromium web browser to prevent JavaScript prototype pollution from corrupting internal V8 engine structures. While prototype pollution is typically an application-level vulnerability, it can th">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-protects-v-8-internals-from-prototype-pollution">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Protects V8 Internals from Prototype Pollution - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-protects-v-8-internals-from-prototype-pollution" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architectural defenses used by the Chromium web browser to prevent JavaScript prototype pollution from corrupting internal V8 engine structures. While prototype pollution is typically an application-level vulnerability, it can th" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-protects-v8-internals-from-prototype-pollution">How
+Chromium Protects V8 Internals from Prototype Pollution</h1>
+<p>This article explores the architectural defenses used by the Chromium
+web browser to prevent JavaScript prototype pollution from corrupting
+internal V8 engine structures. While prototype pollution is typically an
+application-level vulnerability, it can threaten browser security if
+internal engine operations inadvertently rely on modified JavaScript
+objects. To eliminate this risk, Chromium and its V8 JavaScript engine
+enforce a strict separation between user-space JavaScript and internal
+C++ operations using isolated intrinsics, internal fields, engine
+protectors, and context isolation.</p>
+<h2 id="isolated-intrinsics-and-primordials">Isolated Intrinsics and
+Primordials</h2>
+<p>When a script modifies <code>Object.prototype</code> or
+<code>Array.prototype</code>, those changes affect standard JavaScript
+execution. However, V8 frequently needs to perform array manipulations
+or object operations internally to execute built-in functions.</p>
+<p>To prevent internal operations from triggering malicious getters,
+setters, or overwritten methods on a polluted prototype, V8 does not use
+standard property lookups for its internal routines. Instead, V8
+maintains a pristine, hidden table of original built-in functions and
+constructors (primordials) tied to the <code>NativeContext</code>. When
+V8 executes internal algorithms, it invokes these unmodifiable C++ and
+Torque built-ins directly, completely bypassing the user-accessible
+prototype chain.</p>
+<h2 id="direct-c-access-via-internal-fields">Direct C++ Access via
+Internal Fields</h2>
+<p>Chromium’s Blink rendering engine constantly interacts with V8 to
+manage DOM nodes and browser APIs. If Blink used standard JavaScript
+property lookups to read the C++ pointer of a DOM node, an attacker
+could pollute <code>Object.prototype</code> to forge pointers and
+corrupt memory.</p>
+<p>V8 prevents this by using <strong>Internal Fields</strong>. When a
+C++ object (like a DOM element) is wrapped in a JavaScript object, V8
+allocates dedicated memory slots inside the object that exist outside
+the standard JavaScript property storage.</p>
+<ul>
+<li>JavaScript code cannot read, write, or enumerate these internal
+fields.</li>
+<li>Blink accesses these fields using fixed C++ memory offsets.</li>
+<li>Because the JavaScript prototype chain is never traversed during an
+internal field lookup, prototype pollution has no effect on how Chromium
+associates JavaScript wrappers with underlying C++ structures.</li>
+</ul>
+<h2 id="null-prototype-internal-objects">Null-Prototype Internal
+Objects</h2>
+<p>In scenarios where V8 or Chromium must construct internal objects to
+hold state or pass configuration data through JavaScript boundaries, the
+engine initializes these objects without a prototype (equivalent to
+<code>Object.create(null)</code>). Because these internal data
+structures do not inherit from <code>Object.prototype</code>, any
+properties injected into the global prototype by an attacker will never
+be inherited or resolved when the engine reads from these objects.</p>
+<h2 id="v8-protectors-and-jit-bailouts">V8 Protectors and JIT
+Bailouts</h2>
+<p>To execute JavaScript quickly, V8’s Just-In-Time (JIT) compiler,
+TurboFan, makes speculative assumptions about objects and arrays. If an
+attacker pollutes a prototype during execution, these assumptions can
+become invalid, potentially leading to type confusion vulnerabilities
+that corrupt internal V8 memory.</p>
+<p>V8 defends against this using <strong>Protectors</strong>. A
+protector is an internal engine flag that monitors the integrity of
+critical built-in prototypes (such as <code>Array.prototype</code>,
+<code>Object.prototype</code>, and <code>Promise.prototype</code>).</p>
+<ol type="1">
+<li>By default, a protector is marked as "valid," allowing V8 to use
+fast, direct memory operations that skip prototype chain lookups.</li>
+<li>The exact moment a script adds a property, getter, or setter to a
+monitored prototype, V8 permanently invalidates the corresponding
+protector for that execution context.</li>
+<li>Invalidating the protector immediately triggers a deoptimization of
+any JIT-compiled code that relied on the pristine state of that
+prototype. V8 then falls back to a slower execution path that performs
+strict runtime checks, preventing internal memory corruption.</li>
+</ol>
+<h2 id="isolated-worlds-and-context-separation">Isolated Worlds and
+Context Separation</h2>
+<p>Chromium uses V8 Contexts to ensure that prototype pollution in one
+area of the browser cannot bleed into privileged internal scripts or
+browser extensions. Every web page and iframe receives its own
+<code>NativeContext</code>, complete with a distinct global object and
+an independent set of built-in prototypes.</p>
+<p>Furthermore, when Chromium runs internal scripts or browser
+extensions (such as content scripts) that interact with an untrusted web
+page, it uses a mechanism called <strong>Isolated Worlds</strong>.
+Isolated Worlds allow two scripts to share the same underlying C++ DOM
+structure while operating in completely separate V8 JavaScript contexts.
+If a malicious webpage pollutes <code>Object.prototype</code>, the
+pollution is strictly contained within the page's own world; the
+internal Chromium scripts and extensions interacting with that same page
+see their own clean, unmodified <code>Object.prototype</code>.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-protects-v-8-internals-from-prototype-pollution';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

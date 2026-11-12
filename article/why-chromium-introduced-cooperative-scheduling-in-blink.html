@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Introduced Cooperative Scheduling in Blink - chromium</title>
+    <meta name="description" content="The Chromium web browser introduced cooperative scheduling on the Blink main thread to eliminate user interface freezes and improve overall webpage responsiveness. By managing how and when low-priority background tasks execute, Chromium ensures that criti">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-introduced-cooperative-scheduling-in-blink">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Introduced Cooperative Scheduling in Blink - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-introduced-cooperative-scheduling-in-blink" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium web browser introduced cooperative scheduling on the Blink main thread to eliminate user interface freezes and improve overall webpage responsiveness. By managing how and when low-priority background tasks execute, Chromium ensures that criti" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-introduced-cooperative-scheduling-in-blink">Why
+Chromium Introduced Cooperative Scheduling in Blink</h1>
+<p>The Chromium web browser introduced cooperative scheduling on the
+Blink main thread to eliminate user interface freezes and improve
+overall webpage responsiveness. By managing how and when low-priority
+background tasks execute, Chromium ensures that critical operations like
+user input and screen rendering are never blocked by heavy background
+processing. This article explains the limitations of the single-threaded
+browser architecture, how cooperative scheduling resolves resource
+contention, and why this shift was necessary for modern web
+performance.</p>
+<h2 id="the-bottleneck-of-the-blink-main-thread">The Bottleneck of the
+Blink Main Thread</h2>
+<p>Blink is the rendering engine used by Chromium. At the heart of Blink
+is its main thread, which handles the vast majority of the work required
+to display a webpage. This includes parsing HTML, calculating CSS
+styles, executing JavaScript, managing the Document Object Model (DOM),
+painting pixels to the screen, and responding to user interactions like
+scrolling, clicking, and typing.</p>
+<p>Because the main thread is fundamentally single-threaded, it can only
+execute one task at a time. Tasks are placed in a queue and processed
+sequentially.</p>
+<h2 id="the-problem-background-tasks-and-jank">The Problem: Background
+Tasks and "Jank"</h2>
+<p>Modern web applications are complex and run numerous non-essential
+background tasks. These include sending analytics data, pre-fetching
+content, cleaning up memory (garbage collection), and syncing
+application state.</p>
+<p>Before cooperative scheduling, the Blink main thread operated on a
+strictly "run-to-completion" model. Once a background task started
+executing, the browser could not interrupt it. This created a major
+performance problem:</p>
+<ul>
+<li><strong>Missed Frames:</strong> For a webpage to feel smooth, the
+browser must render at 60 frames per second, giving the main thread just
+16.6 milliseconds to complete all work for a single frame.</li>
+<li><strong>Blocked Input:</strong> If a background script took 150
+milliseconds to process data, the main thread was completely locked
+during that time.</li>
+</ul>
+<p>If a user tried to scroll or click a button while a background task
+was running, the browser could not respond until the task finished. This
+resulted in delayed input responses and visual stuttering, commonly
+referred to as "jank."</p>
+<h2 id="why-multithreading-was-not-the-complete-answer">Why
+Multithreading Was Not the Complete Answer</h2>
+<p>A common solution in software engineering is to move background work
+to separate threads (such as Web Workers). However, in web browsers,
+background threads have a strict limitation: they cannot directly access
+or manipulate the DOM. Because many background tasks ultimately need to
+read or update the webpage's structure, they are forced to run on the
+Blink main thread. Chromium needed a way to manage these tasks in place
+without freezing the user interface.</p>
+<h2 id="how-cooperative-scheduling-solves-the-problem">How Cooperative
+Scheduling Solves the Problem</h2>
+<p>Chromium introduced cooperative scheduling to allow high-priority
+work and low-priority background work to coexist on the main thread
+without blocking each other.</p>
+<p>Unlike preemptive scheduling—where an operating system forcibly
+pauses a running task to let another one run—cooperative scheduling
+relies on tasks voluntarily yielding control back to the browser.
+Chromium implemented this system through its internal Blink Scheduler
+and exposed it to web developers via APIs like
+<code>requestIdleCallback</code>.</p>
+<p>The system works through a few core mechanisms:</p>
+<ol type="1">
+<li><strong>Task Prioritization:</strong> The Blink scheduler
+categorizes tasks. User input and frame rendering are given the highest
+priority, while background tasks are given the lowest priority.</li>
+<li><strong>Idle Periods:</strong> The scheduler monitors the
+16.6-millisecond frame budget. If the browser finishes rendering the
+current frame in 6 milliseconds, it realizes it has 10.6 milliseconds of
+"idle time" before the next frame needs to begin.</li>
+<li><strong>Deadlines and Yielding:</strong> The scheduler allows queued
+background tasks to run during this idle window, passing them a strict
+time deadline. The background task processes a small chunk of work and
+checks the clock. Just before the 10.6-millisecond deadline expires, the
+task "cooperates" by pausing itself and yielding control back to the
+main thread so the next frame can be rendered on time.</li>
+</ol>
+<h2 id="the-impact-on-browser-performance">The Impact on Browser
+Performance</h2>
+<p>If a user suddenly touches the screen or clicks a mouse while idle
+tasks are running, the Blink scheduler immediately halts the initiation
+of any further background chunks. It routes all main thread resources to
+handle the user's input instantly. The unfinished background tasks
+simply wait in the queue until the next available idle period.</p>
+<p>By introducing cooperative scheduling, Chromium successfully
+prevented background tasks from monopolizing the Blink main thread. This
+architectural shift enabled smooth 60fps animations, near-instantaneous
+responses to user interactions, and a significantly more stable browsing
+experience on both powerful desktops and resource-constrained mobile
+devices.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-introduced-cooperative-scheduling-in-blink';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

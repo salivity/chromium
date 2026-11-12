@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Microsoft Abandoned EdgeHTML for Chromium in 2020 - chromium</title>
+    <meta name="description" content="In 2020, Microsoft made the monumental decision to retire its proprietary EdgeHTML rendering engine and rebuild the Microsoft Edge browser on top of the open-source Chromium project. This article provides a direct look into the driving forces behind this">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-microsoft-abandoned-edge-html-for-chromium-in-2020">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Microsoft Abandoned EdgeHTML for Chromium in 2020 - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-microsoft-abandoned-edge-html-for-chromium-in-2020" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2020, Microsoft made the monumental decision to retire its proprietary EdgeHTML rendering engine and rebuild the Microsoft Edge browser on top of the open-source Chromium project. This article provides a direct look into the driving forces behind this" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-microsoft-abandoned-edgehtml-for-chromium-in-2020">Why
+Microsoft Abandoned EdgeHTML for Chromium in 2020</h1>
+<p>In 2020, Microsoft made the monumental decision to retire its
+proprietary EdgeHTML rendering engine and rebuild the Microsoft Edge
+browser on top of the open-source Chromium project. This article
+provides a direct look into the driving forces behind this strategic
+pivot, which ultimately came down to severe web compatibility issues,
+the overwhelming market dominance of Google Chrome, developer apathy, a
+weak extension ecosystem, and the need for cross-platform
+availability.</p>
+<h2 id="the-web-compatibility-crisis">The Web Compatibility Crisis</h2>
+<p>The primary reason for abandoning EdgeHTML was that the modern web
+was increasingly being built solely for Google Chrome. Because Chrome
+held a massive majority of the browser market share, web developers
+focused their efforts on optimizing sites for Blink, the rendering
+engine inside Chromium. They frequently ignored EdgeHTML. Consequently,
+many websites functioned poorly or broke entirely when viewed in the
+original Microsoft Edge.</p>
+<p>Furthermore, Google frequently updated its own popular web
+services—such as YouTube, Gmail, and Google Docs—using code optimized
+specifically for Chromium. Former Microsoft Edge engineers publicly
+noted that these changes often degraded performance on EdgeHTML, making
+Microsoft's browser appear slow and broken to everyday users. Keeping up
+with Google's constant changes became an unwinnable game of catch-up for
+Microsoft's engineering team.</p>
+<h2 id="low-market-share-and-developer-apathy">Low Market Share and
+Developer Apathy</h2>
+<p>When Microsoft launched Edge alongside Windows 10 in 2015, it was
+meant to wash away the bad reputation of Internet Explorer. However,
+Edge failed to gain significant traction, stalling at under 5% of the
+global desktop market share. Because the user base was so small,
+third-party web developers could not justify the time and money required
+to test and fix their websites for EdgeHTML. By switching to Chromium,
+Microsoft ensured that any website optimized for Chrome would
+automatically work flawlessly in Edge.</p>
+<h2 id="a-barren-extension-ecosystem">A Barren Extension Ecosystem</h2>
+<p>Modern browser users rely heavily on extensions for ad-blocking,
+password management, and productivity. The original Edge required
+developers to build or port extensions specifically for the Microsoft
+Store, which very few did. By rebuilding Edge on Chromium, Microsoft
+unlocked immediate compatibility with the massive library of existing
+Chrome extensions. Users could suddenly install add-ons directly from
+the Chrome Web Store, eliminating a major barrier to adoption.</p>
+<h2 id="breaking-free-from-windows-10-limitations">Breaking Free from
+Windows 10 Limitations</h2>
+<p>The original Edge was deeply integrated into the Windows 10 operating
+system. This meant the browser could only receive major feature updates
+twice a year alongside massive Windows 10 OS updates. In contrast,
+competing browsers updated every few weeks. Additionally, EdgeHTML was
+locked to Windows 10, leaving behind hundreds of millions of users on
+Windows 7, Windows 8, and macOS. Moving to Chromium allowed Microsoft to
+decouple the browser from the operating system, update it rapidly, and
+release versions for macOS, Linux, and older versions of Windows.</p>
+<h2 id="a-shift-to-open-source-collaboration">A Shift to Open-Source
+Collaboration</h2>
+<p>Under CEO Satya Nadella, Microsoft shifted its corporate philosophy
+away from strictly proprietary software toward embracing open-source
+technology. Instead of spending massive resources maintaining a
+redundant rendering engine that nobody was developing for, Microsoft
+realized it was more efficient to adopt Chromium and contribute to its
+development. Since making the switch, Microsoft has contributed
+thousands of code commits to the Chromium project, improving battery
+life, memory usage, accessibility, and scrolling performance for both
+Edge and the wider web.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-microsoft-abandoned-edge-html-for-chromium-in-2020';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

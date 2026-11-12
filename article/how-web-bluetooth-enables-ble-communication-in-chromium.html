@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Web Bluetooth Enables BLE Communication in Chromium - chromium</title>
+    <meta name="description" content="This article explains how the Web Bluetooth API in the Chromium web browser allows websites to directly communicate with nearby Bluetooth Low Energy (BLE) peripherals. It covers the strict security and user-permission protocols required to establish a con">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-web-bluetooth-enables-ble-communication-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Web Bluetooth Enables BLE Communication in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-web-bluetooth-enables-ble-communication-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Web Bluetooth API in the Chromium web browser allows websites to directly communicate with nearby Bluetooth Low Energy (BLE) peripherals. It covers the strict security and user-permission protocols required to establish a con" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-web-bluetooth-enables-ble-communication-in-chromium">How Web
+Bluetooth Enables BLE Communication in Chromium</h1>
+<p>This article explains how the Web Bluetooth API in the Chromium web
+browser allows websites to directly communicate with nearby Bluetooth
+Low Energy (BLE) peripherals. It covers the strict security and
+user-permission protocols required to establish a connection, the role
+of the Generic Attribute Profile (GATT) in structuring data, the
+step-by-step process of reading and writing data using JavaScript, and
+how Chromium bridges the gap between web code and the operating system's
+native Bluetooth stack.</p>
+<h3 id="security-and-user-gesture-requirements">Security and User
+Gesture Requirements</h3>
+<p>To protect user privacy and security, Chromium enforces strict rules
+before any Bluetooth communication can occur. First, the Web Bluetooth
+API is only available in secure contexts, meaning the website must be
+served over HTTPS (or <code>localhost</code> during development).
+Second, a website cannot automatically scan for or connect to nearby BLE
+devices upon loading. The communication process must be initiated by a
+deliberate user gesture, such as a mouse click or a screen tap.</p>
+<h3 id="device-discovery-and-the-permission-prompt">Device Discovery and
+the Permission Prompt</h3>
+<p>Once the user triggers an action, the website calls the
+<code>navigator.bluetooth.requestDevice()</code> JavaScript method.
+Developers pass filters into this method to specify what kind of devices
+the website wants to communicate with, based on device names, service
+UUIDs (Universally Unique Identifiers), or manufacturer data.</p>
+<p>Chromium intercepts this API call and displays a native browser
+prompt to the user. This prompt scans for and lists nearby BLE
+peripherals that match the developer's filters. The user must manually
+select a device from this list and click "Pair" to grant the website
+permission to access that specific peripheral. This prevents malicious
+websites from silently tracking users via nearby Bluetooth beacons.</p>
+<h3 id="the-gatt-architecture">The GATT Architecture</h3>
+<p>The Web Bluetooth API relies entirely on the Generic Attribute
+Profile (GATT) to structure data exchange. Once a peripheral is
+connected, Chromium interacts with it as a GATT Server. GATT organizes
+data hierarchically into Services and Characteristics:</p>
+<ul>
+<li><strong>Services:</strong> Logical groups of data that accomplish a
+specific function on the device (e.g., a "Heart Rate Service" or a
+"Battery Service").</li>
+<li><strong>Characteristics:</strong> Specific data points contained
+within a service (e.g., the actual heart rate measurement or the current
+battery percentage).</li>
+</ul>
+<p>Every service and characteristic is identified by a standardized
+16-bit or custom 128-bit UUID. To prevent websites from accessing
+sensitive system hardware, Chromium maintains a blocklist of restricted
+UUIDs (such as Human Interface Devices like Bluetooth keyboards) that
+the Web Bluetooth API is forbidden from accessing.</p>
+<h3 id="connecting-and-transferring-data">Connecting and Transferring
+Data</h3>
+<p>After the user selects a device from the Chromium prompt, the API
+returns a JavaScript Promise that resolves with a
+<code>BluetoothDevice</code> object. The website then connects to the
+device's GATT server using the <code>device.gatt.connect()</code>
+method.</p>
+<p>Once the connection is established, the website traverses the GATT
+hierarchy using asynchronous JavaScript Promises to interact with the
+hardware:</p>
+<ol type="1">
+<li><strong>Get the Service:</strong> The website requests the target
+service using its UUID via <code>server.getPrimaryService()</code>.</li>
+<li><strong>Get the Characteristic:</strong> From that service, the
+website requests the desired characteristic via
+<code>service.getCharacteristic()</code>.</li>
+<li><strong>Read Data:</strong> The website can read the
+characteristic's current state by calling
+<code>characteristic.readValue()</code>. This returns a JavaScript
+<code>DataView</code> object containing raw byte data, which the website
+can parse into usable information.</li>
+<li><strong>Write Data:</strong> The website can send commands or data
+to the peripheral by passing an <code>ArrayBuffer</code> or
+<code>DataView</code> of bytes into the
+<code>characteristic.writeValue()</code> method.</li>
+<li><strong>Subscribe to Notifications:</strong> For continuous data
+streams, such as a fitness tracker broadcasting real-time telemetry, the
+website calls <code>characteristic.startNotifications()</code>. It then
+listens for the <code>characteristicvaluechanged</code> event to process
+incoming data packets automatically as the peripheral sends them.</li>
+</ol>
+<h3 id="chromiums-os-abstraction-layer">Chromium's OS Abstraction
+Layer</h3>
+<p>Behind the scenes, Chromium acts as a translator between the web
+page's sandboxed JavaScript environment and the host operating system's
+native Bluetooth stack. Because Windows, macOS, Linux, Android, and
+ChromeOS all manage Bluetooth hardware differently, Chromium utilizes an
+internal C++ abstraction layer.</p>
+<p>When a website executes a Web Bluetooth API command, the Chromium
+renderer process sends an Inter-Process Communication (IPC) message to
+the main browser process. The browser process validates the security
+permissions, translates the JavaScript request into the appropriate
+OS-level Bluetooth API call (such as CoreBluetooth on macOS, WinRT on
+Windows, or BlueZ on Linux), and routes the hardware's response back to
+the web page as a standard JavaScript Promise.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-web-bluetooth-enables-ble-communication-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

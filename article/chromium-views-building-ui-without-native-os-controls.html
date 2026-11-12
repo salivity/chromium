@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Views: Building UI Without Native OS Controls - chromium</title>
+    <meta name="description" content="Chromium&#39;s Views framework bypasses native operating system controls to deliver a consistent, hardware-accelerated, and highly customizable user interface across platforms. This article provides a look into how the Views architecture leverages a single na">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-views-building-ui-without-native-os-controls">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Views: Building UI Without Native OS Controls - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-views-building-ui-without-native-os-controls" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Chromium&#39;s Views framework bypasses native operating system controls to deliver a consistent, hardware-accelerated, and highly customizable user interface across platforms. This article provides a look into how the Views architecture leverages a single na" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-views-building-ui-without-native-os-controls">Chromium
+Views: Building UI Without Native OS Controls</h1>
+<p>Chromium's Views framework bypasses native operating system controls
+to deliver a consistent, hardware-accelerated, and highly customizable
+user interface across platforms. This article provides a look into how
+the Views architecture leverages a single native window, the Skia
+graphics library, and a hierarchical tree of custom C++ objects to
+construct, layout, and render its own toolbars, dialogs, and menus
+entirely from scratch.</p>
+<h2 id="the-core-architecture-widgets-and-views">The Core Architecture:
+Widgets and Views</h2>
+<p>To avoid using native OS buttons, text boxes, or menus, Chromium
+reduces its reliance on the host operating system to the bare minimum.
+It requests only a blank, top-level rectangular window from the OS. In
+the Views framework, this native window is wrapped by an object called a
+<code>Widget</code>.</p>
+<p>Inside the <code>Widget</code>, the entire user interface is
+constructed using a tree of <code>View</code> objects. A
+<code>View</code> is not a native OS control; it is a lightweight C++
+class that represents a specific rectangular region within the
+<code>Widget</code>. The <code>View</code> class is responsible for
+three main tasks:</p>
+<ol type="1">
+<li><strong>Sizing and Layout:</strong> Determining where it and its
+child views sit on the screen.</li>
+<li><strong>Event Handling:</strong> Responding to mouse clicks,
+touches, and keystrokes.</li>
+<li><strong>Painting:</strong> Drawing its visual representation onto a
+canvas.</li>
+</ol>
+<h2 id="rendering-and-event-routing">Rendering and Event Routing</h2>
+<p>Because the operating system has no awareness of the buttons or menus
+inside the blank window, Chromium must handle all rendering and input
+routing internally.</p>
+<p><strong>Rendering:</strong> When a <code>View</code> needs to appear
+on screen, the framework calls its <code>OnPaint()</code> method.
+Instead of asking the OS to draw a button, the <code>View</code> issues
+drawing commands—such as drawing lines, shapes, and text—to a
+<code>gfx::Canvas</code>. This canvas is powered by Skia, Chromium’s 2D
+graphics engine, alongside Chromium's compositor. The UI is drawn
+directly using the GPU, just like a webpage.</p>
+<p><strong>Input Routing:</strong> When a user clicks the mouse, the OS
+only knows that the top-level window was clicked. The
+<code>Widget</code> receives this raw OS event and passes it to the
+<code>RootView</code>. The <code>RootView</code> then traverses the tree
+of <code>View</code> objects, checking their coordinates to find which
+specific <code>View</code> is directly under the cursor, and delivers
+the click event to that object.</p>
+<h2 id="constructing-toolbars">Constructing Toolbars</h2>
+<p>In Chromium, the main browser toolbar is built using a container
+class called <code>ToolbarView</code>. Because there are no native OS
+layout engines involved, <code>ToolbarView</code> uses a custom
+<code>LayoutManager</code> (specifically, <code>FlexLayout</code>) to
+automatically calculate the positions and sizes of its child elements
+when the browser window is resized.</p>
+<p>The children of the <code>ToolbarView</code> are simply other
+specialized <code>View</code> subclasses:</p>
+<ul>
+<li><strong>Buttons:</strong> The Back, Forward, and Reload buttons are
+instances of <code>ToolbarButton</code> (which inherits from
+<code>Button</code>, which inherits from <code>View</code>).</li>
+<li><strong>Icons:</strong> Instead of using bitmap images or OS icons,
+buttons render their icons using mathematical paths via Chromium's
+vector icon system.</li>
+<li><strong>Animations:</strong> When you hover over or click a toolbar
+button, the ink-drop ripple effect is calculated and drawn
+frame-by-frame by a compositor animation layer attached to that specific
+<code>View</code>.</li>
+</ul>
+<h2 id="constructing-dialogs">Constructing Dialogs</h2>
+<p>When Chromium displays a prompt—such as the "Bookmark Added" bubble
+or the "Clear Browsing Data" modal—it does not invoke native OS dialog
+APIs. Instead, it uses <code>DialogDelegateView</code> or
+<code>BubbleDialogDelegateView</code>.</p>
+<p>To show a dialog, Views creates a new, secondary <code>Widget</code>
+(a blank, frameless OS window) and positions it over the main browser
+window. Inside this blank window, a <code>DialogClientView</code> is
+inserted. This view automatically constructs the dialog's internal
+anatomy using standard <code>View</code> components:</p>
+<ul>
+<li>It creates a title area using a custom <code>Label</code> view.</li>
+<li>It generates "OK" and "Cancel" buttons using
+<code>MdTextButton</code> views (Material Design text buttons).</li>
+<li>It draws the dialog's rounded corners, borders, and drop shadows
+directly onto the transparent window canvas using Skia.</li>
+</ul>
+<h2 id="constructing-menus">Constructing Menus</h2>
+<p>Native OS menus are notoriously difficult to style and animate
+consistently across Windows, Linux, and ChromeOS. Chromium bypasses them
+using a combination of <code>MenuRunner</code>,
+<code>MenuController</code>, and <code>MenuItemView</code>.</p>
+<p>When you right-click a webpage or click the three-dot browser menu,
+the following happens:</p>
+<ol type="1">
+<li><strong>Window Creation:</strong> <code>MenuRunner</code> spawns a
+temporary, borderless popup <code>Widget</code> at the cursor's
+location.</li>
+<li><strong>Menu Hierarchy:</strong> A <code>SubmenuView</code> is
+placed inside this popup window. It acts as a container for a vertical
+stack of <code>MenuItemView</code> objects.</li>
+<li><strong>Custom Painting:</strong> Each <code>MenuItemView</code>
+calculates the space needed for its text label, keyboard shortcut text,
+and checkmark icon. It then paints these elements directly onto the
+popup's canvas.</li>
+<li><strong>State Management:</strong> A singleton class called
+<code>MenuController</code> takes over mouse and keyboard capture. As
+you move your mouse down the menu, the <code>MenuController</code>
+tracks the coordinates, tells the previously hovered
+<code>MenuItemView</code> to repaint itself with a normal background,
+and tells the newly hovered <code>MenuItemView</code> to repaint itself
+with a highlighted background. If a submenu is triggered, it simply
+spawns another popup <code>Widget</code> next to the current one.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-views-building-ui-without-native-os-controls';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

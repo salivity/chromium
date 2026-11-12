@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Supports WebTransport Over HTTP/3 - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser implements WebTransport over HTTP/3 to achieve low-latency, bidirectional communication between clients and servers. It covers the architectural foundation provided by the QUIC protocol, Ch">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-supports-web-transport-over-http-3">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Supports WebTransport Over HTTP/3 - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-supports-web-transport-over-http-3" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser implements WebTransport over HTTP/3 to achieve low-latency, bidirectional communication between clients and servers. It covers the architectural foundation provided by the QUIC protocol, Ch" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-supports-webtransport-over-http3">How Chromium
+Supports WebTransport Over HTTP/3</h1>
+<p>This article provides an overview of how the Chromium web browser
+implements WebTransport over HTTP/3 to achieve low-latency,
+bidirectional communication between clients and servers. It covers the
+architectural foundation provided by the QUIC protocol, Chromium's
+multiprocess networking stack, the handling of reliable streams and
+unreliable datagrams, and the security mechanisms required to establish
+these high-performance connections.</p>
+<h2 id="the-quic-and-http3-foundation">The QUIC and HTTP/3
+Foundation</h2>
+<p>To support WebTransport, Chromium relies on HTTP/3, which runs over
+the QUIC protocol rather than TCP. Chromium implements QUIC and HTTP/3
+using its in-house library called QUICHE (QUIC, HTTP, Etc.).</p>
+<p>Traditional WebSockets rely on TCP, which suffers from head-of-line
+blocking—if a single packet is lost, the entire connection stalls until
+that packet is retransmitted. By building WebTransport on top of HTTP/3
+and QUIC, Chromium utilizes UDP to send data. QUIC handles encryption,
+congestion control, and stream multiplexing at the transport layer,
+allowing Chromium to process multiple data streams independently without
+a single dropped packet halting the entire connection.</p>
+<h2 id="chromiums-multiprocess-architecture">Chromium's Multiprocess
+Architecture</h2>
+<p>Chromium uses a multiprocess architecture to keep the browser secure
+and stable. Web pages run in restricted "Renderer" processes (powered by
+the Blink rendering engine), while actual network traffic is handled by
+a separate "Network Service" process.</p>
+<p>To maintain low latency for WebTransport, Chromium minimizes the
+overhead of moving data between these processes:</p>
+<ol type="1">
+<li><strong>Blink API Layer:</strong> When a web application
+instantiates a <code>WebTransport</code> object in JavaScript, Blink
+creates the corresponding C++ objects to manage the session.</li>
+<li><strong>Mojo IPC:</strong> Chromium uses its Inter-Process
+Communication (IPC) system, called Mojo, to link the Renderer process
+directly to the Network Service.</li>
+<li><strong>Data Pipes:</strong> Instead of copying data multiple times
+between processes, Chromium establishes high-performance Mojo data
+pipes. These shared-memory buffers allow WebTransport streams and
+datagrams to flow directly from the JavaScript execution environment to
+the network socket with minimal CPU overhead.</li>
+</ol>
+<h2 id="establishing-the-connection">Establishing the Connection</h2>
+<p>When a client initiates a WebTransport session, Chromium's Network
+Service executes a specific handshake over HTTP/3:</p>
+<ul>
+<li><strong>TLS 1.3 Handshake:</strong> Chromium establishes a secure
+QUIC connection using TLS 1.3, which often completes in a single
+round-trip (1-RTT) or even zero round-trips (0-RTT) if the client has
+connected to the server previously.</li>
+<li><strong>Settings Exchange:</strong> The browser and server exchange
+HTTP/3 <code>SETTINGS</code> frames to confirm that both endpoints
+support WebTransport and QUIC datagrams.</li>
+<li><strong>Extended CONNECT:</strong> Chromium sends an HTTP/3 extended
+<code>CONNECT</code> request. This request includes a
+<code>:protocol</code> pseudo-header set to <code>webtransport</code>,
+alongside the target URL and the <code>Origin</code> header for security
+verification.</li>
+<li><strong>Session Readiness:</strong> Once the server replies with a
+<code>200 OK</code> status, the WebTransport session is established, and
+Chromium resolves the <code>ready</code> promise in the JavaScript
+API.</li>
+</ul>
+<h2 id="bidirectional-messaging-streams-and-datagrams">Bidirectional
+Messaging: Streams and Datagrams</h2>
+<p>Chromium translates the high-level JavaScript WebTransport API into
+low-level QUIC frames using two distinct messaging mechanisms:</p>
+<h3 id="reliable-streams">Reliable Streams</h3>
+<p>WebTransport supports both unidirectional and bidirectional streams.
+In the Renderer process, Chromium exposes these as standard JavaScript
+<code>ReadableStream</code> and <code>WritableStream</code> objects.
+Under the hood, the Network Service maps each of these streams to a
+native HTTP/3 QUIC stream.</p>
+<p>Because QUIC manages packet loss per stream, Chromium can guarantee
+that data sent over a WebTransport stream arrives in order and intact,
+while completely avoiding head-of-line blocking across different
+streams. Backpressure is managed automatically: if the network is
+congested, the Mojo data pipe fills up, signaling the JavaScript
+<code>WritableStream</code> to pause sending data.</p>
+<h3 id="unreliable-datagrams">Unreliable Datagrams</h3>
+<p>For ultra-low-latency needs—such as real-time gaming, live telemetry,
+or media streaming—Chromium implements WebTransport datagrams using the
+QUIC DATAGRAM extension.</p>
+<p>When a developer writes to the <code>datagrams.writable</code>
+stream, Chromium packages the data into a QUIC DATAGRAM frame and
+transmits it immediately over UDP. If a datagram is lost in transit,
+Chromium's QUIC stack does not attempt to retransmit it. It simply drops
+the packet and continues processing new incoming and outgoing datagrams,
+ensuring the lowest possible latency.</p>
+<h2 id="security-and-congestion-control">Security and Congestion
+Control</h2>
+<p>Because WebTransport operates over UDP, Chromium enforces strict
+rules to prevent the browser from being used in Distributed Denial of
+Service (DDoS) attacks or unauthorized data scraping:</p>
+<ul>
+<li><strong>Mandatory Encryption:</strong> All WebTransport traffic in
+Chromium is encrypted via TLS 1.3. Plaintext connections are not
+supported.</li>
+<li><strong>Custom Certificate Verification:</strong> For developers
+using ephemeral servers (like game servers) where standard Certificate
+Authorities are impractical, Chromium supports the
+<code>serverCertificateHashes</code> option. This allows the browser to
+authenticate a connection by matching the server's TLS certificate
+against a known SHA-256 hash, provided the certificate's validity period
+is 14 days or less.</li>
+<li><strong>Congestion Control:</strong> Even when sending unreliable
+datagrams, Chromium does not allow web apps to flood the network. All
+WebTransport traffic is governed by QUICHE's congestion controller
+(typically using algorithms like Cubic or BBR). If the network capacity
+drops, Chromium automatically throttles the rate at which datagrams and
+stream packets are sent.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-supports-web-transport-over-http-3';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

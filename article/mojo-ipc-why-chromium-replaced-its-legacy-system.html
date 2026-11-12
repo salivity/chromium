@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mojo IPC: Why Chromium Replaced Its Legacy System - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of the Mojo inter-process communication (IPC) system used in the Chromium web browser and explains the technical reasons why it replaced the older legacy IPC architecture. It covers the fundamental mechanics">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/mojo-ipc-why-chromium-replaced-its-legacy-system">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mojo IPC: Why Chromium Replaced Its Legacy System - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/mojo-ipc-why-chromium-replaced-its-legacy-system" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the Mojo inter-process communication (IPC) system used in the Chromium web browser and explains the technical reasons why it replaced the older legacy IPC architecture. It covers the fundamental mechanics" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="mojo-ipc-why-chromium-replaced-its-legacy-system">Mojo IPC: Why
+Chromium Replaced Its Legacy System</h1>
+<p>This article provides a comprehensive overview of the Mojo
+inter-process communication (IPC) system used in the Chromium web
+browser and explains the technical reasons why it replaced the older
+legacy IPC architecture. It covers the fundamental mechanics of Mojo,
+the severe limitations of the previous C++ macro-based system, and how
+transitioning to Mojo significantly improved browser performance,
+security, and cross-language compatibility.</p>
+<h2 id="what-is-the-mojo-ipc-system">What is the Mojo IPC System?</h2>
+<p>Chromium uses a multi-process architecture to keep the browser secure
+and stable. Tabs, extensions, the GPU, and the main browser interface
+all run in separate isolated processes. Because these processes cannot
+directly share memory, they need an Inter-Process Communication (IPC)
+system to talk to one another.</p>
+<p>Mojo is Chromium’s modern IPC system. It is a collection of runtime
+libraries and bindings generators that facilitate message passing across
+different processes. Instead of just being a way to send raw data, Mojo
+provides a platform-agnostic way to create communication channels, share
+memory buffers, and wrap platform-specific handles (like file
+descriptors on Linux or handles on Windows).</p>
+<p>At the heart of Mojo is two main components:</p>
+<ul>
+<li><strong>Message Pipes:</strong> A bidirectional communication
+channel. Two endpoints are created as a pair, and what is written into
+one endpoint can be read from the other, regardless of whether those
+endpoints are in the same process or different processes.</li>
+<li><strong>Mojom IDL:</strong> An Interface Definition Language (IDL)
+used to define the structure of messages. Developers write a
+<code>.mojom</code> file, and the Mojo compiler automatically generates
+the necessary communication code in C++, Java, and
+JavaScript/TypeScript.</li>
+</ul>
+<h2 id="the-flaws-of-chromiums-legacy-ipc">The Flaws of Chromium’s
+Legacy IPC</h2>
+<p>Before Mojo, Chromium used a custom system simply referred to as
+"Legacy IPC." As the browser grew more complex, Legacy IPC became a
+major bottleneck for several reasons:</p>
+<ul>
+<li><strong>Reliance on C++ Macros:</strong> Legacy IPC used complex C++
+preprocessor macros to define messages. These macros were notoriously
+difficult to read, hard to debug, and significantly slowed down compile
+times.</li>
+<li><strong>C++ Lock-in:</strong> Because the system was built on C++
+macros, it only worked in C++. On Android, where the UI is written in
+Java, or in Chrome's settings pages, which are written in JavaScript,
+developers had to write tedious "glue code" to translate C++ IPC
+messages into other languages.</li>
+<li><strong>Hub-and-Spoke Bottleneck:</strong> Legacy IPC only allowed
+point-to-point communication between a child process (like a web page
+renderer) and the main browser process. If a renderer needed to talk to
+the GPU process, it often had to route messages through the main browser
+process first, creating unnecessary delays.</li>
+<li><strong>Rigid Process Model:</strong> Legacy IPC assumed a fixed
+architecture where certain features always lived in the main browser
+process. It did not allow components to easily move between
+processes.</li>
+</ul>
+<h2 id="why-mojo-replaced-legacy-ipc">Why Mojo Replaced Legacy IPC</h2>
+<p>Chromium engineers developed Mojo to solve the exact limitations of
+the legacy system, fundamentally changing how the browser operates
+internally.</p>
+<h3 id="1-dynamic-routing-and-pipe-passing">1. Dynamic Routing and Pipe
+Passing</h3>
+<p>The most powerful feature of Mojo is that you can send a message pipe
+<em>over another message pipe</em>. The main browser process can create
+a new pipe, send one end to a renderer process, and send the other end
+to the network process. Those two processes can now communicate directly
+with zero involvement from the main browser process. This eliminated the
+hub-and-spoke bottleneck and dramatically increased performance.</p>
+<h3 id="2-multi-language-support">2. Multi-Language Support</h3>
+<p>Because Mojom IDL automatically generates bindings for C++, Java, and
+JavaScript, developers no longer need to write manual translation
+layers. A WebUI page written in TypeScript or an Android feature written
+in Java can communicate directly with a C++ backend process using the
+exact same Mojo interface.</p>
+<h3 id="3-the-servicification-of-chromium">3. The "Servicification" of
+Chromium</h3>
+<p>Mojo enabled Chromium to transition into a service-oriented
+architecture. Massive systems like networking, audio, and storage were
+broken out of the main browser process into isolated "services." Because
+Mojo message pipes work the exact same way whether the endpoints are in
+the same process or different processes, Chromium can dynamically adjust
+how it runs. On a powerful desktop, the Audio Service can run in its own
+isolated process for stability. On a low-memory Android phone, the exact
+same Audio Service can run inside the main browser process to save RAM,
+without changing a single line of communication code.</p>
+<h3 id="4-improved-security-auditing">4. Improved Security Auditing</h3>
+<p>In a browser, IPC boundaries are the primary line of defense against
+hackers trying to escape the sandbox. Legacy IPC macros made it
+difficult for security teams to track where data was coming from and how
+it was validated. Mojom files provide a clear, strongly-typed contract
+of every message that can cross a process boundary. Mojo also forces
+developers to use specific data validation traits, ensuring untrusted
+data from a compromised web page is sanitized before the browser process
+ever touches it.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/mojo-ipc-why-chromium-replaced-its-legacy-system';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

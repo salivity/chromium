@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Incognito Mode: What Is Retained and Discarded - chromium</title>
+    <meta name="description" content="This article provides a breakdown of how the Chromium web browser handles user data when all Incognito mode windows are closed. While Incognito mode is designed to maintain local privacy by isolating and erasing temporary browsing sessions, it does not de">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-incognito-mode-what-is-retained-and-discarded">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Incognito Mode: What Is Retained and Discarded - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-incognito-mode-what-is-retained-and-discarded" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a breakdown of how the Chromium web browser handles user data when all Incognito mode windows are closed. While Incognito mode is designed to maintain local privacy by isolating and erasing temporary browsing sessions, it does not de" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-incognito-mode-what-is-retained-and-discarded">Chromium
+Incognito Mode: What Is Retained and Discarded</h1>
+<p>This article provides a breakdown of how the Chromium web browser
+handles user data when all Incognito mode windows are closed. While
+Incognito mode is designed to maintain local privacy by isolating and
+erasing temporary browsing sessions, it does not delete every action
+taken during that timeframe. Below is the exact information that
+Chromium permanently discards and the specific data that remains on your
+device and network after an Incognito session ends.</p>
+<h2 id="information-that-is-discarded">Information That Is
+Discarded</h2>
+<p>When you use Incognito mode, Chromium creates a temporary, isolated
+user profile stored primarily in your computer's memory (RAM) rather
+than on the hard drive. The moment the very last Incognito window is
+closed, Chromium destroys this temporary profile and discards the
+following data:</p>
+<ul>
+<li><strong>Browsing History:</strong> Chromium does not save the URLs
+of the web pages you visited. Once the windows are closed, there is no
+local record in the browser's history tab of where you went.</li>
+<li><strong>Cookies and Site Data:</strong> All cookies, local storage
+data, and IndexedDB databases created during the session are permanently
+deleted. This means any accounts you logged into during the session will
+automatically be logged out, and websites will not remember your
+preferences the next time you visit them.</li>
+<li><strong>Cached Files:</strong> Temporary files, such as images,
+scripts, and stylesheets downloaded to make web pages load faster, are
+purged from the system memory.</li>
+<li><strong>Information Entered in Forms:</strong> Any text typed into
+web forms—such as usernames, passwords, search queries, addresses, or
+credit card numbers—is wiped. Chromium will not suggest this data as
+autofill options in future browsing sessions.</li>
+<li><strong>Granted Website Permissions:</strong> If you granted a
+website permission to access your microphone, camera, or location during
+the Incognito session, those permissions are revoked and forgotten as
+soon as the session ends.</li>
+<li><strong>Browser Download History:</strong> The internal list of
+files you downloaded during the session is cleared from Chromium's
+"Downloads" page.</li>
+</ul>
+<h2 id="information-that-is-retained-locally">Information That Is
+Retained Locally</h2>
+<p>To ensure a functional user experience, Chromium intentionally keeps
+specific user-initiated actions even after all Incognito windows are
+closed. The following data remains on your local device:</p>
+<ul>
+<li><strong>Downloaded Files:</strong> While the <em>record</em> of your
+downloads is erased from the browser, the actual files you downloaded
+(such as PDFs, images, or software) remain saved in your computer's
+designated Downloads folder or wherever you chose to store them.</li>
+<li><strong>Bookmarks and Reading List Items:</strong> If you bookmark a
+webpage or add an article to your reading list while in Incognito mode,
+Chromium saves these entries to your main, permanent user profile.</li>
+<li><strong>Browser Settings and Flags:</strong> Any changes you make to
+Chromium’s global settings—such as changing your default search engine,
+adjusting font sizes, or modifying experimental
+<code>chrome://flags</code>—will persist after you close the Incognito
+window.</li>
+<li><strong>Saved Passwords (If Explicitly Confirmed):</strong> Although
+Chromium does not automatically save form data in Incognito mode, if you
+manually update an existing saved password or explicitly tell the
+built-in password manager to save a new credential, it will be retained
+in your main profile's password store.</li>
+<li><strong>OS-Level DNS Cache:</strong> While not retained by Chromium
+itself, your computer's operating system keeps a temporary record (DNS
+cache) of the domain names you requested to resolve them into IP
+addresses. This remains on your computer until the OS clears it or you
+flush the DNS manually.</li>
+</ul>
+<h2 id="information-retained-outside-the-browser">Information Retained
+Outside the Browser</h2>
+<p>Closing an Incognito window only clears data on your local machine.
+It has no effect on data collected by external entities during your
+session. The following entities retain your information:</p>
+<ul>
+<li><strong>Websites You Visited:</strong> The servers of the websites
+you accessed still retain records of your visit, including your IP
+address, the pages you clicked on, and any data you submitted. If you
+logged into an account (like Google, Amazon, or Facebook) while in
+Incognito mode, that service ties your activity directly to your
+profile.</li>
+<li><strong>Network Administrators:</strong> If you are using a school,
+workplace, or public Wi-Fi network, the network routers and firewalls
+retain logs of the domains and IP addresses you connected to during the
+Incognito session.</li>
+<li><strong>Internet Service Providers (ISPs):</strong> Your ISP routes
+your traffic and retains logs of the websites you visit, regardless of
+whether you use a standard or Incognito window.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-incognito-mode-what-is-retained-and-discarded';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

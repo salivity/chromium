@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How iOS Chromium Uses JavaScript Injection in WKWebView - chromium</title>
+    <meta name="description" content="Because Apple requires all third-party browsers on iOS to use the native WebKit rendering engine via the WKWebView API, Chromium on iOS cannot use its own Blink engine to directly manipulate the Document Object Model (DOM) from C++ code. This article expl">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-i-os-chromium-uses-java-script-injection-in-wk-web-view">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How iOS Chromium Uses JavaScript Injection in WKWebView - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-i-os-chromium-uses-java-script-injection-in-wk-web-view" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Because Apple requires all third-party browsers on iOS to use the native WebKit rendering engine via the WKWebView API, Chromium on iOS cannot use its own Blink engine to directly manipulate the Document Object Model (DOM) from C++ code. This article expl" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-ios-chromium-uses-javascript-injection-in-wkwebview">How iOS
+Chromium Uses JavaScript Injection in WKWebView</h1>
+<p>Because Apple requires all third-party browsers on iOS to use the
+native WebKit rendering engine via the <code>WKWebView</code> API,
+Chromium on iOS cannot use its own Blink engine to directly manipulate
+the Document Object Model (DOM) from C++ code. This article explains how
+Chromium overcomes these architectural limitations to implement core
+browser features like password autofill and page translation. It
+achieves this by bundling custom JavaScript scripts, injecting them into
+the <code>WKWebView</code> lifecycle, and establishing a two-way
+communication bridge between the web page's DOM and Chromium's native
+C++ and Objective-C codebase.</p>
+<h2 id="the-architecture-of-wkwebview-and-__gcrweb">The Architecture of
+WKWebView and <code>__gCrWeb</code></h2>
+<p>In desktop versions of Chromium, the browser has direct C++ access to
+the Blink rendering engine, allowing it to inspect and modify HTML
+elements natively. On iOS, <code>WKWebView</code> runs in a separate
+process and hides the DOM behind a strict security boundary.</p>
+<p>To interact with the web page, Chromium uses a JavaScript namespace
+called <code>__gCrWeb</code>. During the build process, Chromium
+compiles various TypeScript and JavaScript files into bundles. When a
+user navigates to a webpage, Chromium uses WebKit's
+<code>WKUserContentController</code> to inject these scripts as
+<code>WKUserScript</code> objects. These scripts are configured to run
+either at the start of the document load (<code>atDocumentStart</code>)
+or after the DOM is fully constructed (<code>atDocumentEnd</code>).</p>
+<p>To prevent the webpage's own JavaScript from tampering with
+Chromium’s injected scripts, Chromium utilizes
+<code>WKContentWorld</code> (introduced in iOS 14). This allows the
+<code>__gCrWeb</code> scripts to execute in an isolated environment,
+separate from the standard web page scripts, while still having full
+access to the same DOM.</p>
+<h2 id="the-two-way-communication-bridge">The Two-Way Communication
+Bridge</h2>
+<p>Injecting scripts is only half the solution; the scripts must
+communicate with Chromium's native C++ features. This is achieved
+through a bidirectional bridge:</p>
+<ol type="1">
+<li><strong>JavaScript to Native:</strong> Chromium registers message
+handlers using <code>WKScriptMessageHandler</code>. When an injected
+JavaScript function wants to send data back to the browser, it calls
+<code>window.webkit.messageHandlers.&lt;HandlerName&gt;.postMessage()</code>.
+The native Objective-C layer intercepts this JSON payload and routes it
+to the appropriate C++ controller.</li>
+<li><strong>Native to JavaScript:</strong> When the native browser needs
+to trigger an action on the page, it calls the
+<code>evaluateJavaScript:inFrame:inContentWorld:completionHandler:</code>
+method on the <code>WKWebView</code>. This executes functions previously
+defined on the <code>__gCrWeb</code> object within the isolated
+world.</li>
+</ol>
+<h2 id="implementing-password-autofill">Implementing Password
+Autofill</h2>
+<p>Password autofill requires the browser to detect login forms,
+recognize when a user submits them, and populate the fields with saved
+credentials. Chromium executes this via the following pipeline:</p>
+<ul>
+<li><strong>Form Detection:</strong> Once the page loads, an injected
+Autofill script scans the DOM for <code>&lt;form&gt;</code> and
+<code>&lt;input&gt;</code> elements. It ignores irrelevant fields and
+specifically looks for attributes like <code>type="password"</code>,
+<code>autocomplete="username"</code>, and surrounding text labels.</li>
+<li><strong>Data Extraction:</strong> The script serializes the
+structure of the form into a JSON object, assigning unique identifiers
+to the input fields, and sends this data to the native layer via the
+<code>postMessage</code> bridge.</li>
+<li><strong>Native Processing:</strong> The native
+<code>AutofillManager</code> (written in C++ and shared across all
+Chromium platforms) analyzes the form structure and checks the local
+database for matching saved credentials.</li>
+<li><strong>Field Population:</strong> If a match is found and the user
+authenticates (e.g., via FaceID), the native layer constructs a JSON
+payload containing the username and password. It calls
+<code>evaluateJavaScript</code> to pass this payload to a
+<code>__gCrWeb.autofill.fillForm()</code> function.</li>
+<li><strong>DOM Manipulation:</strong> The injected JavaScript locates
+the specific DOM input elements, sets their <code>.value</code>
+properties to the user's credentials, and programmatically dispatches
+<code>input</code> and <code>change</code> events so the host webpage's
+JavaScript frameworks (like React or Angular) recognize that the fields
+have been filled.</li>
+</ul>
+<h2 id="implementing-page-translation">Implementing Page
+Translation</h2>
+<p>Translating a webpage requires reading all visible text, determining
+its language, and replacing it with translated text without breaking the
+page layout or event listeners.</p>
+<ul>
+<li><strong>Language Detection:</strong> When a page finishes loading,
+an injected script traverses the DOM body, extracting a sample of
+visible text nodes while ignoring <code>&lt;script&gt;</code>,
+<code>&lt;style&gt;</code>, and <code>&lt;code&gt;</code> tags. This
+text sample is sent to the native layer via a message handler.</li>
+<li><strong>Triggering Translation:</strong> The native C++ language
+detection model determines the language of the extracted text. If it
+differs from the user's system language, the native UI prompts the user
+to translate the page.</li>
+<li><strong>Injecting the Translation Engine:</strong> If the user
+agrees, the native layer fetches the Google Translate element JavaScript
+library from the network. Because websites often have strict Content
+Security Policies (CSP) that block external scripts, Chromium injects
+this translation library directly into its isolated
+<code>WKContentWorld</code>, bypassing the page's CSP restrictions.</li>
+<li><strong>DOM Replacement:</strong> The injected translation script
+walks the DOM tree, collects batches of text nodes, and sends them out
+for translation via network requests routed through the native browser
+process (again, to bypass CORS and CSP limitations). As translated
+strings return, the script directly mutates the <code>nodeValue</code>
+of the original text nodes in the DOM, seamlessly updating the language
+on the screen while preserving the underlying HTML structure.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-i-os-chromium-uses-java-script-injection-in-wk-web-view';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

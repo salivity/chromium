@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Embedded Framework vs. Raw Chromium Content API - chromium</title>
+    <meta name="description" content="This article explores the Chromium Embedded Framework (CEF), an open-source framework designed for embedding a Chromium-based web browser into third-party applications. It also provides a direct comparison between using CEF&#39;s stable C and C++ APIs versus">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-embedded-framework-vs-raw-chromium-content-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Embedded Framework vs. Raw Chromium Content API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-embedded-framework-vs-raw-chromium-content-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the Chromium Embedded Framework (CEF), an open-source framework designed for embedding a Chromium-based web browser into third-party applications. It also provides a direct comparison between using CEF&#39;s stable C and C++ APIs versus" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-embedded-framework-vs-raw-chromium-content-api">Chromium
+Embedded Framework vs. Raw Chromium Content API</h1>
+<p>This article explores the Chromium Embedded Framework (CEF), an
+open-source framework designed for embedding a Chromium-based web
+browser into third-party applications. It also provides a direct
+comparison between using CEF's stable C and C++ APIs versus integrating
+the raw Chromium Content API directly, highlighting key differences in
+API stability, build complexity, compiler requirements, and feature
+availability.</p>
+<h3 id="what-is-the-chromium-embedded-framework">What is the Chromium
+Embedded Framework?</h3>
+<p>The Chromium Embedded Framework (CEF) is an open-source software
+framework used to embed a full-featured HTML5 web browser control into
+desktop and standalone applications. Founded in 2008, CEF sits on top of
+the Google Chromium project.</p>
+<p>It packages the underlying Blink rendering engine and V8 JavaScript
+engine into a manageable library. CEF is widely used in commercial and
+open-source software to render user interfaces using web technologies or
+to display web content natively within a host application.</p>
+<h3 id="what-is-the-raw-chromium-content-api">What is the Raw Chromium
+Content API?</h3>
+<p>The Chromium Content API is the internal architectural layer within
+the Chromium project that provides the core multi-process code needed to
+render a page using the Blink engine. It abstracts the sandbox, GPU
+acceleration, and network stacks, leaving out the specific Google Chrome
+browser features like extensions, autofill, and spelling correction.
+While it is possible to build an application directly on top of the
+Content API, it was primarily designed for Chromium's own internal use
+rather than for third-party developers.</p>
+<h3 id="key-differences-cef-api-vs-raw-content-api">Key Differences: CEF
+API vs. Raw Content API</h3>
+<p>Choosing between CEF and the raw Chromium Content API comes down to
+how your application interacts with the underlying browser engine. Below
+are the core technical differences between the two approaches.</p>
+<h4 id="1-cc-architecture-and-compiler-freedom">1. C/C++ Architecture
+and Compiler Freedom</h4>
+<ul>
+<li><strong>Raw Content API:</strong> The Content API is written
+entirely in C++. Because C++ lacks a standardized Application Binary
+Interface (ABI), using the Content API requires your entire application
+to be compiled with the exact same compiler, flags, and C++ standard
+library (typically Clang and <code>libc++</code>) that Chromium
+uses.</li>
+<li><strong>CEF C and C++ APIs:</strong> CEF solves the C++ ABI problem
+by exposing a base C API (<code>libcef</code>). Because C has a stable
+ABI, CEF separates the Chromium internals from your application's build
+environment. On top of this C API, CEF provides a C++ wrapper
+(<code>libcef_dll_wrapper</code>) that translates C structures back into
+easy-to-use C++ classes. Your application links against the C++ wrapper
+using your preferred compiler (such as MSVC or GCC), while the wrapper
+communicates safely with the pre-compiled CEF binaries via the C API.
+This C layer also makes it easy to generate bindings for other languages
+like C#, Python, and Java.</li>
+</ul>
+<h4 id="2-api-stability-and-maintenance">2. API Stability and
+Maintenance</h4>
+<ul>
+<li><strong>Raw Content API:</strong> Chromium moves fast, and the
+Content API makes no guarantees regarding backward compatibility.
+Interfaces, classes, and methods change or disappear with every Chromium
+milestone release. Developers using the Content API must constantly
+rewrite their integration code to keep up with security updates.</li>
+<li><strong>CEF API:</strong> A primary goal of CEF is to insulate
+developers from Chromium's constant internal refactoring. While CEF
+updates its underlying Chromium version regularly, the CEF C and C++
+APIs remain relatively stable. Updating to a newer version of CEF
+usually requires minimal changes to the host application's
+codebase.</li>
+</ul>
+<h4 id="3-build-system-and-distribution">3. Build System and
+Distribution</h4>
+<ul>
+<li><strong>Raw Content API:</strong> There are no official pre-built
+binaries for the Content API. To use it, you must download the entire
+Chromium source tree (over 30 GB of data) and build it yourself using
+Google’s custom toolchain (<code>depot_tools</code>, GN, and Ninja).
+This requires a high-end machine with significant RAM and takes hours to
+compile.</li>
+<li><strong>CEF API:</strong> CEF provides automated, pre-built binary
+distributions for Windows, macOS, and Linux. You can download a
+relatively small SDK package, link it to your existing project using
+standard build systems like CMake, and start developing immediately
+without ever compiling Chromium from source.</li>
+</ul>
+<h4 id="4-out-of-the-box-features">4. Out-of-the-Box Features</h4>
+<ul>
+<li><strong>Raw Content API:</strong> The Content API only handles the
+bare minimum required to render a webpage. It does not include basic
+browser features like printing, PDF viewing, file download management,
+JavaScript dialogs, or context menus. If you use the Content API, you
+must implement all of these features from scratch.</li>
+<li><strong>CEF API:</strong> CEF sits between the Content API and a
+full browser, meaning the CEF developers have already implemented these
+missing pieces. CEF provides built-in handlers for printing, PDF
+generation, custom network schemes, proxy resolution, and windowless
+(off-screen) rendering right out of the box.</li>
+</ul>
+<h4 id="5-inter-process-communication-ipc">5. Inter-Process
+Communication (IPC)</h4>
+<ul>
+<li><strong>Raw Content API:</strong> Chromium uses a strict
+multi-process architecture. Using the Content API requires you to
+manually write complex Mojo IPC interfaces to pass data between the main
+Browser process and the sandboxed Renderer processes.</li>
+<li><strong>CEF API:</strong> CEF abstracts Chromium's Mojo IPC system
+into a much simpler messaging API. It provides straightforward C++
+classes (such as <code>CefProcessMessage</code>) to send asynchronous
+data and bind JavaScript variables between the host application and the
+V8 engine running in the renderer process.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-embedded-framework-vs-raw-chromium-content-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

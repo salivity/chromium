@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Coordinates Browser and Renderer Processes - chromium</title>
+    <meta name="description" content="This article explores the multi-process architecture of the Chromium web browser, specifically focusing on how the central browser process manages and communicates with multiple isolated renderer processes. By utilizing asynchronous Inter-Process Communic">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-coordinates-browser-and-renderer-processes">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Coordinates Browser and Renderer Processes - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-coordinates-browser-and-renderer-processes" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the multi-process architecture of the Chromium web browser, specifically focusing on how the central browser process manages and communicates with multiple isolated renderer processes. By utilizing asynchronous Inter-Process Communic" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-coordinates-browser-and-renderer-processes">How
+Chromium Coordinates Browser and Renderer Processes</h1>
+<p>This article explores the multi-process architecture of the Chromium
+web browser, specifically focusing on how the central browser process
+manages and communicates with multiple isolated renderer processes. By
+utilizing asynchronous Inter-Process Communication (IPC) via the Mojo
+framework, shared memory, and strict sandboxing, the main browser
+process orchestrates the creation, resource allocation, and lifecycle of
+numerous renderer processes. This coordination ensures that complex web
+pages load efficiently, securely, and independently without compromising
+the stability of the entire browser.</p>
+<h2 id="defining-the-roles">Defining the Roles</h2>
+<p>To understand how coordination works, it is necessary to distinguish
+between the two process types:</p>
+<ul>
+<li><strong>The Browser Process:</strong> There is only one main browser
+process. It acts as the control center, managing the user interface
+(tabs, toolbars), handling disk and network access, and orchestrating
+all other processes. It has full access to the operating system.</li>
+<li><strong>Renderer Processes:</strong> There are multiple renderer
+processes running simultaneously. Each renderer contains the Blink
+rendering engine and the V8 JavaScript engine, which work together to
+turn HTML, CSS, and JavaScript into an interactive web page. For
+security, renderers run in a restricted "sandbox" with no direct access
+to the operating system, file system, or network.</li>
+</ul>
+<h2 id="process-creation-and-site-isolation">Process Creation and Site
+Isolation</h2>
+<p>The browser process decides when to create or destroy a renderer
+process based on navigation events and a security feature called Site
+Isolation.</p>
+<p>When a user types a URL into the address bar, the browser process
+initiates the navigation. Instead of simply using one renderer per tab,
+Chromium uses a "process-per-site-instance" model. The browser process
+checks the domain of the requested URL. If the user is navigating to a
+new domain, the browser process spawns a brand-new renderer process
+dedicated to that specific site.</p>
+<p>Even if a single web page contains multiple
+<code>&lt;iframe&gt;</code> elements from different domains, the browser
+process will spin up separate renderer processes for each iframe and
+stitch them together visually. The browser process maintains an internal
+map—using classes like <code>RenderFrameHost</code>—to keep track of
+which renderer process belongs to which tab or frame.</p>
+<h2 id="communication-via-the-mojo-ipc-framework">Communication via the
+Mojo IPC Framework</h2>
+<p>Because renderer processes are sandboxed, they cannot fetch data,
+save files, or access hardware on their own. They must ask the browser
+process to do it for them. Chromium handles this through Inter-Process
+Communication (IPC), specifically using a system called
+<strong>Mojo</strong>.</p>
+<p>Mojo establishes bidirectional "message pipes" between the browser
+process and each renderer process. Coordination through Mojo works as
+follows:</p>
+<ol type="1">
+<li><strong>Asynchronous Messaging:</strong> Communication is strictly
+asynchronous. When a renderer needs information (like system clipboard
+data) or wants to notify the browser of an event (like a page title
+changing), it sends a Mojo message and continues working. This prevents
+the browser UI from freezing if a renderer is slow or unresponsive.</li>
+<li><strong>Strongly Typed Interfaces:</strong> Developers define Mojo
+interfaces (using <code>.mojom</code> files) that act as strict
+contracts. The browser process exposes specific interfaces to the
+renderer. When the renderer calls a method on an interface, Mojo
+serializes the data, sends it across the pipe, and triggers the
+corresponding implementation in the browser process.</li>
+<li><strong>Security Validation:</strong> Because a renderer process can
+be compromised by malicious JavaScript, the browser process treats all
+incoming IPC messages as untrusted. The browser process validates every
+request to ensure the specific renderer actually has the permission to
+access the requested data.</li>
+</ol>
+<h2 id="sharing-data-and-system-resources">Sharing Data and System
+Resources</h2>
+<p>Passing large amounts of data—such as images, video streams, or large
+HTML files—over Mojo message pipes would be too slow. To coordinate
+heavy data transfers efficiently, the browser process uses
+<strong>Shared Memory</strong>.</p>
+<p>When a renderer needs a web resource (like an image), the
+coordination happens in steps:</p>
+<ol type="1">
+<li>The renderer requests the URL via Mojo.</li>
+<li>The browser process coordinates with the Network Service to download
+the data from the internet.</li>
+<li>The browser process allocates a block of shared memory (RAM that
+both processes are allowed to read) and writes the downloaded data into
+it.</li>
+<li>The browser sends a lightweight Mojo message to the renderer
+containing a "handle" (a pointer) to that shared memory block.</li>
+<li>The renderer reads the data directly from the memory block without
+the operating system needing to copy the data from one process to
+another.</li>
+</ol>
+<h2 id="managing-lifecycles-priority-and-crashes">Managing Lifecycles,
+Priority, and Crashes</h2>
+<p>The browser process acts as a task manager for all active renderer
+processes, constantly monitoring their health and resource usage.</p>
+<ul>
+<li><strong>Prioritization:</strong> The browser process knows which
+tabs are visible to the user and which are hidden in the background. It
+communicates with the operating system to lower the CPU priority of
+background renderer processes, ensuring that the active tab gets the
+most system resources.</li>
+<li><strong>Memory Management:</strong> If the system runs low on RAM,
+the browser process can instruct background renderers to purge their
+caches, or it can completely terminate a background renderer, saving its
+state so it can be reloaded if the user clicks the tab again.</li>
+<li><strong>Crash Handling:</strong> The browser process monitors the
+IPC pipes connected to each renderer. If a renderer hits a fatal error
+(such as an out-of-memory crash or an infinite loop), the IPC pipe
+breaks. The browser process immediately detects this disconnection,
+cleans up the dead process's resources, and replaces the web page
+viewport with the "Aw, Snap!" error screen. Because the browser process
+remains unaffected, all other tabs and renderer processes continue
+functioning normally.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-coordinates-browser-and-renderer-processes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publishing Web Apps with Trusted Web Activities - chromium</title>
+    <meta name="description" content="This article provides a comprehensive guide on how Trusted Web Activities (TWAs) enable developers to package and publish full-screen Chromium web experiences directly to the Google Play Store. It covers the fundamental architecture of TWAs, how they diff">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/publishing-web-apps-with-trusted-web-activities">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Publishing Web Apps with Trusted Web Activities - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/publishing-web-apps-with-trusted-web-activities" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive guide on how Trusted Web Activities (TWAs) enable developers to package and publish full-screen Chromium web experiences directly to the Google Play Store. It covers the fundamental architecture of TWAs, how they diff" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="publishing-web-apps-with-trusted-web-activities">Publishing Web
+Apps with Trusted Web Activities</h1>
+<p>This article provides a comprehensive guide on how Trusted Web
+Activities (TWAs) enable developers to package and publish full-screen
+Chromium web experiences directly to the Google Play Store. It covers
+the fundamental architecture of TWAs, how they differ from standard
+WebViews, the cryptographic verification required to remove the browser
+UI, and the specific tools used to bundle a Progressive Web App (PWA)
+into a store-ready Android package.</p>
+<h2 id="what-is-a-trusted-web-activity">What is a Trusted Web
+Activity?</h2>
+<p>A Trusted Web Activity is an Android feature that allows a mobile app
+to open a full-screen browser tab within the application itself. Instead
+of building a native user interface using Java or Kotlin, the Android
+app acts as a thin wrapper that launches a specific URL.</p>
+<p>Unlike a traditional Android WebView—which uses a stripped-down,
+isolated rendering engine—a TWA runs directly on the user's installed
+Chromium-based browser (typically Google Chrome). This means the web app
+has full access to modern web APIs, hardware acceleration, and the
+browser's shared storage. If a user is already logged into your website
+on Chrome, they will automatically be logged into your TWA app because
+they share the same cookies and cache.</p>
+<h2 id="the-custom-tabs-protocol">The Custom Tabs Protocol</h2>
+<p>Under the hood, TWAs are built on top of the Chrome Custom Tabs
+protocol. Custom Tabs allow developers to launch a fast, integrated
+browser window over their app. TWAs take this a step further by
+completely hiding the browser's URL bar, navigation buttons, and menus.
+Because the web content takes up 100% of the screen, the user
+experiences the website as if it were a standard native Android
+application.</p>
+<h2 id="verifying-ownership-with-digital-asset-links">Verifying
+Ownership with Digital Asset Links</h2>
+<p>Hiding the URL bar presents a security risk, as a malicious developer
+could theoretically wrap a banking website inside an app and trick
+users. To prevent this, Chromium enforces a strict verification process
+before it agrees to hide the browser UI. Developers must prove they
+control both the Android app and the website being displayed.</p>
+<p>This is achieved using <strong>Digital Asset Links</strong>:</p>
+<ol type="1">
+<li><strong>App-side declaration:</strong> The developer adds a metadata
+tag inside the Android app’s <code>AndroidManifest.xml</code> file,
+pointing to the website's domain.</li>
+<li><strong>Web-side declaration:</strong> The developer uploads a file
+named <code>assetlinks.json</code> to the <code>.well-known</code>
+directory of their website (e.g.,
+<code>https://example.com/.well-known/assetlinks.json</code>). This file
+contains the Android app's package name and the SHA-256 fingerprint of
+the cryptographic key used to sign the app.</li>
+</ol>
+<p>When the user launches the app, Chrome checks the website's
+<code>assetlinks.json</code> file in the background. If the digital
+signatures match, Chrome trusts the app and renders the website in
+full-screen mode. If the check fails, Chrome falls back to displaying a
+standard Custom Tab with a visible URL bar.</p>
+<h2 id="packaging-the-web-app-for-google-play">Packaging the Web App for
+Google Play</h2>
+<p>The Google Play Store does not accept URLs; it requires compiled
+Android App Bundles (<code>.aab</code>) or APKs. However, developers do
+not need to write native Android code or even install Android Studio to
+create a TWA. Google and the open-source community provide automated
+tools that generate the wrapper code for you:</p>
+<ul>
+<li><strong>Bubblewrap:</strong> An official command-line interface
+(CLI) tool developed by Google. You provide Bubblewrap with the URL to
+your web app's <code>manifest.json</code> file. It automatically
+downloads your app icons, configures the Digital Asset Links, and
+compiles a signed Android App Bundle ready for the Play Store.</li>
+<li><strong>PWABuilder:</strong> A web-based graphical tool maintained
+by Microsoft that utilizes Bubblewrap in the background. Developers
+simply enter their website URL, click a few buttons to customize the
+wrapper settings, and download the compiled package files directly from
+their browser.</li>
+</ul>
+<h2 id="requirements-for-play-store-approval">Requirements for Play
+Store Approval</h2>
+<p>Before wrapping a web experience in a TWA and submitting it to the
+Google Play Store, the web app must meet specific quality criteria:</p>
+<ul>
+<li><strong>Progressive Web App (PWA) Compliance:</strong> The website
+must have a valid Web App Manifest and a registered Service Worker to
+handle offline states. Because native apps do not show a "No Internet
+Dino" screen, your Service Worker must provide a custom offline user
+interface when connectivity drops.</li>
+<li><strong>Performance Standards:</strong> The web app must achieve a
+performance score of at least 80 in Google Lighthouse.</li>
+<li><strong>Play Store Policies:</strong> The web app must adhere to all
+standard Google Play Store developer policies, including those regarding
+content, privacy, and payments. If the TWA sells digital goods, it must
+integrate the Digital Goods API to process payments through Google Play
+Billing.</li>
+</ul>
+<p>Once these requirements are met and the <code>.aab</code> file is
+generated via Bubblewrap or PWABuilder, the developer can upload the
+file to the Google Play Console just like any other native Android
+application. Updates to the app's UI or functionality can then be
+deployed instantly by simply updating the website, bypassing the need to
+submit new app versions to the Play Store.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/publishing-web-apps-with-trusted-web-activities';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

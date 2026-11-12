@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Handles Bidirectional Text Rendering - chromium</title>
+    <meta name="description" content="This article provides an overview of the technical pipeline the Chromium web browser uses to render bidirectional (BiDi) text, enabling the seamless integration of right-to-left (RTL) scripts like Hebrew and Arabic with left-to-right (LTR) English. It cov">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-handles-bidirectional-text-rendering">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Handles Bidirectional Text Rendering - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-handles-bidirectional-text-rendering" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the technical pipeline the Chromium web browser uses to render bidirectional (BiDi) text, enabling the seamless integration of right-to-left (RTL) scripts like Hebrew and Arabic with left-to-right (LTR) English. It cov" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-handles-bidirectional-text-rendering">How Chromium
+Handles Bidirectional Text Rendering</h1>
+<p>This article provides an overview of the technical pipeline the
+Chromium web browser uses to render bidirectional (BiDi) text, enabling
+the seamless integration of right-to-left (RTL) scripts like Hebrew and
+Arabic with left-to-right (LTR) English. It covers the entire process
+inside Chromium's Blink rendering engine, from initial character
+analysis using the Unicode Bidirectional Algorithm to text segmentation,
+font shaping via HarfBuzz, and final visual reordering on the
+screen.</p>
+<h3 id="logical-order-vs-visual-order">Logical Order vs. Visual
+Order</h3>
+<p>Chromium’s rendering engine, Blink, processes text using its modern
+layout architecture, LayoutNG. To mix English with Arabic or Hebrew,
+Blink strictly separates the <strong>logical order</strong> of text from
+its <strong>visual order</strong>.</p>
+<p>Logical order is the sequence in which characters are typed, read,
+and stored in the computer's memory. Visual order is how those
+characters are physically arranged from left to right on a screen.
+Chromium keeps all text in logical order inside the Document Object
+Model (DOM) and only converts it to visual order at the very end of the
+rendering pipeline.</p>
+<h3 id="the-unicode-bidirectional-algorithm-and-icu">The Unicode
+Bidirectional Algorithm and ICU</h3>
+<p>To translate logical order into visual order, Chromium relies on the
+International Components for Unicode (ICU) library, which implements the
+standard Unicode Bidirectional Algorithm (UBA). The algorithm
+categorizes every Unicode character by its directional property:</p>
+<ul>
+<li><strong>Strong characters:</strong> Latin letters are strictly LTR,
+whereas Arabic and Hebrew letters are strictly RTL.</li>
+<li><strong>Weak characters:</strong> Numbers and currency symbols have
+weak directionality. For example, numbers in Arabic and Hebrew are
+actually read left-to-right, even though the surrounding text is
+right-to-left.</li>
+<li><strong>Neutral characters:</strong> Spaces, punctuation, and
+symbols have no inherent direction and adopt the direction of the text
+surrounding them.</li>
+</ul>
+<h3 id="bidi-resolution-and-directional-runs">Bidi Resolution and
+Directional Runs</h3>
+<p>When Blink encounters a paragraph containing mixed scripts, it passes
+the text string to the ICU BiDi engine. The process follows a strict
+sequence:</p>
+<ol type="1">
+<li><strong>Base Direction Determination:</strong> Blink establishes the
+overall paragraph direction. It checks for explicit HTML attributes
+(like <code>dir="rtl"</code>), CSS properties, or defaults to the
+direction of the first strong character it finds.</li>
+<li><strong>Embedding Levels:</strong> The ICU library scans the text
+and assigns a numerical "embedding level" to every character. Even
+numbers (0, 2, 4) represent LTR segments, while odd numbers (1, 3, 5)
+represent RTL segments.</li>
+<li><strong>Segmentation into Runs:</strong> Contiguous characters that
+share the same embedding level are grouped into "directional runs." For
+example, an English sentence containing a two-word Hebrew phrase is
+split into three distinct runs: an LTR run (English), an RTL run
+(Hebrew), and another LTR run (the remaining English). Neutral
+characters like periods or brackets are resolved based on the runs next
+to them and the base direction of the paragraph.</li>
+</ol>
+<h3 id="line-breaking-in-logical-order">Line Breaking in Logical
+Order</h3>
+<p>Before Chromium reverses any RTL text for display, it must calculate
+where lines wrap. LayoutNG measures the width of the text in its logical
+order to determine line breaks.</p>
+<p>This step happens before visual reordering to ensure sentences break
+naturally. If a long Hebrew sentence is embedded in an English paragraph
+and needs to wrap across two lines, the chronologically first part of
+the Hebrew sentence must appear on the top line, and the continuation
+must appear on the bottom line.</p>
+<h3 id="text-shaping-with-harfbuzz">Text Shaping with HarfBuzz</h3>
+<p>Once the text is broken into lines and segmented into unidirectional
+runs, Chromium passes each run to <strong>HarfBuzz</strong>, its
+text-shaping engine.</p>
+<p>Shaping is critical for RTL languages. In Arabic, letters are cursive
+and change their visual form depending on whether they are at the
+beginning, middle, or end of a word. In Hebrew, vowel points (niqqud)
+and cantillation marks must be positioned precisely above or below
+specific consonants.</p>
+<p>Blink feeds each isolated directional run into HarfBuzz along with
+its resolved direction (LTR or RTL), font data, and script type.
+HarfBuzz processes the run, selects the correct ligatures and glyphs
+from the font file, and calculates the exact spacing and coordinates for
+each character.</p>
+<h3 id="visual-reordering-and-skia-rendering">Visual Reordering and Skia
+Rendering</h3>
+<p>After HarfBuzz finishes shaping the runs for a specific line of text,
+Blink performs the final visual reordering based on the ICU embedding
+levels calculated earlier.</p>
+<p>Blink reverses the order of the runs that have odd embedding levels
+(the RTL runs) so they read from right to left. Once the runs are in
+their final visual sequence from left to right for that specific line,
+Chromium hands the positioned glyphs over to <strong>Skia</strong>, its
+2D graphics library, which paints the pixels onto the screen.</p>
+<h3 id="html-and-css-overrides">HTML and CSS Overrides</h3>
+<p>Web developers can manually influence Chromium's BiDi pipeline using
+HTML and CSS. When a developer uses the <code>dir</code> attribute, the
+<code>&lt;bdi&gt;</code> (BiDi Isolate) tag, or CSS properties like
+<code>direction: rtl</code> and <code>unicode-bidi: isolate</code>,
+Blink translates these rules into invisible Unicode BiDi control
+characters.</p>
+<p>Blink injects these control characters directly into the logical text
+stream before handing it off to the ICU library. This forces the
+algorithm to treat specific segments of text as isolated directional
+islands, preventing neutral characters—such as punctuation at the end of
+an Arabic name inside an English sentence—from jumping to the wrong side
+of the text.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-handles-bidirectional-text-rendering';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

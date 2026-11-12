@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Purpose of the Topics API in Chromium&#39;s Privacy Sandbox - chromium</title>
+    <meta name="description" content="This article explores the purpose and functionality of the Topics API, a core component of the Chromium web browser&#39;s Privacy Sandbox initiative. It explains how the API facilitates interest-based advertising without relying on invasive third-party cookie">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/the-purpose-of-the-topics-api-in-chromium-s-privacy-sandbox">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Purpose of the Topics API in Chromium&#39;s Privacy Sandbox - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/the-purpose-of-the-topics-api-in-chromium-s-privacy-sandbox" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the purpose and functionality of the Topics API, a core component of the Chromium web browser&#39;s Privacy Sandbox initiative. It explains how the API facilitates interest-based advertising without relying on invasive third-party cookie" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-purpose-of-the-topics-api-in-chromiums-privacy-sandbox">The
+Purpose of the Topics API in Chromium's Privacy Sandbox</h1>
+<p>This article explores the purpose and functionality of the Topics
+API, a core component of the Chromium web browser's Privacy Sandbox
+initiative. It explains how the API facilitates interest-based
+advertising without relying on invasive third-party cookies, detailing
+its local processing mechanics, built-in privacy protections, and the
+controls it provides to everyday web users.</p>
+<h2 id="replacing-third-party-cookies">Replacing Third-Party
+Cookies</h2>
+<p>The primary purpose of the Topics API is to preserve the economic
+model of the free, ad-supported web while drastically improving user
+privacy. Historically, advertisers relied on third-party cookies to
+track individual users across different websites, building detailed
+behavioral profiles to serve targeted ads.</p>
+<p>As Chromium phases out third-party cookies, the Topics API offers a
+privacy-preserving alternative for interest-based advertising. It allows
+advertisers to show relevant ads based on a user's general interests
+without revealing the user's specific identity or the exact websites
+they have visited.</p>
+<h2 id="how-the-topics-api-works">How the Topics API Works</h2>
+<p>The Topics API shifts the identification of user interests from
+external ad-tech servers directly onto the user's local device. The
+process follows a straightforward cycle:</p>
+<ol type="1">
+<li><strong>Categorization:</strong> As a user browses the web, the
+Chromium browser maps the hostnames of visited websites to a public,
+human-curated list of broad categories—called "topics." Examples include
+"Fitness," "Rock Music," or "Travel &amp; Transportation."</li>
+<li><strong>Weekly Calculation:</strong> At the end of each week
+(referred to as an "epoch"), the browser locally analyzes the user's
+browsing history and selects their top five most frequent topics for
+that week.</li>
+<li><strong>Sharing Topics:</strong> When the user visits a website that
+uses the Topics API to display ads, the browser shares a maximum of
+three topics with the advertising partners—one topic randomly selected
+from the top five of each of the past three weeks.</li>
+<li><strong>Ad Selection:</strong> The advertising platform uses these
+shared topics, alongside contextual information about the page the user
+is currently viewing, to display a relevant advertisement.</li>
+</ol>
+<h2 id="built-in-privacy-protections">Built-in Privacy Protections</h2>
+<p>The Topics API is engineered to prevent cross-site tracking and stop
+advertisers from creating digital "fingerprints" to re-identify
+individual users. It achieves this through several strict
+limitations:</p>
+<ul>
+<li><strong>On-Device Processing:</strong> A user's raw browsing history
+never leaves the browser. External servers only ever see the broad
+topics selected by the API.</li>
+<li><strong>No Sensitive Categories:</strong> The taxonomy of topics is
+publicly vetted and currently contains only a few hundred broad
+categories. It strictly excludes sensitive topics related to race,
+gender, sexual orientation, religion, or finance.</li>
+<li><strong>Short Data Lifespan:</strong> Topics are only kept for three
+weeks. After this period, old topics are deleted and replaced by new
+calculations.</li>
+<li><strong>Plausible Deniability (Noise):</strong> Whenever a topic is
+shared, there is a 5% chance the browser will send a completely random
+topic from the public list instead of a real one. This prevents third
+parties from being 100% certain about a user's actual interests.</li>
+<li><strong>Witness Requirement:</strong> An advertising platform will
+only receive a specific topic for a user if that same platform
+previously witnessed the user visiting a website associated with that
+topic. Different sites also receive different topics from the user's
+weekly list, making it difficult for sites to compare data and identify
+the user.</li>
+</ul>
+<h2 id="user-transparency-and-control">User Transparency and
+Control</h2>
+<p>Another core purpose of the Topics API is to provide transparency
+that was impossible with third-party cookies. Chromium browsers provide
+a dedicated settings interface where users can actively manage the API.
+Users can view the exact topics their browser has inferred from their
+browsing history, manually remove specific topics they do not wish to
+share, or opt out of the Topics API completely with a single toggle.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/the-purpose-of-the-topics-api-in-chromium-s-privacy-sandbox';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

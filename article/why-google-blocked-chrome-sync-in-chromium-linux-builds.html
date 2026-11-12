@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Google Blocked Chrome Sync in Chromium Linux Builds - chromium</title>
+    <meta name="description" content="In early 2021, Google cut off access to its private Chrome APIs—most notably the Chrome Sync service—for all third-party builds of the open-source Chromium web browser. This decision was made after an internal Google audit revealed that unauthorized third">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-google-blocked-chrome-sync-in-chromium-linux-builds">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Google Blocked Chrome Sync in Chromium Linux Builds - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-google-blocked-chrome-sync-in-chromium-linux-builds" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In early 2021, Google cut off access to its private Chrome APIs—most notably the Chrome Sync service—for all third-party builds of the open-source Chromium web browser. This decision was made after an internal Google audit revealed that unauthorized third" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-google-blocked-chrome-sync-in-chromium-linux-builds">Why
+Google Blocked Chrome Sync in Chromium Linux Builds</h1>
+<p>In early 2021, Google cut off access to its private Chrome APIs—most
+notably the Chrome Sync service—for all third-party builds of the
+open-source Chromium web browser. This decision was made after an
+internal Google audit revealed that unauthorized third-party browsers
+were integrating proprietary Google services that were legally and
+technically intended exclusively for the official Google Chrome browser.
+This article explains the exact security, infrastructural, and licensing
+reasons behind Google's restriction, and why this change
+disproportionately affected the Linux community.</p>
+<h2 id="the-result-of-an-internal-audit">The Result of an Internal
+Audit</h2>
+<p>In January 2021, the Chromium team announced that they had recently
+conducted an internal audit of how Google’s proprietary APIs were being
+used across the web ecosystem. During this audit, Google discovered that
+several third-party browsers built on the open-source Chromium source
+code were using private Google API keys.</p>
+<p>By embedding these keys into their own software, third-party
+developers allowed their users to log into Google accounts directly
+through the browser and utilize Google's backend servers to sync
+bookmarks, history, passwords, and open tabs. Google stated that these
+specific APIs were never meant for third-party use and were strictly
+designed for Google Chrome. Consequently, Google revoked access to these
+APIs on March 15, 2021.</p>
+<h2 id="the-difference-between-chromium-and-chrome">The Difference
+Between Chromium and Chrome</h2>
+<p>To understand the restriction, it is necessary to distinguish between
+the two browsers:</p>
+<ul>
+<li><strong>Chromium</strong> is an open-source browser project
+maintained primarily by Google, with contributions from the wider
+community. Anyone can take the Chromium source code, modify it, and
+compile it into their own browser (examples include Microsoft Edge,
+Brave, and Vivaldi).</li>
+<li><strong>Google Chrome</strong> is Google's proprietary,
+closed-source consumer product. It takes the Chromium base and adds
+proprietary media codecs, branding, automatic update mechanisms, and
+deep integration with Google's cloud services.</li>
+</ul>
+<p>The Chrome Sync API, along with other services like Safe Browsing,
+Geolocation, and Spellcheck, belong to the proprietary Google Chrome
+layer. Maintaining the massive server infrastructure required to sync
+millions of users' data costs money. Google funds this infrastructure to
+support its flagship Chrome browser, not to provide free backend server
+hosting for competing third-party browsers or external projects.</p>
+<h2 id="security-and-data-privacy-concerns">Security and Data Privacy
+Concerns</h2>
+<p>Beyond infrastructure costs and licensing terms, allowing third-party
+builds to access Google account data via private APIs posed a
+significant security risk.</p>
+<p>When a user signs into official Google Chrome, Google can verify the
+integrity of the browser and ensure the user's passwords and personal
+data are handled securely. However, when a third-party developer
+compiles their own version of Chromium and inserts Google API keys,
+Google has no control over what else that developer might have added to
+the source code. A malicious or poorly coded third-party build could
+theoretically intercept sensitive Google account data during the syncing
+process. Cutting off API access ensured that Google could secure the
+pipeline between the user's browser and Google's servers.</p>
+<h2 id="why-linux-users-were-hit-the-hardest">Why Linux Users Were Hit
+the Hardest</h2>
+<p>While Google's target was likely commercial third-party browsers
+abusing their APIs, the collateral damage fell mostly on Linux
+distributions.</p>
+<p>Most Linux distributions—such as Ubuntu, Fedora, Debian, and Arch
+Linux—strongly prefer or strictly require software in their official
+repositories to be open-source. Because Google Chrome is closed-source,
+these distributions do not package it by default. Instead, they package
+Chromium.</p>
+<p>For years, Linux package maintainers had been compiling Chromium from
+the source code and injecting Google API keys into their builds. This
+was a widely accepted practice that gave Linux users an open-source
+browser with the convenience of Google Sync. When Google enforced the
+API restriction in March 2021, these Linux-maintained builds were
+classified as "third-party builds." Overnight, Linux users who relied on
+distribution-provided Chromium lost access to their synced passwords and
+bookmarks.</p>
+<h2 id="the-aftermath-for-users">The Aftermath for Users</h2>
+<p>Google did not provide a workaround for third-party maintainers to
+regain access to the Sync API. Following the restriction, Linux users
+and Chromium enthusiasts were left with two choices if they wanted to
+retain browser syncing capabilities:</p>
+<ol type="1">
+<li><strong>Switch to Official Google Chrome:</strong> Users had to
+manually download the proprietary <code>.deb</code> or <code>.rpm</code>
+packages directly from Google's website, bypassing their Linux
+distribution's standard open-source software repositories.</li>
+<li><strong>Switch to Alternative Browsers:</strong> Many users migrated
+to browsers that operate their own independent sync infrastructures,
+such as Mozilla Firefox, Brave, or Microsoft Edge (which also released a
+Linux version around the same time).</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-google-blocked-chrome-sync-in-chromium-linux-builds';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

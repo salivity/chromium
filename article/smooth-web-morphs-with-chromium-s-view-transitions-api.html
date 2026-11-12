@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smooth Web Morphs with Chromium&#39;s View Transitions API - chromium</title>
+    <meta name="description" content="This article explores the inner workings of the View Transitions API in the Chromium browser and how it delivers seamless, animated morphs during web navigations. By capturing visual snapshots of Document Object Model (DOM) states and leveraging a special">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/smooth-web-morphs-with-chromium-s-view-transitions-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Smooth Web Morphs with Chromium&#39;s View Transitions API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/smooth-web-morphs-with-chromium-s-view-transitions-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the inner workings of the View Transitions API in the Chromium browser and how it delivers seamless, animated morphs during web navigations. By capturing visual snapshots of Document Object Model (DOM) states and leveraging a special" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="smooth-web-morphs-with-chromiums-view-transitions-api">Smooth
+Web Morphs with Chromium's View Transitions API</h1>
+<p>This article explores the inner workings of the View Transitions API
+in the Chromium browser and how it delivers seamless, animated morphs
+during web navigations. By capturing visual snapshots of Document Object
+Model (DOM) states and leveraging a specialized pseudo-element tree, the
+API eliminates jarring page loads and state changes. Below, you will
+learn the exact rendering mechanics of this process and how Chromium
+unifies the transition experience across both Single-Page Applications
+(SPAs) and Multi-Page Applications (MPAs).</p>
+<h2 id="the-core-mechanism-snapshots-and-live-representations">The Core
+Mechanism: Snapshots and Live Representations</h2>
+<p>Chromium creates smooth morphs by temporarily decoupling the visual
+presentation of the webpage from the underlying DOM structure.</p>
+<p>When a transition is triggered, the browser captures a rasterized
+snapshot (essentially a flat image texture) of the current page state.
+Next, the DOM is updated in the background while the user still sees the
+static snapshot on their screen. Once the new DOM state is rendered and
+ready, Chromium captures the new visual state and generates a temporary
+overlay to animate the differences between the old snapshot and the new
+live view.</p>
+<h2 id="the-pseudo-element-tree">The Pseudo-Element Tree</h2>
+<p>To execute the animation without disrupting the actual layout of the
+page, Chromium constructs a temporary overlay using a specific hierarchy
+of CSS pseudo-elements:</p>
+<ul>
+<li><code>::view-transition</code>: The root overlay that sits on top of
+the entire webpage during the animation.</li>
+<li><code>::view-transition-group</code>: The container that animates
+the size, position, and transformation matrix between the old and new
+states.</li>
+<li><code>::view-transition-image-pair</code>: A housing container for
+the two visual states that provides isolation for CSS blending
+modes.</li>
+<li><code>::view-transition-old</code>: The static screenshot of the
+previous state, which typically fades out.</li>
+<li><code>::view-transition-new</code>: The live representation of the
+new state, which typically fades in.</li>
+</ul>
+<p>Because these elements exist in their own top-layer rendering tree,
+Chromium can animate them smoothly on the compositor thread, avoiding
+expensive layout recalculations.</p>
+<h2 id="how-the-morph-effect-works">How the "Morph" Effect Works</h2>
+<p>By default, Chromium applies a simple cross-fade to the entire
+viewport. True morphing occurs when developers assign the
+<code>view-transition-name</code> CSS property to specific elements.</p>
+<p>When an element in the old state shares the exact same
+<code>view-transition-name</code> as an element in the new state,
+Chromium isolates them from the main viewport transition and places them
+into their own dedicated <code>::view-transition-group</code>.</p>
+<p>The browser records the bounding box (width, height, and screen
+coordinates) of the element in the old state. It then calculates the
+bounding box of the matching element in the new state. Chromium
+automatically generates a CSS keyframe animation that interpolates the
+position and dimensions from the old box to the new box, while
+simultaneously cross-fading the old rasterized texture into the new live
+element. This creates the illusion that a single element is seamlessly
+morphing its shape and location.</p>
+<h2 id="single-page-application-spa-navigations">Single-Page Application
+(SPA) Navigations</h2>
+<p>In SPAs, navigations and state changes occur within the same document
+via JavaScript. Chromium handles same-document transitions through the
+<code>document.startViewTransition()</code> method using the following
+sequence:</p>
+<ol type="1">
+<li>The developer calls <code>document.startViewTransition()</code> and
+passes a callback function designed to update the DOM.</li>
+<li>Chromium immediately captures the "old" visual snapshot of the
+current page and any named elements.</li>
+<li>Chromium pauses visual rendering of the page and executes the
+developer's callback function to mutate the DOM.</li>
+<li>Once the DOM update finishes, Chromium records the "new" state of
+the page and its named elements.</li>
+<li>The browser constructs the pseudo-element tree, places it over the
+viewport, and runs the morph and cross-fade animations.</li>
+<li>When the animation completes, Chromium destroys the pseudo-element
+tree, revealing the newly updated, fully interactive DOM
+underneath.</li>
+</ol>
+<h2 id="multi-page-application-mpa-navigations">Multi-Page Application
+(MPA) Navigations</h2>
+<p>Historically, smooth transitions between two entirely different HTML
+documents were impossible because the browser had to destroy the first
+document before rendering the second. Chromium solves this for
+same-origin navigations purely through CSS, requiring no JavaScript.</p>
+<p>By adding the <code>@view-transition { navigation: auto; }</code>
+rule to the CSS of both the outgoing and incoming pages, Chromium alters
+its standard navigation lifecycle:</p>
+<ol type="1">
+<li>When a user clicks a link to navigate to a new page on the same
+origin, Chromium intercepts the unload event and takes a snapshot of the
+outgoing document, recording the metadata of any elements with a
+<code>view-transition-name</code>.</li>
+<li>The browser retains this snapshot and layout data in memory while it
+fetches, parses, and loads the new HTML document in the background.</li>
+<li>Chromium holds the old snapshot on the user's screen until the new
+document's render-blocking resources are loaded and the new page is
+ready to be painted.</li>
+<li>The browser scans the new document for matching
+<code>view-transition-name</code> properties.</li>
+<li>Chromium constructs the <code>::view-transition</code>
+pseudo-element tree inside the <em>new</em> document, injecting the
+retained snapshot from the <em>previous</em> page into the
+<code>::view-transition-old</code> pseudo-element.</li>
+<li>The morph animation plays seamlessly across the document boundary,
+completely masking the full page reload.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/smooth-web-morphs-with-chromium-s-view-transitions-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

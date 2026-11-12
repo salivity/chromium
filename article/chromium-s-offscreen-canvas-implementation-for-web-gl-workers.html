@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s OffscreenCanvas Implementation for WebGL Workers - chromium</title>
+    <meta name="description" content="This article explores the architectural mechanisms Chromium uses to implement OffscreenCanvas, enabling high-performance WebGL rendering inside a Web Worker. By decoupling the canvas from the Document Object Model (DOM), establishing direct inter-process">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-offscreen-canvas-implementation-for-web-gl-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s OffscreenCanvas Implementation for WebGL Workers - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-offscreen-canvas-implementation-for-web-gl-workers" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architectural mechanisms Chromium uses to implement OffscreenCanvas, enabling high-performance WebGL rendering inside a Web Worker. By decoupling the canvas from the Document Object Model (DOM), establishing direct inter-process" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromiums-offscreencanvas-implementation-for-webgl-workers">Chromium's
+OffscreenCanvas Implementation for WebGL Workers</h1>
+<p>This article explores the architectural mechanisms Chromium uses to
+implement <code>OffscreenCanvas</code>, enabling high-performance WebGL
+rendering inside a Web Worker. By decoupling the canvas from the
+Document Object Model (DOM), establishing direct inter-process
+communication (IPC) between the worker thread and the GPU process, and
+utilizing independent compositor frame sinks, Chromium allows complex
+graphics to render seamlessly without blocking the main browser
+thread.</p>
+<h3 id="decoupling-the-canvas-from-the-dom">Decoupling the Canvas from
+the DOM</h3>
+<p>Standard <code>&lt;canvas&gt;</code> elements are strictly tied to
+the main thread because they are part of the DOM. To break this
+dependency, Chromium implements the
+<code>transferControlToOffscreen()</code> API. When this method is
+called on an <code>HTMLCanvasElement</code>, Chromium strips the
+rendering context capabilities from the DOM element, turning it into a
+lightweight placeholder.</p>
+<p>During this transfer, the main thread generates a unique identifier
+known as a <code>SurfaceId</code> and assigns it to the placeholder
+canvas. The newly created <code>OffscreenCanvas</code> object—which
+holds a reference to this <code>SurfaceId</code>—is then serialized and
+transferred to the Web Worker thread.</p>
+<h3 id="thread-local-gpu-command-buffers">Thread-Local GPU Command
+Buffers</h3>
+<p>Once the <code>OffscreenCanvas</code> arrives in the Web Worker, the
+worker can initialize a <code>WebGLRenderingContext</code> on it.
+Chromium’s rendering engine, Blink, handles this by allocating a
+dedicated GPU Command Buffer directly on the worker thread.</p>
+<p>In Chromium's multi-process architecture, renderer processes cannot
+access the hardware GPU directly for security reasons. Instead, when the
+Web Worker executes WebGL commands (such as <code>gl.drawArrays()</code>
+or <code>gl.bindTexture()</code>), Blink serializes these calls into a
+shared memory ring buffer. Because the worker has its own command
+buffer, it does not need to proxy these WebGL commands back to the main
+thread.</p>
+<h3 id="direct-communication-via-mojo-ipc">Direct Communication via Mojo
+IPC</h3>
+<p>To execute the serialized WebGL commands, the Web Worker communicates
+directly with Chromium's GPU process using Mojo, Chromium's
+inter-process communication (IPC) system.</p>
+<p>The worker thread sends an IPC message telling the GPU process to
+read from the shared memory command buffer. The GPU process parses the
+commands, validates them for security, translates them into native
+graphics API calls (via ANGLE, which translates WebGL to DirectX, Metal,
+or Vulkan), and executes them on the physical GPU. The resulting
+rendered image is stored in a hardware texture within the GPU's memory,
+known as a SharedImage.</p>
+<h3 id="autonomous-frame-submission-to-the-viz-compositor">Autonomous
+Frame Submission to the Viz Compositor</h3>
+<p>Rendering the WebGL scene into a GPU texture is only half the
+process; the browser must still display that texture at the correct
+location on the webpage. Chromium achieves this through its display
+compositor, known as Viz, which runs inside the GPU process.</p>
+<p>Rather than sending the rendered texture back to the main thread to
+be composited with the rest of the DOM, Chromium makes the Web Worker an
+autonomous compositor client. The <code>OffscreenCanvas</code> inside
+the worker establishes its own <code>CompositorFrameSink</code>—a direct
+Mojo IPC pipe to the Viz compositor.</p>
+<h3 id="surface-synchronization-and-display">Surface Synchronization and
+Display</h3>
+<p>The Web Worker runs its own <code>requestAnimationFrame</code> loop,
+completely independent of the main thread's frame rate. At the end of a
+rendering tick in the worker, the <code>OffscreenCanvas</code> packages
+the reference to the rendered GPU texture (the SharedImage) into a data
+structure called a <code>CompositorFrame</code>.</p>
+<p>The worker submits this <code>CompositorFrame</code> directly to the
+Viz compositor via its <code>CompositorFrameSink</code>, tagging it with
+the <code>SurfaceId</code> that was generated when the canvas was first
+transferred.</p>
+<p>Meanwhile, the main thread submits its own
+<code>CompositorFrame</code> containing the webpage's DOM layout, which
+includes the placeholder <code>&lt;canvas&gt;</code> and its matching
+<code>SurfaceId</code>. Using a mechanism called Surface
+Synchronization, the Viz compositor locates the matching
+<code>SurfaceId</code>s and stitches the worker's WebGL texture directly
+into the visual hole left by the main thread's placeholder canvas.
+Because this stitching happens entirely inside the GPU process, the Web
+Worker can render and display WebGL frames at 60fps or higher, even if
+the main thread is completely frozen by heavy JavaScript execution.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-offscreen-canvas-implementation-for-web-gl-workers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

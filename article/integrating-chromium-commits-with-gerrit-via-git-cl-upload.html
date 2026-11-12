@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrating Chromium Commits with Gerrit via git cl upload - chromium</title>
+    <meta name="description" content="This article explains how the git cl upload command from Chromium’s depottools bridges the gap between a developer&#39;s local Git environment and the Gerrit code review server. It covers the automated workflow of the command, including upstream branch compar">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/integrating-chromium-commits-with-gerrit-via-git-cl-upload">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integrating Chromium Commits with Gerrit via git cl upload - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/integrating-chromium-commits-with-gerrit-via-git-cl-upload" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the git cl upload command from Chromium’s depottools bridges the gap between a developer&#39;s local Git environment and the Gerrit code review server. It covers the automated workflow of the command, including upstream branch compar" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="integrating-chromium-commits-with-gerrit-via-git-cl-upload">Integrating
+Chromium Commits with Gerrit via git cl upload</h1>
+<p>This article explains how the <code>git cl upload</code> command from
+Chromium’s <code>depot_tools</code> bridges the gap between a
+developer's local Git environment and the Gerrit code review server. It
+covers the automated workflow of the command, including upstream branch
+comparison, local presubmit validation, Change-Id management, local
+configuration tracking, and the underlying network operations that
+create or update ChangeLists for the Chromium web browser project.</p>
+<h3 id="branch-comparison-and-commit-squashing">Branch Comparison and
+Commit Squashing</h3>
+<p>In Chromium development, a single local Git branch corresponds to a
+single ChangeList (CL) in Gerrit. When you run
+<code>git cl upload</code>, the tool first determines the diff by
+comparing your current local branch against its tracked upstream branch,
+which is typically <code>origin/main</code>.</p>
+<p>Even if you have made multiple local commits on your working branch,
+<code>git cl upload</code> treats the entire branch as one logical
+change. By default, it squashes all local commits on that branch into a
+single commit payload before sending it to Gerrit, ensuring that
+reviewers see one unified patchset.</p>
+<h3 id="local-presubmit-checks">Local Presubmit Checks</h3>
+<p>Before transmitting any data to the Gerrit server,
+<code>git cl upload</code> runs a suite of local validation scripts
+known as presubmit checks. The tool traverses the repository's directory
+tree to locate <code>PRESUBMIT.py</code> files relevant to the modified
+files in your commit.</p>
+<p>These scripts automatically verify that your code adheres to
+Chromium's strict guidelines. They check for proper code formatting
+(such as <code>git cl format</code>), valid license headers, correct
+<code>OWNERS</code> file syntax, and common programming errors. If a
+critical presubmit error is detected, the upload process aborts
+immediately, forcing you to fix the issue locally before consuming
+server resources or reviewer time.</p>
+<h3 id="change-id-generation-and-commit-description">Change-Id
+Generation and Commit Description</h3>
+<p>Gerrit relies on a unique identifier called a <code>Change-Id</code>
+located in the footer of the commit message to associate multiple
+patchsets with the same code review issue.</p>
+<p>During the upload process, <code>git cl upload</code> opens your text
+editor to allow you to write or edit the CL description, which is
+pre-populated using your local commit messages. Once you save and close
+the editor, the tool checks for the presence of a <code>Change-Id</code>
+line. If one does not exist, <code>git cl</code> generates a unique
+SHA-1 hash prefixed with the letter "I" and injects it into the footer
+of your commit message, amending your local Git commit
+automatically.</p>
+<h3 id="tracking-state-in-the-local-git-configuration">Tracking State in
+the Local Git Configuration</h3>
+<p>To ensure that future uploads from the same branch update the
+existing Gerrit review instead of creating a new one,
+<code>git cl</code> stores metadata in your local
+<code>.git/config</code> file.</p>
+<p>When an upload succeeds, the tool writes the Gerrit issue number, the
+server URL, and the base commit hash directly under the configuration
+section for your current branch (for example,
+<code>branch.&lt;branch-name&gt;.gerritissue</code>). On subsequent runs
+of <code>git cl upload</code>, the script reads these values from
+<code>.git/config</code> to know exactly which Gerrit issue to target
+with the new patchset.</p>
+<h3 id="pushing-to-gerrit-refs-and-api-integration">Pushing to Gerrit
+Refs and API Integration</h3>
+<p>The final stage of <code>git cl upload</code> is the network
+transfer, which combines standard Git protocols with Gerrit's REST
+API.</p>
+<p>Instead of pushing directly to the <code>main</code> branch,
+<code>git cl</code> executes an underlying <code>git push</code> command
+directed at Gerrit’s special magic reference namespace:
+<code>refs/for/main</code>. Pushing to this target instructs the Gerrit
+server to intercept the commit and stage it for code review rather than
+merging it into the codebase.</p>
+<p>Simultaneously, <code>git cl</code> communicates with the Gerrit REST
+API over HTTPS. It authenticates using credentials stored in your local
+<code>.gitcookies</code> file and applies metadata to the CL. This API
+call sets the patchset title, assigns reviewers (via the <code>-r</code>
+flag), adds CC recipients, and can even trigger the Chromium Commit
+Queue (via the <code>--use-commit-queue</code> or <code>-d</code> flags)
+to begin automated trybot testing immediately upon upload.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/integrating-chromium-commits-with-gerrit-via-git-cl-upload';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

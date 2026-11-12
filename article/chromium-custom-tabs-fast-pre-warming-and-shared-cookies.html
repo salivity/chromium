@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Custom Tabs: Fast Pre-Warming and Shared Cookies - chromium</title>
+    <meta name="description" content="This article explains the underlying mechanisms of Chromium Custom Tabs on Android, focusing on how they allow third-party applications to open web pages rapidly and seamlessly. It covers the architectural design that enables the sharing of cookies betwee">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-custom-tabs-fast-pre-warming-and-shared-cookies">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Custom Tabs: Fast Pre-Warming and Shared Cookies - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-custom-tabs-fast-pre-warming-and-shared-cookies" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the underlying mechanisms of Chromium Custom Tabs on Android, focusing on how they allow third-party applications to open web pages rapidly and seamlessly. It covers the architectural design that enables the sharing of cookies betwee" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-custom-tabs-fast-pre-warming-and-shared-cookies">Chromium
+Custom Tabs: Fast Pre-Warming and Shared Cookies</h1>
+<p>This article explains the underlying mechanisms of Chromium Custom
+Tabs on Android, focusing on how they allow third-party applications to
+open web pages rapidly and seamlessly. It covers the architectural
+design that enables the sharing of cookies between the main browser and
+the in-app tab, as well as the background Inter-Process Communication
+(IPC) services that facilitate fast browser pre-warming and resource
+pre-fetching.</p>
+<h3 id="the-core-architecture-browser-process-vs-webview">The Core
+Architecture: Browser Process vs. WebView</h3>
+<p>To understand how Custom Tabs share cookies and pre-warm pages, it is
+necessary to distinguish them from the standard Android
+<code>WebView</code>.</p>
+<p>An Android <code>WebView</code> runs inside the third-party
+application's own process and uses an isolated storage space.
+Conversely, a Chromium Custom Tab is actually a specialized
+<code>Activity</code> принадлежащий (belonging) to the user's installed
+Chromium browser (such as Google Chrome) that is simply rendered on top
+of the third-party app. Because the Custom Tab is executed by the
+browser application itself, it inherits all the performance and state
+advantages of the main browser.</p>
+<h3 id="how-shared-cookies-work">How Shared Cookies Work</h3>
+<p>Custom Tabs share cookies with the main Chromium browser because they
+operate within the exact same application context and user profile.</p>
+<ol type="1">
+<li><strong>Unified Storage Partition:</strong> When a user opens a link
+in a Custom Tab, the Chromium browser does not create a sandboxed
+storage environment for the host app. Instead, it accesses its primary
+SQLite cookie database (the "cookie jar") located in the browser's
+private app data directory.</li>
+<li><strong>Session Continuity:</strong> Because the Custom Tab reads
+from and writes to this central database, any active login sessions,
+authentication tokens, or site preferences established in the main
+browser are immediately active in the Custom Tab.</li>
+<li><strong>Security Boundary:</strong> Although the cookies are used to
+render the page inside the third-party app's UI flow, the host app
+cannot access or read the cookies. The rendering and network requests
+happen strictly inside the Chromium process, maintaining a secure
+boundary via Android's process isolation.</li>
+</ol>
+<h3 id="how-fast-pre-warming-works">How Fast Pre-Warming Works</h3>
+<p>Pre-warming is achieved through Android’s Bound Services mechanism,
+utilizing the Android Interface Definition Language (AIDL) for
+background communication between the third-party app and the Chromium
+browser.</p>
+<p>The process relies on the <code>CustomTabsService</code> and follows
+a strict sequence before the user even taps a link:</p>
+<h4 id="1-binding-to-the-service">1. Binding to the Service</h4>
+<p>The third-party app uses
+<code>CustomTabsClient.bindCustomTabsService()</code> to establish a
+connection with the Chromium browser in the background. Once connected,
+the app receives a <code>CustomTabsClient</code> instance to send
+commands to the browser.</p>
+<h4 id="2-warming-up-the-browser-engine">2. Warming Up the Browser
+Engine</h4>
+<p>The app calls the <code>warmup()</code> method on the client. This
+triggers the Chromium browser to initialize its main process in the
+background if it is not already running. Chromium loads its native
+libraries, initializes the Blink rendering engine, and spins up the
+network stack. This eliminates the cold-start latency that usually
+occurs when launching a heavy browser application.</p>
+<h4 id="3-creating-a-session">3. Creating a Session</h4>
+<p>The app calls <code>newSession()</code> to create a
+<code>CustomTabsSession</code>. This session acts as a unique identifier
+that pairs the app's pre-warming requests with the eventual intent used
+to launch the visible Custom Tab. It also ensures that one app cannot
+interfere with or read the pre-fetched data of another app.</p>
+<h4 id="4-speculative-loading-with-maylaunchurl">4. Speculative Loading
+with <code>mayLaunchUrl()</code></h4>
+<p>Once the app predicts a user might click a specific link (for
+example, when a link scrolls into view), it calls
+<code>mayLaunchUrl()</code> on the active session, passing the target
+URI. Upon receiving this signal, Chromium executes several optimizations
+based on the device's current memory and network conditions:</p>
+<ul>
+<li><strong>DNS Pre-resolution:</strong> Chromium resolves the domain
+name of the target URL to an IP address in advance.</li>
+<li><strong>TCP/TLS Pre-connection:</strong> It establishes the TCP
+handshake and negotiates the TLS encryption with the target server,
+saving several round-trips of network latency.</li>
+<li><strong>Page Pre-fetching:</strong> Chromium fetches the main HTML
+document and discovers critical sub-resources (CSS, JavaScript, and
+fonts), downloading them directly into the HTTP cache.</li>
+</ul>
+<p>When the user finally taps the link, the app fires the
+<code>CustomTabsIntent</code>. Because the browser engine is already
+awake, the network connections are open, and the assets are cached in
+memory, the web page renders almost instantaneously.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-custom-tabs-fast-pre-warming-and-shared-cookies';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

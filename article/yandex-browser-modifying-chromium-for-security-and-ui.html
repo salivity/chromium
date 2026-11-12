@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yandex Browser: Modifying Chromium for Security and UI - chromium</title>
+    <meta name="description" content="This article explores the architectural modifications Yandex makes to the open-source Chromium project to build the Yandex Browser. Specifically, it examines how the developers strip out default Google integrations at the browser process level and inject">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/yandex-browser-modifying-chromium-for-security-and-ui">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Yandex Browser: Modifying Chromium for Security and UI - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/yandex-browser-modifying-chromium-for-security-and-ui" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architectural modifications Yandex makes to the open-source Chromium project to build the Yandex Browser. Specifically, it examines how the developers strip out default Google integrations at the browser process level and inject" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="yandex-browser-modifying-chromium-for-security-and-ui">Yandex
+Browser: Modifying Chromium for Security and UI</h1>
+<p>This article explores the architectural modifications Yandex makes to
+the open-source Chromium project to build the Yandex Browser.
+Specifically, it examines how the developers strip out default Google
+integrations at the browser process level and inject proprietary C++
+modules. These modifications allow Yandex to deeply integrate its
+"Protect" security system into the network stack and overhaul the
+standard Chromium windowing framework to deliver a customized user
+interface, all while retaining the core Blink rendering engine and V8
+JavaScript engine.</p>
+<h2 id="stripping-the-base-chromium-architecture">Stripping the Base
+Chromium Architecture</h2>
+<p>Chromium uses a multi-process architecture divided primarily into the
+Browser Process (which controls the UI, network, and storage) and
+Renderer Processes (which run the Blink engine to display web
+pages).</p>
+<p>To create its browser, Yandex leaves the Renderer Processes largely
+intact to ensure website compatibility and speed. The heavy
+modifications occur within the Browser Process. Yandex removes
+Google-specific APIs, such as Google Safe Browsing, Chrome Sync, and
+Google Updater, replacing them with custom hooks that communicate
+directly with Yandex’s cloud infrastructure and local proprietary
+modules.</p>
+<h2 id="integrating-the-protect-security-system">Integrating the
+"Protect" Security System</h2>
+<p>Yandex Browser features an umbrella security suite known as
+"Protect." Rather than adding this as a simple browser extension, Yandex
+integrates it directly into Chromium's core C++ codebase, primarily
+targeting the network stack and I/O (Input/Output) threads.</p>
+<ul>
+<li><strong>Network Stack Interception:</strong> Chromium handles
+network requests through a dedicated Network Service. Yandex modifies
+this service to include a DNSCrypt client, which encrypts DNS traffic
+between the browser and Yandex servers to prevent DNS spoofing. It also
+injects a Wi-Fi security module into the network layer that
+automatically detects unencrypted public networks and forces HTTPS
+connections.</li>
+<li><strong>Process Isolation for Banking:</strong> When a user visits a
+financial website, Yandex modifies Chromium's standard site-isolation
+logic. It spawns a heavily restricted, sandboxed Renderer Process known
+as "Safe Mode." This locks down the clipboard, blocks third-party
+extensions from injecting scripts into the page, and prevents other
+system processes from reading the browser's memory.</li>
+<li><strong>Download Pipeline Hooks:</strong> Chromium's download
+manager processes files asynchronously. Yandex alters this pipeline by
+adding a security check before a downloaded file is finalized on the
+hard drive. The browser intercepts the file stream, sends file metadata
+and hashes to Yandex's cloud servers (and partner Kaspersky Lab's
+databases), and blocks execution if malicious signatures are
+detected.</li>
+<li><strong>DOM-Level Phishing Analysis:</strong> While standard
+Chromium relies mostly on URL blacklists to block phishing, Yandex
+modifies the Blink rendering interaction to analyze the Document Object
+Model (DOM) in real time. If a page mimics the structure of a known
+banking site or asks for passwords on an untrusted domain, the browser
+process halts rendering and displays a warning UI.</li>
+</ul>
+<h2 id="overhauling-the-user-interface">Overhauling the User
+Interface</h2>
+<p>Chromium builds its user interface using a native UI framework called
+"Views" and a hardware-accelerated window manager known as "Aura."
+Yandex heavily modifies the Views layer to move away from Chrome's
+minimalist design and create a distinct visual environment.</p>
+<ul>
+<li><strong>Replacing the Omnibox with SmartBox:</strong> In Chromium,
+the address bar (Omnibox) is tightly coupled with the local history
+database and search provider APIs. Yandex replaces the Omnibox UI
+component with "SmartBox." Architecturally, SmartBox alters the
+autocomplete controller to parse data from Yandex's search APIs,
+allowing the UI to render complex, formatted answers (like weather,
+currency rates, and encyclopedic snippets) directly inside the drop-down
+view before the user hits enter.</li>
+<li><strong>Customizing the Aura Window Shell:</strong> Yandex changes
+the standard Chromium window frame to allow flexible UI placement. For
+example, the address bar can be dynamically moved to the bottom of the
+screen, and tabs can be displayed below the content area. This requires
+rewriting the layout managers within the Chromium Views framework.</li>
+<li><strong>WebView Injection for the Sidebar:</strong> The browser
+features a persistent sidebar that gives quick access to messengers,
+music, and notes. Yandex implements this by embedding separate,
+lightweight WebView containers directly into the main browser frame.
+These containers run in their own isolated processes, allowing users to
+interact with mobile-style web apps without disrupting the main tab's
+rendering process.</li>
+<li><strong>Hardware-Accelerated Overlays:</strong> For its New Tab Page
+(called "Tableau"), Yandex bypasses the standard HTML-based page used by
+Chromium. Instead, it taps into the GPU process to render
+high-definition animated video backgrounds and translucent UI tiles,
+ensuring that the interface remains responsive without taxing the main
+CPU thread.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/yandex-browser-modifying-chromium-for-security-and-ui';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

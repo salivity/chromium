@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Strips Debug Symbols and Compresses PAK Files - chromium</title>
+    <meta name="description" content="This article explains the final stages of the Chromium build process, focusing on how the browser reduces its file size for end-user distribution. It covers the automated stripping of bulky debugging symbols from compiled binaries and the aggregation and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-strips-debug-symbols-and-compresses-pak-files">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Strips Debug Symbols and Compresses PAK Files - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-strips-debug-symbols-and-compresses-pak-files" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the final stages of the Chromium build process, focusing on how the browser reduces its file size for end-user distribution. It covers the automated stripping of bulky debugging symbols from compiled binaries and the aggregation and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-strips-debug-symbols-and-compresses-pak-files">How
+Chromium Strips Debug Symbols and Compresses PAK Files</h1>
+<p>This article explains the final stages of the Chromium build process,
+focusing on how the browser reduces its file size for end-user
+distribution. It covers the automated stripping of bulky debugging
+symbols from compiled binaries and the aggregation and compression of
+static assets—such as user interface elements, strings, and images—into
+optimized PAK files before packaging everything into a final
+installer.</p>
+<h2 id="configuring-the-release-build">Configuring the Release
+Build</h2>
+<p>Chromium uses GN (Generate Ninja) to generate its build files and
+Ninja to execute the build. When preparing Chromium for final
+distribution, developers configure GN with specific release flags, most
+notably <code>is_official_build = true</code> and
+<code>is_debug = false</code>.</p>
+<p>These flags instruct the compiler (Clang) and the linker (LLD) to
+optimize the code for size and speed, while simultaneously triggering
+the post-processing pipelines responsible for stripping symbols and
+compressing resources.</p>
+<h2 id="stripping-unneeded-debug-symbols">Stripping Unneeded Debug
+Symbols</h2>
+<p>When Chromium's C++ source code is compiled, the resulting binaries
+contain massive amounts of debugging information. This data maps
+compiled machine code back to the original source code lines, variable
+names, and function calls. While essential for developers, this data can
+make a binary several gigabytes in size, which is impractical for
+end-user downloads.</p>
+<p>Chromium separates and removes this data differently depending on the
+target operating system, ensuring the final executable remains small
+while preserving the symbols separately for crash reporting tools like
+Crashpad.</p>
+<h3 id="linux-and-android">Linux and Android</h3>
+<p>On Linux and Android, debugging information is stored directly inside
+the compiled ELF binaries using the DWARF format. During an official
+build, Ninja runs a two-step extraction and stripping process using LLVM
+toolchain utilities:</p>
+<ol type="1">
+<li><strong>Extraction:</strong> The build system uses
+<code>llvm-objcopy</code> (or <code>eu-strip</code>) to copy the
+debugging sections out of the main binary (e.g., <code>chrome</code> or
+<code>libchrome.so</code>) and into a separate symbol file (e.g.,
+<code>chrome.debug</code>).</li>
+<li><strong>Stripping:</strong> The build system then runs
+<code>llvm-strip</code> on the main binary. This removes all
+<code>.debug_*</code> sections and unneeded symbol tables, reducing the
+binary size by up to 90%. A small build ID is left behind so crash
+reports can later be matched to the external <code>.debug</code> file on
+a symbol server.</li>
+</ol>
+<h3 id="windows">Windows</h3>
+<p>On Windows, Chromium avoids embedding debug symbols into the main
+executables (<code>.exe</code> and <code>.dll</code>) altogether. When
+<code>lld-link</code> links the binaries, it automatically generates
+Program Database (<code>.pdb</code>) files alongside the
+executables.</p>
+<p>Because the symbols are already separated into <code>.pdb</code>
+files, no explicit "stripping" tool needs to be run on the executable.
+The build system simply excludes the <code>.pdb</code> files when
+gathering files for the final installer.</p>
+<h3 id="macos">macOS</h3>
+<p>On macOS, the compiler embeds DWARF debug data into the object files.
+During the build process, a tool called <code>dsymutil</code> links
+these debug sections into an external <code>.dSYM</code> bundle.
+Afterward, the standard <code>strip</code> command is executed on the
+main Chromium Mach-O binary to remove the local symbol table entries
+before the <code>.app</code> bundle is finalized.</p>
+<h2 id="compressing-resources-into-pak-files">Compressing Resources into
+PAK Files</h2>
+<p>A web browser requires thousands of static files to function,
+including HTML, CSS, and JavaScript for internal pages (like
+<code>chrome://settings</code>), UI icons, and localized text strings
+for dozens of languages. Reading thousands of individual files from the
+hard drive at startup would severely degrade performance. Chromium
+solves this by packing these assets into single-file archives with the
+<code>.pak</code> extension.</p>
+<h3 id="the-role-of-grit">The Role of GRIT</h3>
+<p>Chromium uses a custom Python-based tool called <strong>GRIT</strong>
+(Google Resource and Internationalization Tool) to manage and compile
+static resources.</p>
+<ol type="1">
+<li><strong>Resource Definitions:</strong> Developers list all required
+assets in XML-based <code>.grd</code> (GRIT Resource Description) files.
+These files define where an asset is located, its unique ID, and how it
+should be processed.</li>
+<li><strong>Inlining and Minification:</strong> When the build starts,
+GRIT reads the <code>.grd</code> files. If an HTML file references
+external CSS or JavaScript files, GRIT flattens them by inlining the
+code into a single file. It also strips out comments and unnecessary
+whitespace to reduce file size.</li>
+<li><strong>Individual Asset Compression:</strong> Before packing the
+files together, GRIT compresses individual text and web assets. In the
+<code>.grd</code> file, assets are tagged with compression attributes
+(such as <code>compress="brotli"</code> or
+<code>compress="gzip"</code>). GRIT compresses these specific files in
+memory using Brotli (preferred for its high compression ratio and fast
+decompression) or Gzip. Images like PNGs are also optimized using
+internal build scripts to strip metadata and reduce color palettes
+without losing quality.</li>
+<li><strong>Header Generation:</strong> GRIT generates C++ header files
+(<code>.h</code>) that map human-readable resource names (e.g.,
+<code>IDR_NEW_TAB_HTML</code>) to numerical IDs. The Chromium C++ code
+uses these IDs to request the exact resource at runtime.</li>
+</ol>
+<h3 id="the-repack-step">The Repack Step</h3>
+<p>During the compilation of Chromium's various sub-components (like the
+Blink rendering engine, the V8 JavaScript engine, and the browser UI),
+GRIT generates dozens of intermediate <code>.pak</code> files.</p>
+<p>To optimize file system performance, the build system executes a
+<strong>repack</strong> step near the end of the build. A script merges
+these dozens of smaller <code>.pak</code> files into a few master
+files:</p>
+<ul>
+<li><code>resources.pak</code>: Contains non-image resources like
+internal HTML, JS, and CSS.</li>
+<li><code>chrome_100_percent.pak</code> and
+<code>chrome_200_percent.pak</code>: Contain UI images and icons scaled
+for standard and high-DPI displays.</li>
+<li><code>locales/[lang].pak</code>: Contains translated strings for
+specific languages (e.g., <code>en-US.pak</code>).</li>
+</ul>
+<p>The <code>.pak</code> format itself is a simple binary structure
+consisting of a file header, an index mapping numerical IDs to byte
+offsets, and the contiguous block of raw (or pre-compressed Brotli/Gzip)
+data. Because the <code>.pak</code> container itself is not compressed
+as a whole, Chromium can memory-map the file at startup, jump directly
+to a specific byte offset using the index, and read a single resource
+into memory instantly without decompressing the entire archive.</p>
+<h2 id="final-installer-distribution">Final Installer Distribution</h2>
+<p>Once the binaries are stripped of their debug symbols and the static
+resources are repacked into <code>.pak</code> files, the build system
+stages the required files into a clean directory.</p>
+<p>As a final step, a platform-specific packaging script compresses this
+entire directory into a distributable installer. On Windows, for
+example, the staged files are archived into <code>chrome.7z</code> using
+LZMA compression and bundled into <code>mini_installer.exe</code>. When
+a user runs the installer, it extracts the clean binaries and the
+<code>.pak</code> files directly to the user's hard drive, resulting in
+a fast, lightweight installation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-strips-debug-symbols-and-compresses-pak-files';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

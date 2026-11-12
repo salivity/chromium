@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Support for Spatial Navigation and Switch Access - chromium</title>
+    <meta name="description" content="The Chromium web browser offers robust accessibility features designed to empower users with limited motor mobility. This article provides an overview of how Chromium implements spatial navigation, which allows users to move between web elements using dir">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-support-for-spatial-navigation-and-switch-access">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Support for Spatial Navigation and Switch Access - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-support-for-spatial-navigation-and-switch-access" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium web browser offers robust accessibility features designed to empower users with limited motor mobility. This article provides an overview of how Chromium implements spatial navigation, which allows users to move between web elements using dir" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-support-for-spatial-navigation-and-switch-access">Chromium
+Support for Spatial Navigation and Switch Access</h1>
+<p>The Chromium web browser offers robust accessibility features
+designed to empower users with limited motor mobility. This article
+provides an overview of how Chromium implements spatial navigation,
+which allows users to move between web elements using directional inputs
+based on visual layout, and how it integrates with switch access devices
+to enable seamless browsing using adaptive hardware. Together, these
+technologies ensure that navigating the modern web remains intuitive and
+efficient without requiring a traditional mouse or full keyboard.</p>
+<h3 id="the-mechanics-of-spatial-navigation">The Mechanics of Spatial
+Navigation</h3>
+<p>Traditional keyboard navigation relies on the <code>Tab</code> key,
+which moves focus linearly through the Document Object Model (DOM)
+order. For users with motor impairments, this method is often
+inefficient, requiring dozens of keystrokes to reach an element that is
+visually adjacent to their current position.</p>
+<p>Chromium resolves this limitation through spatial navigation, a
+feature built directly into its Blink rendering engine. Instead of
+following the underlying code structure, spatial navigation allows users
+to move focus in four cardinal directions—up, down, left, and
+right—based on the actual 2D visual rendering of the webpage. Users and
+developers can enable this functionality in Chromium browsers using the
+<code>--enable-spatial-navigation</code> command-line flag.</p>
+<h3 id="how-chromium-calculates-movement">How Chromium Calculates
+Movement</h3>
+<p>When a user triggers a directional input, Chromium’s spatial
+navigation algorithm performs several real-time calculations to
+determine the most logical next target:</p>
+<ul>
+<li><strong>Identifying Candidates:</strong> The browser scans the
+current viewport for all focusable elements, such as links, buttons,
+form controls, and media players.</li>
+<li><strong>Geometric Evaluation:</strong> Chromium calculates the
+bounding boxes of these elements and measures the Euclidean distance,
+alignment, and overlap between the currently focused element and all
+potential targets in the requested direction.</li>
+<li><strong>Scrolling and Containers:</strong> If no focusable element
+is immediately visible in the chosen direction, Chromium automatically
+scrolls the webpage or active scrollable container. It also seamlessly
+traverses into and out of nested <code>iframe</code> elements and Shadow
+DOM trees without trapping the user's focus.</li>
+</ul>
+<h3 id="switch-access-device-integration">Switch Access Device
+Integration</h3>
+<p>For users with severe motor limitations, navigating via arrow keys is
+still too demanding. These users often rely on switch access
+devices—adaptive hardware such as single push-buttons, sip-and-puff
+systems, eye-blink sensors, or head-tracking arrays.</p>
+<p>Chromium supports external switch hardware on Windows, macOS, Linux,
+and Android by maintaining a comprehensive Accessibility Tree (AXTree).
+As a webpage loads, Chromium translates the visual HTML and CSS into a
+structured tree of semantic data (roles, states, and screen
+coordinates). It exposes this tree to the host operating system's native
+switch control APIs, allowing external assistive software to read the
+browser's interface and interact with web content accurately.</p>
+<h3 id="native-switch-scanning-and-action-menus">Native Switch Scanning
+and Action Menus</h3>
+<p>In operating systems built entirely on Chromium, such as ChromeOS,
+switch access is handled natively by the browser environment. Chromium
+utilizes spatial awareness to group elements logically, reducing the
+number of switch presses needed to navigate a page. It supports two
+primary navigation methods for switch users:</p>
+<ul>
+<li><strong>Item and Group Scanning:</strong> A visual focus ring
+automatically cycles through logical groups of content (such as a
+navigation bar, main article, or sidebar). When the user activates their
+switch, the scanner narrows its focus to individual items within that
+group.</li>
+<li><strong>Point Scanning:</strong> For complex web applications or
+canvas elements that lack standard DOM structure, Chromium offers point
+scanning. Horizontal and vertical crosshairs sweep across the screen,
+allowing the user to press their switch twice to pinpoint an exact pixel
+coordinate to click.</li>
+</ul>
+<p>Once a user selects an element using their switch, Chromium displays
+an on-screen contextual Action Menu. Through this menu, the user can
+execute a standard click, right-click, scroll the active container, or
+trigger an on-screen virtual keyboard to input text. By combining
+geometric spatial navigation with intelligent switch scanning, Chromium
+drastically reduces the physical effort required to browse the web.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-support-for-spatial-navigation-and-switch-access';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Bug Bounty Program Reward Criteria Explained - chromium</title>
+    <meta name="description" content="This article outlines the specific criteria used to determine financial payouts in the Chromium Vulnerability Reward Program (VRP). By examining factors such as report quality, privilege levels, vulnerability impact, attack preconditions, and mitigation b">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-bug-bounty-program-reward-criteria-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Bug Bounty Program Reward Criteria Explained - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-bug-bounty-program-reward-criteria-explained" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article outlines the specific criteria used to determine financial payouts in the Chromium Vulnerability Reward Program (VRP). By examining factors such as report quality, privilege levels, vulnerability impact, attack preconditions, and mitigation b" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-bug-bounty-program-reward-criteria-explained">Chromium
+Bug Bounty Program Reward Criteria Explained</h1>
+<p>This article outlines the specific criteria used to determine
+financial payouts in the Chromium Vulnerability Reward Program (VRP). By
+examining factors such as report quality, privilege levels,
+vulnerability impact, attack preconditions, and mitigation bypasses,
+security researchers can understand how bug bounty rewards are
+calculated for the Chromium web browser.</p>
+<h2 id="report-quality-and-exploitability">Report Quality and
+Exploitability</h2>
+<p>The quality of the submitted report is the primary multiplier for any
+reward. The review panel categorizes submissions based on the level of
+effort and proof provided by the researcher:</p>
+<ul>
+<li><strong>Baseline Report:</strong> Provides a minimal reproduction
+case (Proof of Concept) that demonstrates a crash or security issue.
+This earns the minimum baseline payout for that specific vulnerability
+class.</li>
+<li><strong>High-Quality Report:</strong> Includes a minimized test
+case, a detailed root-cause analysis, and an explanation of how the bug
+could potentially be exploited.</li>
+<li><strong>Report with Functional Exploit:</strong> Demonstrates full
+exploitation, such as achieving Remote Code Execution (RCE) or stealing
+cross-origin data. Providing a working exploit unlocks the maximum
+possible reward tier, often adding tens of thousands of dollars to the
+baseline amount.</li>
+</ul>
+<h2 id="privilege-level-and-affected-process">Privilege Level and
+Affected Process</h2>
+<p>Chromium uses a multi-process architecture to isolate web content
+from the underlying operating system. The process in which the
+vulnerability occurs heavily dictates the payout amount:</p>
+<ul>
+<li><strong>Renderer Process:</strong> Because the renderer is strictly
+sandboxed, vulnerabilities here (such as V8 JavaScript engine bugs or
+Blink rendering issues) receive lower base rewards compared to
+non-sandboxed processes.</li>
+<li><strong>GPU and Network Processes:</strong> These processes operate
+with higher privileges and weaker sandboxes than the renderer. Bugs
+found here yield medium-to-high rewards.</li>
+<li><strong>Browser Process:</strong> The main browser process runs
+without a sandbox and has full access to the user's system.
+Vulnerabilities executing in the browser process receive the highest
+payouts.</li>
+<li><strong>Sandbox Escapes:</strong> A vulnerability that allows an
+attacker to break out of the restricted renderer process and execute
+code in the browser process or operating system commands top-tier
+financial rewards.</li>
+</ul>
+<h2 id="vulnerability-impact">Vulnerability Impact</h2>
+<p>The nature of what an attacker can achieve with the bug directly
+defines its severity tier:</p>
+<ul>
+<li><strong>Memory Corruption:</strong> Bugs like Use-After-Free (UAF),
+buffer overflows, and type confusion that lead to arbitrary code
+execution are paid at the highest tiers.</li>
+<li><strong>Same-Origin Policy (SOP) Bypasses:</strong> Universal
+Cross-Site Scripting (UXSS) or bugs that allow one website to read data
+from another website are treated with high severity, often equivalent to
+renderer code execution.</li>
+<li><strong>Information Disclosure:</strong> Bugs that leak sensitive
+cross-origin data or reveal memory layouts (which help bypass Address
+Space Layout Randomization) receive moderate rewards.</li>
+<li><strong>Spoofing and UI Redressing:</strong> Issues that trick the
+user, such as URL omnibox spoofing or bypassing permission prompts,
+generally receive the lowest tier of financial rewards.</li>
+</ul>
+<h2 id="preconditions-and-user-interaction">Preconditions and User
+Interaction</h2>
+<p>The practicality of the attack in a real-world scenario acts as a
+modifier to the final bounty amount:</p>
+<ul>
+<li><strong>Zero-Click Exploits:</strong> Vulnerabilities that trigger
+simply by navigating to a malicious webpage receive 100% of the eligible
+reward amount.</li>
+<li><strong>User Interaction:</strong> If a bug requires the user to
+perform specific actions—such as clicking elements, dragging and
+dropping files, or using keyboard shortcuts—the reward is reduced based
+on how unlikely a user is to perform those actions naturally.</li>
+<li><strong>Configuration Requirements:</strong> To qualify for standard
+rewards, the bug must be present in the default configuration of the
+Stable, Beta, or Dev channels. Bugs requiring non-default command-line
+flags or experimental features rarely qualify for full payouts.</li>
+</ul>
+<h2 id="mitigation-bypasses-and-special-bonuses">Mitigation Bypasses and
+Special Bonuses</h2>
+<p>Chromium actively deploys defense-in-depth mechanisms. Finding flaws
+in these defenses can trigger substantial bonus payouts:</p>
+<ul>
+<li><strong>MiraclePtr Bypasses:</strong> Chromium utilizes MiraclePtr
+(BackupRefPtr) to neutralize Use-After-Free vulnerabilities in the
+browser process. Discovering a functional bypass for MiraclePtr carries
+a significant standalone bonus.</li>
+<li><strong>V8 Engine Specifics:</strong> The V8 JavaScript engine has
+dedicated reward tiers. Exploits that target long-standing V8 code
+generally pay more than bugs found in newly committed, experimental
+features.</li>
+<li><strong>Fuzzer Wrangling:</strong> Researchers who submit bugs
+through the Chrome Fuzzer Program can earn extra bonuses on top of the
+standard VRP reward if their automated fuzzer discovers a security
+vulnerability in a standard build.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-bug-bounty-program-reward-criteria-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s AXNodeData: Storing Roles and ARIA Attributes - chromium</title>
+    <meta name="description" content="This article provides a technical breakdown of the AXNodeData structure within the Chromium web browser codebase. It explains the core purpose of AXNodeData in bridging the gap between the Blink rendering engine and assistive technologies, followed by a d">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-ax-node-data-storing-roles-and-aria-attributes">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s AXNodeData: Storing Roles and ARIA Attributes - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-ax-node-data-storing-roles-and-aria-attributes" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical breakdown of the AXNodeData structure within the Chromium web browser codebase. It explains the core purpose of AXNodeData in bridging the gap between the Blink rendering engine and assistive technologies, followed by a d" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromiums-axnodedata-storing-roles-and-aria-attributes">Chromium's
+AXNodeData: Storing Roles and ARIA Attributes</h1>
+<p>This article provides a technical breakdown of the
+<code>AXNodeData</code> structure within the Chromium web browser
+codebase. It explains the core purpose of <code>AXNodeData</code> in
+bridging the gap between the Blink rendering engine and assistive
+technologies, followed by a detailed look at how the structure
+efficiently stores semantic roles, states, and various ARIA attributes
+using strongly-typed enums, key-value vectors, and bitmasks.</p>
+<h2 id="what-is-axnodedata">What is AXNodeData?</h2>
+<p>In the Chromium codebase, <code>AXNodeData</code> is a fundamental
+C++ struct defined in <code>ui/accessibility/ax_node_data.h</code>. It
+serves as the serializable representation of a single node's
+accessibility information within the accessibility tree
+(<code>AXTree</code>).</p>
+<p>Chromium uses a multi-process architecture. The web page is parsed
+and rendered in the sandboxed Blink renderer process, while
+platform-specific accessibility APIs (such as UI Automation on Windows
+or NSAccessibility on macOS) live in the main browser process.
+<code>AXNodeData</code> packages the computed accessibility properties
+of a DOM element so they can be sent across Inter-Process Communication
+(IPC) via Mojo from the renderer to the browser process.</p>
+<h2 id="storing-semantic-roles">Storing Semantic Roles</h2>
+<p>Every accessible node requires a semantic role to inform assistive
+technologies, like screen readers, what the element actually is.
+<code>AXNodeData</code> stores this information directly in a dedicated
+member variable:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>ax<span class="op">::</span>mojom<span class="op">::</span>Role role<span class="op">;</span></span></code></pre></div>
+<p>Instead of storing the role as a raw string (like
+<code>"button"</code> or <code>"navigation"</code>), Chromium uses the
+<code>ax::mojom::Role</code> enumeration.</p>
+<p>When Blink constructs the accessibility tree, it evaluates both the
+native HTML tag (such as <code>&lt;button&gt;</code> or
+<code>&lt;nav&gt;</code>) and any explicit <code>role</code> ARIA
+attribute present in the DOM. Blink resolves conflicts and computes the
+final semantic meaning, mapping it to a specific enum value like
+<code>ax::mojom::Role::kButton</code> or
+<code>ax::mojom::Role::kNavigation</code>. This single enum is then
+assigned to the <code>role</code> field in <code>AXNodeData</code>.</p>
+<h2 id="storing-aria-attributes">Storing ARIA Attributes</h2>
+<p>A naive implementation of an accessibility node might store all ARIA
+attributes in a single string-to-string hash map. However, because a
+complex web page can have tens of thousands of DOM nodes, this approach
+would consume too much memory and slow down IPC serialization.</p>
+<p>To optimize for memory and performance, <code>AXNodeData</code>
+normalizes ARIA attributes (along with native HTML attributes) and
+splits them into strongly-typed
+<code>std::vector&lt;std::pair&lt;Enum, Value&gt;&gt;</code> collections
+based on the underlying data type of the attribute's value.</p>
+<p>Here is how <code>AXNodeData</code> categorizes and stores these
+attributes:</p>
+<h3 id="1-string-attributes">1. String Attributes</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span>ax<span class="op">::</span>mojom<span class="op">::</span>StringAttribute<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;&gt;</span> string_attributes<span class="op">;</span></span></code></pre></div>
+<p>ARIA attributes that resolve to text are stored here. For example,
+<code>aria-placeholder</code>, <code>aria-roledescription</code>, and
+<code>aria-keyshortcuts</code> are mapped to their respective
+<code>ax::mojom::StringAttribute</code> enum keys. Computed accessible
+names and descriptions (derived from <code>aria-label</code> or
+<code>aria-description</code>) are also stored in this vector under
+<code>kName</code> and <code>kDescription</code>.</p>
+<h3 id="2-integer-attributes">2. Integer Attributes</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span>ax<span class="op">::</span>mojom<span class="op">::</span>IntAttribute<span class="op">,</span> <span class="dt">int32_t</span><span class="op">&gt;&gt;</span> int_attributes<span class="op">;</span></span></code></pre></div>
+<p>This vector handles numerical ARIA attributes and single-node
+relationships. Attributes like <code>aria-posinset</code>,
+<code>aria-setsize</code>, <code>aria-colindex</code>, and
+<code>aria-rowindex</code> are stored here. Additionally, ARIA
+attributes that reference a single other element—such as
+<code>aria-activedescendant</code> or
+<code>aria-errormessage</code>—have their target DOM IDs resolved to
+internal Chromium <code>AXNodeID</code> integers and are stored in this
+vector.</p>
+<h3 id="3-float-attributes">3. Float Attributes</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span>ax<span class="op">::</span>mojom<span class="op">::</span>FloatAttribute<span class="op">,</span> <span class="dt">float</span><span class="op">&gt;&gt;</span> float_attributes<span class="op">;</span></span></code></pre></div>
+<p>Range-based ARIA attributes that require decimal precision are placed
+in the float vector. This includes <code>aria-valuenow</code>,
+<code>aria-valuemin</code>, and <code>aria-valuemax</code>, which are
+commonly used on sliders, progress bars, and spinbuttons.</p>
+<h3 id="4-boolean-attributes">4. Boolean Attributes</h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span>ax<span class="op">::</span>mojom<span class="op">::</span>BoolAttribute<span class="op">,</span> <span class="dt">bool</span><span class="op">&gt;&gt;</span> bool_attributes<span class="op">;</span></span></code></pre></div>
+<p>True/false ARIA properties that are not frequent enough to warrant a
+bitmask slot are placed here. Examples include <code>aria-modal</code>,
+<code>aria-busy</code>, and <code>aria-atomic</code>.</p>
+<h3 id="5-intlist-attributes">5. IntList Attributes</h3>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span>ax<span class="op">::</span>mojom<span class="op">::</span>IntListAttribute<span class="op">,</span> <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int32_t</span><span class="op">&gt;&gt;&gt;</span> intlist_attributes<span class="op">;</span></span></code></pre></div>
+<p>Many ARIA attributes establish relationships between one element and
+multiple other elements by taking a space-separated list of HTML IDs.
+Chromium resolves these string IDs into a list of integer
+<code>AXNodeID</code>s. Attributes like <code>aria-controls</code>,
+<code>aria-flowto</code>, <code>aria-owns</code>,
+<code>aria-labelledby</code>, and <code>aria-describedby</code> (when
+referencing other elements) are stored in this vector.</p>
+<h2 id="storing-aria-states-via-bitmasks">Storing ARIA States via
+Bitmasks</h2>
+<p>Not all ARIA attributes are placed into the attribute vectors. To
+further reduce memory overhead, extremely common boolean-like ARIA
+states are packed into a 32-bit integer bitmask on the
+<code>AXNodeData</code> struct:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> state<span class="op">;</span></span></code></pre></div>
+<p>This bitmask uses the <code>ax::mojom::State</code> enum. When Blink
+processes attributes such as <code>aria-disabled="true"</code>,
+<code>aria-expanded="true"</code>,
+<code>aria-multiselectable="true"</code>, or
+<code>aria-required="true"</code>, it flips the corresponding bit in the
+<code>state</code> field (e.g., <code>kDisabled</code>,
+<code>kExpanded</code>, <code>kMultiselectable</code>,
+<code>kRequired</code>). Checking a state in the browser process then
+becomes a fast bitwise operation rather than an array lookup.</p>
+<p>Note that <code>aria-checked</code> and <code>aria-pressed</code> are
+exceptions to the bitmask rule. Because they support a "mixed" tristate
+value in addition to true and false, they are stored in
+<code>int_attributes</code> under <code>kCheckedState</code> mapped to
+the <code>ax::mojom::CheckedState</code> enum.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-ax-node-data-storing-roles-and-aria-attributes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debugging Chromium with the Chrome DevTools Protocol - chromium</title>
+    <meta name="description" content="This article explains how the Chrome DevTools Protocol (CDP) enables external applications to inspect, debug, and profile a running Chromium browser instance. By establishing a bidirectional WebSocket connection and exchanging formatted JSON-RPC messages,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/debugging-chromium-with-the-chrome-dev-tools-protocol">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Debugging Chromium with the Chrome DevTools Protocol - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/debugging-chromium-with-the-chrome-dev-tools-protocol" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chrome DevTools Protocol (CDP) enables external applications to inspect, debug, and profile a running Chromium browser instance. By establishing a bidirectional WebSocket connection and exchanging formatted JSON-RPC messages," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="debugging-chromium-with-the-chrome-devtools-protocol">Debugging
+Chromium with the Chrome DevTools Protocol</h1>
+<p>This article explains how the Chrome DevTools Protocol (CDP) enables
+external applications to inspect, debug, and profile a running Chromium
+browser instance. By establishing a bidirectional WebSocket connection
+and exchanging formatted JSON-RPC messages, external programs can
+directly interact with the browser's rendering engine and JavaScript
+runtime. Below, we cover the initial connection setup, the communication
+architecture, the organization of the protocol into functional domains,
+and how commands and events operate together to grant external tools
+full visibility and control over the browser.</p>
+<h2 id="1-exposing-the-debugging-server">1. Exposing the Debugging
+Server</h2>
+<p>To allow an external program to connect, Chromium must be launched
+with a specific command-line flag:
+<code>--remote-debugging-port=&lt;port&gt;</code>. When Chromium starts
+with this flag, it spins up an internal HTTP and WebSocket server
+listening on the specified port.</p>
+<p>An external program begins by making a standard HTTP GET request to
+<code>http://localhost:&lt;port&gt;/json/list</code>. Chromium responds
+with a JSON array containing a list of all available "targets" (such as
+open tabs, background pages, and service workers). Each target object in
+this list includes a unique <code>webSocketDebuggerUrl</code>.</p>
+<h2 id="2-establishing-the-websocket-connection">2. Establishing the
+WebSocket Connection</h2>
+<p>Once the external program identifies the target it wants to inspect,
+it connects to that target's specific <code>webSocketDebuggerUrl</code>.
+WebSockets provide a persistent, low-latency, bidirectional
+communication channel. This allows the external program to send
+instructions to the browser and receive real-time data back without the
+overhead of repeatedly opening and closing HTTP connections.</p>
+<p>Alternatively,instead of connecting over a network port, programs
+that launch Chromium as a subprocess can use the
+<code>--remote-debugging-pipe</code> flag to communicate directly via
+standard input and output (stdio) pipes.</p>
+<h2 id="3-communicating-via-json-rpc">3. Communicating via JSON-RPC</h2>
+<p>All communication over the WebSocket connection uses the JSON-RPC 2.0
+specification. The protocol relies on two main primitives: Commands and
+Events.</p>
+<h3 id="commands">Commands</h3>
+<p>Commands are requests sent from the external program to Chromium to
+perform an action or retrieve data. Every command includes a unique
+numeric <code>id</code>, the <code>method</code> name, and optional
+<code>params</code>. Chromium processes the command and sends back a
+JSON response bearing the exact same <code>id</code>, allowing the
+external program to match the response to its original request.</p>
+<p>For example, to navigate a tab to a new URL, the program sends:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;method&quot;</span><span class="fu">:</span> <span class="st">&quot;Page.navigate&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;params&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com&quot;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="events">Events</h3>
+<p>Events are asynchronous notifications sent from Chromium to the
+external program. They do not have an <code>id</code> field because they
+are not direct responses to a specific command. Instead, they notify the
+external program that something has happened inside the browser, such as
+a DOM node changing, a console log firing, or a network request
+starting.</p>
+<p>For example, when a script logs to the console, Chromium emits:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;method&quot;</span><span class="fu">:</span> <span class="st">&quot;Runtime.consoleAPICalled&quot;</span><span class="fu">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;params&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;log&quot;</span><span class="fu">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;args&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;Hello World&quot;</span> <span class="fu">}</span><span class="ot">]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h2 id="4-organizing-functionality-into-domains">4. Organizing
+Functionality into Domains</h2>
+<p>CDP divides its vast capabilities into logical modules called
+Domains. Each domain corresponds to a specific subsystem of the browser.
+Key domains include:</p>
+<ul>
+<li><strong>DOM:</strong> Allows reading and modifying the Document
+Object Model tree.</li>
+<li><strong>Network:</strong> Tracks HTTP requests, responses, cookies,
+and WebSocket traffic.</li>
+<li><strong>Runtime:</strong> Evaluates JavaScript expressions directly
+within the page context.</li>
+<li><strong>Debugger:</strong> Controls JavaScript execution, allowing
+the program to set breakpoints, step through code, and inspect the call
+stack.</li>
+<li><strong>Page:</strong> Manages page lifecycle actions like
+reloading, navigating, and capturing screenshots.</li>
+</ul>
+<p>By default, Chromium does not broadcast events for all domains to
+save memory and CPU. An external program must explicitly send an enable
+command—such as <code>Network.enable</code> or
+<code>Debugger.enable</code>—to instruct Chromium to start tracking and
+emitting events for that specific subsystem.</p>
+<h2 id="5-direct-integration-with-blink-and-v8">5. Direct Integration
+with Blink and V8</h2>
+<p>CDP works efficiently because it is not an external wrapper; it is
+built directly into Chromium's core components. When Chromium receives a
+CDP command, a central dispatcher routes the message to the appropriate
+internal engine:</p>
+<ul>
+<li><strong>Blink (The Rendering Engine):</strong> Handles domains
+related to the DOM, CSS, layout, and network activity.</li>
+<li><strong>V8 (The JavaScript Engine):</strong> Has its own built-in V8
+Inspector that natively handles the <code>Runtime</code>,
+<code>Debugger</code>, and <code>Profiler</code> domains.</li>
+</ul>
+<p>Because these hooks exist directly inside the C++ source code of
+Blink and V8, external programs using CDP have the exact same level of
+access and control as the built-in Chrome DevTools UI. When a breakpoint
+is hit via CDP, V8 literally pauses its execution thread and waits for
+the external program to send a <code>Debugger.resume</code> or
+<code>Debugger.stepOver</code> command before continuing.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/debugging-chromium-with-the-chrome-dev-tools-protocol';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

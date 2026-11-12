@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s Transition from GTK2 to GTK3 and GTK4 on Linux - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser evolved its Linux desktop integration from GTK2 to GTK3, and eventually to GTK4. Over the years, Chromium shifted away from using native GTK widgets to build its interface, opting instead f">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-transition-from-gtk-2-to-gtk-3-and-gtk-4-on-linux">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s Transition from GTK2 to GTK3 and GTK4 on Linux - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-transition-from-gtk-2-to-gtk-3-and-gtk-4-on-linux" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser evolved its Linux desktop integration from GTK2 to GTK3, and eventually to GTK4. Over the years, Chromium shifted away from using native GTK widgets to build its interface, opting instead f" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromiums-transition-from-gtk2-to-gtk3-and-gtk4-on-linux">Chromium's
+Transition from GTK2 to GTK3 and GTK4 on Linux</h1>
+<p>This article provides an overview of how the Chromium web browser
+evolved its Linux desktop integration from GTK2 to GTK3, and eventually
+to GTK4. Over the years, Chromium shifted away from using native GTK
+widgets to build its interface, opting instead for its own custom
+graphics engine. Consequently, the transitions to GTK3 and GTK4 focused
+on updating how Chromium extracts system colors, fonts, and metrics from
+the host operating system to paint a simulated native look, alongside
+maintaining native file dialogs and input methods.</p>
+<h2 id="the-gtk2-era-and-the-shift-to-aura">The GTK2 Era and the Shift
+to Aura</h2>
+<p>In its early days on Linux, Chromium used GTK2 directly to render the
+browser's user interface, such as the tab strip, address bar, and menus.
+In 2014, with the release of version 35, Chromium replaced this native
+GTK2 interface with "Aura," its own hardware-accelerated UI toolkit.</p>
+<p>Even after adopting Aura, Chromium retained a dependency on GTK2 for
+native theme integration. Rather than using GTK2 to build the interface,
+Chromium created invisible, off-screen GTK2 widgets in memory. It
+queried these widgets using the <code>GtkStyle</code> API to determine
+the user's system colors, borders, and font settings, and then applied
+those values to its own Aura-based interface.</p>
+<h2 id="the-transition-to-gtk3">The Transition to GTK3</h2>
+<p>By 2017, most major Linux distributions had migrated to GTK3, leaving
+Chromium's GTK2 theme engine looking outdated and unable to match modern
+desktop themes. In Chromium 59, the browser officially switched its
+default Linux backend from GTK2 to GTK3.</p>
+<p>This transition required a complete overhaul of the theme extraction
+code because GTK3 deprecated the old <code>GtkStyle</code> system in
+favor of a CSS-based styling engine called <code>GtkStyleContext</code>.
+To integrate with GTK3, Chromium developers programmed the browser to
+construct a virtual hierarchy of GTK3 style contexts. Chromium would
+query the CSS properties of these contexts—such as background colors,
+text colors, and state flags (like hover or active states)—and translate
+them into instructions for its internal rendering engine. Moving to GTK3
+also allowed Chromium to support modern Linux features like per-monitor
+HiDPI scaling and updated native file picker dialogs.</p>
+<h2 id="the-transition-to-gtk4">The Transition to GTK4</h2>
+<p>As the GNOME project and Linux distributions began adopting GTK4,
+Chromium faced a new challenge. GTK4 introduced significant
+architectural changes, completely removing the ability to render foreign
+widget styles in the exact way Chromium had done with GTK3.</p>
+<p>Starting around Chromium 106 in late 2022, developers introduced
+support for GTK4. To accomplish this, the Chromium team had to adapt to
+GTK4's scene-graph-based rendering model, known as GSK (GTK Scene Kit).
+Instead of relying on legacy drawing functions to sample widget pixels,
+Chromium was updated to parse GTK4 rendering nodes and CSS values
+directly to extract theme colors for the tab strip, toolbar, and context
+menus.</p>
+<h2 id="dynamic-loading-and-coexistence">Dynamic Loading and
+Coexistence</h2>
+<p>A major hurdle in the GTK4 transition was that GTK3 and GTK4 symbols
+cannot exist in the same process simultaneously, and third-party browser
+plugins or system libraries might still require GTK3.</p>
+<p>To solve this without maintaining two separate browser builds,
+Chromium developers changed how the browser links to GTK. Instead of
+linking to a specific GTK version at compile time, Chromium now loads
+the GTK library dynamically at runtime. By generating custom C++
+wrappers around the GTK APIs, Chromium can detect the user's desktop
+environment at launch—or read a command-line flag like
+<code>--gtk-version=4</code>—and load the appropriate GTK3 or GTK4
+shared library into memory to handle native theming, printing dialogs,
+and Wayland window management.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-transition-from-gtk-2-to-gtk-3-and-gtk-4-on-linux';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

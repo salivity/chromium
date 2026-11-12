@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium for Android Lacks Built-in Extension Support - chromium</title>
+    <meta name="description" content="This article explores the technical, design, and business reasons behind the lack of built-in extension support in the upstream Chromium browser for Android. While third-party mobile forks like Kiwi Browser and Yandex have successfully enabled desktop ext">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-for-android-lacks-built-in-extension-support">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium for Android Lacks Built-in Extension Support - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-for-android-lacks-built-in-extension-support" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the technical, design, and business reasons behind the lack of built-in extension support in the upstream Chromium browser for Android. While third-party mobile forks like Kiwi Browser and Yandex have successfully enabled desktop ext" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-for-android-lacks-built-in-extension-support">Why
+Chromium for Android Lacks Built-in Extension Support</h1>
+<p>This article explores the technical, design, and business reasons
+behind the lack of built-in extension support in the upstream Chromium
+browser for Android. While third-party mobile forks like Kiwi Browser
+and Yandex have successfully enabled desktop extensions on mobile
+devices, the official Chromium project omits this feature due to mobile
+resource constraints, user interface incompatibilities, architectural
+hurdles, security risks, and Google's underlying business interests.</p>
+<h2 id="architectural-differences-in-the-codebase">Architectural
+Differences in the Codebase</h2>
+<p>The most immediate hurdle for extension support on Android is how the
+browser is built. While the core rendering engine (Blink) is shared
+across platforms, the user interface (UI) layer of Chromium for Android
+is entirely different from the desktop version.</p>
+<p>Desktop Chromium uses a cross-platform C++ framework called "Views"
+to draw the browser window, tabs, and toolbars. In contrast, Chromium
+for Android uses native Android Java code for its UI to ensure the
+browser looks and feels like a standard Android app. Most browser
+extension APIs are tightly coupled with the desktop C++ UI layer. For
+upstream Chromium to support extensions on Android, engineers would have
+to rewrite and maintain complex bridges between the C++ extension system
+and the Android Java UI. Third-party forks have manually built these
+bridges, often by emulating desktop tabs in the background, which is a
+workaround upstream developers consider too unstable for a flagship
+product.</p>
+<h2 id="performance-memory-and-battery-constraints">Performance, Memory,
+and Battery Constraints</h2>
+<p>Extensions are essentially small programs that run alongside web
+pages. For security and stability, Chromium runs extensions in separate
+processes. On a desktop computer with ample RAM and a constant power
+supply, this overhead is negligible.</p>
+<p>On mobile devices, resources are strictly managed by the operating
+system. Running multiple background processes for extensions
+significantly increases RAM usage. If Chromium consumes too much memory,
+the Android OS will aggressively kill the browser process when the user
+switches apps, leading to constant tab reloading. Furthermore, poorly
+optimized extensions that run continuous background scripts can rapidly
+drain a smartphone's battery. Upstream Chromium prioritizes a
+lightweight, fast experience over the heavy resource consumption that
+extensions introduce.</p>
+<h2 id="user-interface-and-screen-size-limitations">User Interface and
+Screen Size Limitations</h2>
+<p>The vast majority of Chromium extensions are designed for large,
+landscape-oriented monitors using a mouse and keyboard. They rely
+heavily on persistent toolbar icons, hover states, right-click context
+menus, and fixed-size pop-up windows.</p>
+<p>Translating these elements to a small, portrait-oriented touchscreen
+is a major user experience challenge. Extension pop-up windows
+frequently render off-screen or become unusable on mobile displays.
+While third-party forks simply allow these UI glitches to happen—leaving
+it to the user to deal with broken layouts—the upstream Chromium team
+adheres to strict usability standards and refuses to ship a feature that
+provides a broken visual experience.</p>
+<h2 id="security-and-stability-risks">Security and Stability Risks</h2>
+<p>Mobile operating systems are designed to be highly secure, sandboxed
+environments. Browser extensions often require sweeping permissions,
+such as the ability to read and modify all data on every webpage a user
+visits.</p>
+<p>On desktop, users are somewhat accustomed to these risks, and
+enterprise administrators have tools to manage them. On mobile, users
+expect apps to be inherently safe. Allowing extensions on Android opens
+a massive attack vector for malware and data harvesting on devices that
+contain highly sensitive personal information, such as banking apps and
+private messages. Maintaining the security sandbox for extensions on
+Android requires ongoing engineering effort that the upstream project
+has chosen not to take on.</p>
+<h2 id="googles-business-model">Google's Business Model</h2>
+<p>Although Chromium is an open-source project, it is overwhelmingly
+funded, managed, and directed by Google. Therefore, Chromium's roadmap
+aligns closely with Google's business interests.</p>
+<p>The single most popular category of browser extensions is ad
+blockers. On desktop, Google had to support extensions to compete with
+Firefox, effectively forced into allowing ad blockers on its platform.
+On mobile, however, Google Chrome quickly achieved dominance without
+needing extensions. Because mobile advertising accounts for a massive
+portion of Google's revenue, the company has a strong financial
+disincentive to make ad blocking easily accessible on the world's most
+popular mobile browser. Third-party forks do not rely on advertising
+revenue to survive, making it beneficial for them to add extension
+support specifically to attract users who want to block ads on their
+phones.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-for-android-lacks-built-in-extension-support';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

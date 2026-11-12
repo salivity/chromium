@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Manages Android Web Push Notification Channels - chromium</title>
+    <meta name="description" content="This article explores the architecture behind the Chromium web browser&#39;s native notification bridge on Android and how it manages user-configurable web push notification channels. It covers the communication between C++ and Java via the Java Native Interf">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-manages-android-web-push-notification-channels">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Manages Android Web Push Notification Channels - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-manages-android-web-push-notification-channels" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architecture behind the Chromium web browser&#39;s native notification bridge on Android and how it manages user-configurable web push notification channels. It covers the communication between C++ and Java via the Java Native Interf" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-manages-android-web-push-notification-channels">How
+Chromium Manages Android Web Push Notification Channels</h1>
+<p>This article explores the architecture behind the Chromium web
+browser's native notification bridge on Android and how it manages
+user-configurable web push notification channels. It covers the
+communication between C++ and Java via the Java Native Interface (JNI),
+the dynamic creation of site-specific notification channels, how
+notifications are routed, and how Android OS-level user preferences are
+synchronized with the browser's internal permission engine.</p>
+<h2 id="the-architecture-of-the-notification-bridge">The Architecture of
+the Notification Bridge</h2>
+<p>Chromium’s core logic, including the handling of Service Workers and
+the Web Push protocol, is written in C++. However, the Android operating
+system requires interactions with its system services, such as the
+<code>NotificationManager</code>, to be executed in Java.</p>
+<p>To connect these two environments, Chromium uses a native
+notification bridge split into two primary components:</p>
+<ul>
+<li><strong><code>NotificationPlatformBridgeAndroid</code>
+(C++):</strong> Resides in the browser process and receives requests
+from the Blink rendering engine to display or close a notification.</li>
+<li><strong><code>NotificationPlatformBridge</code> (Java):</strong>
+Receives data from the C++ layer via the Java Native Interface (JNI) and
+communicates directly with the Android OS APIs.</li>
+</ul>
+<p>When a web push notification is triggered, the C++ layer packages the
+notification data (title, body, icon, and origin URL) and passes it
+across the JNI boundary to the Java bridge for native rendering.</p>
+<h2 id="dynamic-channel-creation-per-origin">Dynamic Channel Creation
+per Origin</h2>
+<p>Starting with Android 8.0 (API level 26), all notifications must be
+assigned to a specific Notification Channel. This allows users to
+control notification behavior—such as sound, vibration, and visual
+priority—at the operating system level.</p>
+<p>If Chromium used a single channel for all web notifications, muting
+one annoying website would mute every website. To solve this, the Java
+bridge uses a component called <code>SiteChannelsManager</code> to
+dynamically manage channels on a per-origin basis:</p>
+<ol type="1">
+<li><strong>Permission Grant:</strong> When a user grants notification
+permissions to a website (e.g., <code>https://example.com</code>),
+Chromium triggers the <code>SiteChannelsManager</code>.</li>
+<li><strong>Channel Generation:</strong> The manager creates a new
+Android <code>NotificationChannel</code> specifically for that origin.
+The website's domain is used as the user-visible channel name.</li>
+<li><strong>Grouping:</strong> To prevent the Android system settings
+from becoming disorganized, the bridge assigns all website-specific
+channels to a single <code>NotificationChannelGroup</code> labeled
+"Sites."</li>
+</ol>
+<h2 id="routing-web-push-notifications">Routing Web Push
+Notifications</h2>
+<p>Once a channel exists, routing incoming web push messages becomes a
+matter of matching origins to channel IDs.</p>
+<p>When the Java <code>NotificationPlatformBridge</code> receives a
+notification payload from the C++ layer, it extracts the origin URL of
+the sending website. It queries the <code>SiteChannelsManager</code> to
+retrieve the unique channel ID associated with that origin. The bridge
+then constructs the native Android notification using
+<code>NotificationCompat.Builder</code>, attaches the specific channel
+ID, and hands it off to the Android <code>NotificationManager</code> for
+display. The Android OS then automatically applies whatever custom
+sound, vibration, or DND (Do Not Disturb) override rules the user has
+configured for that specific channel.</p>
+<h2 id="synchronizing-user-configurations-and-permissions">Synchronizing
+User Configurations and Permissions</h2>
+<p>A major challenge for Chromium is that users can modify notification
+channels directly inside the Android OS settings app, completely
+bypassing the browser's user interface. A user might go into the Android
+settings and toggle off the channel for a specific website.</p>
+<p>Chromium must ensure its internal permission state—managed by the
+<code>HostContentSettingsMap</code> in C++—matches the Android OS state.
+The bridge handles this synchronization through a state-querying
+mechanism:</p>
+<ul>
+<li><strong>Checking Channel Status:</strong> Whenever a website checks
+its notification permission status (via the JavaScript
+<code>Notification.permission</code> API) or when Chromium loads its
+site settings UI, the C++ layer asks the Java bridge for the current
+status of the origin's channel.</li>
+<li><strong>Evaluating Importance:</strong> The
+<code>SiteChannelsManager</code> queries the Android
+<code>NotificationManager</code> for the channel's importance
+level.</li>
+<li><strong>Translating States:</strong> If the user has turned off the
+channel in Android settings, the OS returns
+<code>IMPORTANCE_NONE</code>. The Java bridge translates this into a
+<code>CONTENT_SETTING_BLOCK</code> state and passes it back to the C++
+layer. If the importance is anything higher, it returns
+<code>CONTENT_SETTING_ALLOW</code>.</li>
+</ul>
+<p>Because Android does not allow apps to programmatically change a
+channel's settings once it is created, the user's OS-level configuration
+acts as the ultimate source of truth.</p>
+<h2 id="channel-deletion-and-cleanup">Channel Deletion and Cleanup</h2>
+<p>To prevent thousands of unused channels from accumulating in the
+Android OS settings, the native bridge also manages channel
+destruction.</p>
+<p>If a user revokes a website's notification permission through
+Chromium's internal site settings, or if the user clears their browsing
+data and site permissions, the C++ layer instructs the Java bridge to
+clean up. The <code>SiteChannelsManager</code> locates the channel ID
+mapped to that origin and calls the Android
+<code>deleteNotificationChannel</code> API, completely removing the
+website's entry from the Android system menus.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-manages-android-web-push-notification-channels';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

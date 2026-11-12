@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Uses App Nap and EcoQoS to Save CPU Power - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser reduces CPU power consumption by integrating with native operating system power management APIs. Specifically, it examines how Chromium identifies inactive background renderer processes and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-uses-app-nap-and-eco-qo-s-to-save-cpu-power">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Uses App Nap and EcoQoS to Save CPU Power - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-uses-app-nap-and-eco-qo-s-to-save-cpu-power" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser reduces CPU power consumption by integrating with native operating system power management APIs. Specifically, it examines how Chromium identifies inactive background renderer processes and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-uses-app-nap-and-ecoqos-to-save-cpu-power">How
+Chromium Uses App Nap and EcoQoS to Save CPU Power</h1>
+<p>This article provides an overview of how the Chromium web browser
+reduces CPU power consumption by integrating with native operating
+system power management APIs. Specifically, it examines how Chromium
+identifies inactive background renderer processes and applies macOS App
+Nap and Windows EcoQoS to throttle execution, route tasks to efficiency
+cores, and extend device battery life without sacrificing the
+performance of active tabs.</p>
+<h3 id="the-background-process-challenge">The Background Process
+Challenge</h3>
+<p>Chromium uses a multi-process architecture where individual web pages
+and tabs run in isolated "renderer processes." While this design ensures
+security and stability, it creates a power management challenge. Dozens
+of background tabs can continuously execute JavaScript timers, DOM
+updates, and tracking scripts. To prevent these hidden tabs from
+draining the battery, Chromium actively communicates the visibility
+state of each tab to the host operating system, allowing the OS to step
+in and restrict hardware resources per process.</p>
+<h3 id="macos-app-nap-integration">macOS App Nap Integration</h3>
+<p>macOS includes a native power-saving feature called App Nap, which
+throttles applications that are completely hidden behind other windows.
+However, a web browser window is usually visible on the screen even
+though most of its open tabs are hidden in the background.</p>
+<p>Chromium solves this by applying App Nap rules to individual renderer
+processes rather than the entire browser application. It achieves this
+using the macOS <code>NSProcessInfo</code> API to manage activity
+assertions:</p>
+<ol type="1">
+<li><strong>Foreground State:</strong> When a tab is visible to the
+user, Chromium holds a latency-critical activity assertion for that
+specific renderer process, ensuring macOS gives it maximum CPU
+priority.</li>
+<li><strong>Background State:</strong> When a user switches away from
+the tab, Chromium releases the activity assertion.</li>
+<li><strong>OS Throttling:</strong> Once the assertion is released,
+macOS places that single renderer process into an "App Nap" state. The
+OS lowers the process's scheduling priority, aggressively throttles its
+hardware timers, and reduces its I/O bandwidth, dropping its CPU power
+draw to near zero.</li>
+</ol>
+<h3 id="windows-ecoqos-and-efficiency-cores">Windows EcoQoS and
+Efficiency Cores</h3>
+<p>On Windows 11, Microsoft introduced EcoQoS (Efficiency Quality of
+Service) to give applications a way to flag background workloads for
+power efficiency. This feature is heavily optimized for modern hybrid
+CPU architectures, such as Intel’s Alder Lake and newer processors,
+which split the CPU into Performance cores (P-cores) and Efficiency
+cores (E-cores).</p>
+<p>Chromium leverages EcoQoS for its background renderer processes
+through the following mechanism:</p>
+<ol type="1">
+<li><strong>API Flagging:</strong> When a tab is hidden, Chromium calls
+the Windows <code>SetProcessInformation</code> API and applies the
+<code>ProcessPowerThrottling</code> flag to the corresponding renderer
+process.</li>
+<li><strong>Core Parking and Routing:</strong> This flag activates
+EcoQoS. The Windows hardware scheduler immediately routes the threads of
+that renderer process away from the power-hungry P-cores and confines
+them to the low-power E-cores.</li>
+<li><strong>Frequency Scaling:</strong> Even on older processors without
+hybrid cores, EcoQoS instructs the Windows scheduler to run the
+background process at the CPU's most energy-efficient clock frequency,
+rather than boosting the clock speed to finish the background task
+quickly. This prevents background JavaScript from causing voltage spikes
+and thermal throttling.</li>
+</ol>
+<h3 id="exceptions-for-active-background-tasks">Exceptions for Active
+Background Tasks</h3>
+<p>To ensure the user experience is not degraded, Chromium selectively
+withholds App Nap and EcoQoS states based on what the background tab is
+doing. If a background renderer process is playing audio, maintaining a
+WebRTC video or voice connection, or actively capturing the screen,
+Chromium keeps the process in a high-priority state. The moment the
+audio stops or the call ends, Chromium immediately signals macOS or
+Windows to throttle the process and return it to a low-power state.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-uses-app-nap-and-eco-qo-s-to-save-cpu-power';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

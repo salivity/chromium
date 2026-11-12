@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Isolates Internal Pages like Settings - chromium</title>
+    <meta name="description" content="The Chromium web browser strictly isolates privileged internal pages, such as the settings menu and history manager, from standard web renderers to maintain a robust security boundary. This article explains why this separation is necessary, detailing the">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-isolates-internal-pages-like-settings">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Isolates Internal Pages like Settings - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-isolates-internal-pages-like-settings" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium web browser strictly isolates privileged internal pages, such as the settings menu and history manager, from standard web renderers to maintain a robust security boundary. This article explains why this separation is necessary, detailing the" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-isolates-internal-pages-like-settings">Why Chromium
+Isolates Internal Pages like Settings</h1>
+<p>The Chromium web browser strictly isolates privileged internal pages,
+such as the settings menu and history manager, from standard web
+renderers to maintain a robust security boundary. This article explains
+why this separation is necessary, detailing the elevated permissions
+granted to internal pages, the threat of compromised rendering
+processes, and how Chromium's multi-process architecture prevents
+malicious websites from hijacking sensitive browser controls and user
+data.</p>
+<h3 id="understanding-privileged-internal-pages">Understanding
+Privileged Internal Pages</h3>
+<p>In Chromium, internal pages accessed via the <code>chrome://</code>
+scheme—such as <code>chrome://settings</code>,
+<code>chrome://bookmarks</code>, and
+<code>chrome://extensions</code>—are built using standard web
+technologies like HTML, CSS, and JavaScript. Internally, this system is
+known as WebUI. Because they are built like websites, they require a
+rendering engine to display them to the user.</p>
+<p>However, unlike regular websites you visit on the internet, these
+internal pages are not restricted to a safe, isolated box. They require
+elevated privileges to function. For example, the settings page needs
+the ability to modify your default search engine, manage saved
+passwords, toggle hardware acceleration, and read local files.</p>
+<h3 id="the-danger-of-shared-processes">The Danger of Shared
+Processes</h3>
+<p>Chromium operates on the assumption that any regular website could be
+malicious. The rendering engine (Blink) and the JavaScript engine (V8)
+parse complex, untrusted code from the internet every day. If a hacker
+finds a bug in how Chromium renders a webpage, they can compromise that
+specific renderer process.</p>
+<p>If a regular website shared a renderer process with a privileged page
+like <code>chrome://settings</code>, a single bug would be catastrophic.
+The malicious website could exploit the shared environment to access the
+special C++ bindings and internal APIs reserved for the browser itself.
+This would allow an attacker to silently change browser settings,
+install malicious extensions, steal saved passwords, or even break out
+of the browser entirely to infect the underlying operating system.</p>
+<p>Furthermore, sharing a process exposes the browser to side-channel
+hardware vulnerabilities, such as Spectre. These attacks allow malicious
+code to read data stored in the same memory space. Isolating internal
+pages in their own processes ensures their sensitive memory cannot be
+read by untrusted web code.</p>
+<h3 id="how-chromium-enforces-isolation">How Chromium Enforces
+Isolation</h3>
+<p>To neutralize these threats, Chromium uses a strict multi-process
+architecture combined with a feature called Site Isolation. Here is how
+the browser keeps privileged pages safe:</p>
+<ul>
+<li><strong>Dedicated Renderer Processes:</strong> When you open a
+<code>chrome://</code> page, the main browser process spawns a
+completely separate renderer process solely for that internal page. It
+will never place a standard website (<code>https://</code>) into this
+process.</li>
+<li><strong>Restricted Inter-Process Communication (IPC):</strong>
+Renderer processes cannot directly change the system; they must ask the
+main browser process to do it for them via IPC messages (using a system
+called Mojo). The main browser process tracks which renderer processes
+are hosting internal pages. If a standard web renderer tries to send a
+command meant only for <code>chrome://settings</code>, the browser
+process recognizes the sender is unprivileged and immediately blocks the
+request.</li>
+<li><strong>Navigation Blocks:</strong> Chromium prevents regular
+websites from interacting with internal pages at the network and
+navigation levels. A regular website cannot embed a
+<code>chrome://</code> page inside an <code>iframe</code>, nor can it
+use JavaScript to open or redirect a user to an internal page. This
+eliminates the risk of clickjacking or Cross-Site Scripting (XSS)
+originating from the outside web.</li>
+</ul>
+<p>By strictly segregating internal pages from regular web renderers,
+Chromium ensures that even if a user visits a malicious website that
+successfully compromises its own renderer process, the attacker remains
+trapped in a restricted sandbox with no pathway to the browser's master
+controls.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-isolates-internal-pages-like-settings';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Uses Finch for Gradual Feature Rollouts - chromium</title>
+    <meta name="description" content="This article explores the Finch experimentation framework and how it enables the Chromium web browser to safely deploy new features to subsets of users. By utilizing code-level feature flags, server-side configuration files, randomized user bucketing, and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-uses-finch-for-gradual-feature-rollouts">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Uses Finch for Gradual Feature Rollouts - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-uses-finch-for-gradual-feature-rollouts" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the Finch experimentation framework and how it enables the Chromium web browser to safely deploy new features to subsets of users. By utilizing code-level feature flags, server-side configuration files, randomized user bucketing, and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-uses-finch-for-gradual-feature-rollouts">How
+Chromium Uses Finch for Gradual Feature Rollouts</h1>
+<p>This article explores the Finch experimentation framework and how it
+enables the Chromium web browser to safely deploy new features to
+subsets of users. By utilizing code-level feature flags, server-side
+configuration files, randomized user bucketing, and real-time telemetry,
+Finch allows developers to gradually roll out changes, conduct A/B
+testing, and instantly revert problematic updates without requiring a
+full browser patch.</p>
+<h2 id="dormant-features-in-the-binary">Dormant Features in the
+Binary</h2>
+<p>Before Finch can manage a rollout, developers must wrap new code
+inside feature flags within the Chromium source code. When a user
+installs or updates their browser, the code for new features is already
+compiled into the binary, but the features remain dormant (turned off)
+by default. This approach decouples the code deployment process from the
+feature activation process, allowing the browser to hold inactive
+features until Finch instructs them to turn on.</p>
+<h2 id="fetching-the-finch-seed">Fetching the Finch Seed</h2>
+<p>Finch operates through a client-server architecture. Periodically,
+the Chromium browser requests a compressed configuration file—known as
+the "Finch seed"—from central variations servers. This lightweight file
+contains exact instructions on which dormant features should be enabled,
+disabled, or modified, and under what conditions. The browser downloads
+this seed silently in the background and applies the new configurations
+the next time the user restarts the application.</p>
+<h2 id="targeting-and-random-bucketing">Targeting and Random
+Bucketing</h2>
+<p>To roll out a feature to a specific subset of users, the Finch seed
+defines strict eligibility criteria and rollout percentages.</p>
+<p>First, the browser checks if it meets the high-level targeting rules
+defined in the seed. These rules can filter users by:</p>
+<ul>
+<li><strong>Browser Channel:</strong> Canary, Dev, Beta, or Stable.</li>
+<li><strong>Operating System:</strong> Windows, macOS, Linux, Android,
+or iOS.</li>
+<li><strong>System Constraints:</strong> Hardware specifications,
+country, or enterprise policies.</li>
+</ul>
+<p>If the browser meets the criteria, Finch uses a deterministic
+randomization algorithm to assign the browser instance to a specific
+"bucket" or study group. A locally generated randomization seed ensures
+that a user consistently stays in the same experimental group across
+browser restarts.</p>
+<p>For example, a Finch configuration might instruct the browser to
+enable a new memory-saving feature for 1% of users on the Stable
+channel, while assigning another 1% to a designated control group,
+leaving the remaining 98% untouched.</p>
+<h2 id="telemetry-and-ab-testing">Telemetry and A/B Testing</h2>
+<p>Gradual rollouts rely on continuous data collection to verify that a
+new feature works as intended. For users who have opted into sharing
+usage statistics, Chromium's User Metrics Analysis (UMA) system sends
+anonymized performance, stability, and crash data back to the
+servers.</p>
+<p>This telemetry data is tagged with the active Finch study groups.
+Engineers compare the metrics of the experimental group (those with the
+feature enabled) against the control group (those with the feature
+disabled). This A/B testing reveals whether the new feature causes
+unexpected memory spikes, slower page loads, or increased crash
+rates.</p>
+<h2 id="scaling-up-and-the-kill-switch">Scaling Up and the Kill
+Switch</h2>
+<p>A typical feature rollout progresses through the browser
+channels—starting with high percentages in Canary, Dev, and Beta, before
+moving to a 1% rollout on the Stable channel. If the telemetry from the
+1% Stable rollout shows no regressions, developers update the
+server-side Finch seed to expand the feature to 5%, 10%, 50%, and
+finally 100% of the user base. Once a feature reaches 100% and remains
+stable, the feature is permanently enabled in the source code, and the
+Finch configuration is retired.</p>
+<p>Conversely, if a critical bug is discovered during the gradual
+rollout, Finch acts as an emergency kill switch. Engineers can modify
+the Finch seed on the server to drop the rollout percentage back to 0%.
+The next time affected users restart their browsers and fetch the
+updated seed, the broken feature is automatically disabled, resolving
+the issue without waiting for a full software patch to be compiled and
+distributed.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-uses-finch-for-gradual-feature-rollouts';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

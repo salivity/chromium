@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Pixel Tests Compare Output to Baseline PNGs - chromium</title>
+    <meta name="description" content="This article provides a complete overview of how pixel web tests in the Chromium browser detect visual regressions. It explains the end-to-end process of rendering a test page in a controlled headless environment, capturing the visual output as a bitmap,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-pixel-tests-compare-output-to-baseline-pn-gs">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Pixel Tests Compare Output to Baseline PNGs - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-pixel-tests-compare-output-to-baseline-pn-gs" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a complete overview of how pixel web tests in the Chromium browser detect visual regressions. It explains the end-to-end process of rendering a test page in a controlled headless environment, capturing the visual output as a bitmap," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-pixel-tests-compare-output-to-baseline-pngs">How
+Chromium Pixel Tests Compare Output to Baseline PNGs</h1>
+<p>This article provides a complete overview of how pixel web tests in
+the Chromium browser detect visual regressions. It explains the
+end-to-end process of rendering a test page in a controlled headless
+environment, capturing the visual output as a bitmap, locating the
+correct platform-specific reference file, and comparing the output
+pixel-by-pixel against baseline PNG images using specialized diffing
+tools and fuzzy matching algorithms.</p>
+<h3 id="the-test-environment-and-deterministic-rendering">The Test
+Environment and Deterministic Rendering</h3>
+<p>Pixel tests in Chromium do not run in the full Google Chrome browser.
+Instead, they execute inside <code>content_shell</code>, a minimal
+browser shell built on Chromium's Content API.</p>
+<p>When a test begins, the test runner (<code>run_web_tests.py</code>)
+loads the target HTML file into <code>content_shell</code>. To ensure
+that visual output remains consistent across different developer
+machines and continuous integration servers, the runner enforces
+deterministic rendering:</p>
+<ul>
+<li><strong>Fixed Viewport:</strong> The rendering area is locked to a
+standard size, typically 800x600 pixels.</li>
+<li><strong>Standardized Fonts:</strong> System fonts are bypassed in
+favor of deterministic test fonts, such as the Ahem font, which renders
+characters as solid blocks of predictable dimensions.</li>
+<li><strong>Disabled Animations:</strong> Caret blinking, CSS
+animations, and smooth scrolling are frozen or disabled.</li>
+<li><strong>Mocked Themes:</strong> Operating system UI elements, like
+scrollbars and form controls, are replaced with generic, cross-platform
+mock themes.</li>
+</ul>
+<p>Once the page finishes loading, the Blink rendering engine completes
+its layout and paint phases, and the compositor produces a final
+graphical frame.</p>
+<h3 id="capturing-the-visual-output">Capturing the Visual Output</h3>
+<p>After the final frame is generated, the test harness requests a pixel
+dump from the rendering engine and the Skia graphics library. This
+process extracts the raw RGBA (Red, Green, Blue, Alpha) pixel data
+directly from the active frame buffer.</p>
+<p>The test runner then encodes this raw bitmap data into an in-memory
+PNG format. To keep the output deterministic, the encoder strips out
+variable metadata, such as creation timestamps or system color profiles,
+leaving only the pure visual data.</p>
+<h3 id="locating-the-baseline-reference-image">Locating the Baseline
+Reference Image</h3>
+<p>Before a comparison can occur, the test runner must locate the
+corresponding baseline image, which shares the test's name but ends with
+an <code>-expected.png</code> suffix.</p>
+<p>Because font rendering and GPU anti-aliasing can still vary slightly
+between operating systems, Chromium uses a hierarchical fallback
+directory structure to find the most accurate baseline:</p>
+<ol type="1">
+<li><strong>OS Version Specific:</strong> The runner first checks a
+directory matching the exact operating system version (e.g.,
+<code>platform/mac-mac13/</code> or <code>platform/win10/</code>).</li>
+<li><strong>OS General:</strong> If no image is found, it moves up to
+the general OS directory (e.g., <code>platform/mac/</code> or
+<code>platform/win/</code>).</li>
+<li><strong>Generic Baseline:</strong> Finally, if no platform-specific
+baseline exists, it falls back to the generic <code>-expected.png</code>
+located in the same directory as the test file itself.</li>
+</ol>
+<h3 id="the-pixel-by-pixel-comparison">The Pixel-by-Pixel
+Comparison</h3>
+<p>With both the newly rendered image (actual) and the baseline image
+(expected) loaded, the test runner begins the comparison process.</p>
+<p>First, the runner performs a fast byte-for-byte comparison or
+cryptographic hash check of the two files. If the hashes match, the
+images are identical, and the test passes immediately without further
+processing.</p>
+<p>If the hashes differ, the runner invokes Chromium's native
+<code>image_diff</code> binary. This tool decodes both PNGs back into
+uncompressed bitmaps and compares them pixel by pixel at identical (X,
+Y) coordinates. First, it verifies that both images share the exact same
+dimensions. Next, for every pixel, it calculates the absolute
+mathematical difference between the actual and expected values across
+the Red, Green, Blue, and Alpha channels.</p>
+<p>If the difference across all channels for every pixel is zero, the
+test passes. This accounts for scenarios where the PNG compression
+algorithms differed slightly, but the uncompressed visual output
+remained identical.</p>
+<h3 id="fuzzy-matching-for-minor-variances">Fuzzy Matching for Minor
+Variances</h3>
+<p>Hardware acceleration and subpixel rendering often cause
+imperceptible color shifts along the edges of shapes and text. In a
+strict comparison, a single pixel shifting its red channel value from
+255 to 254 will cause the test to fail.</p>
+<p>To prevent flaky tests, Chromium's comparison engine supports "fuzzy"
+matching. Developers can embed a <code>&lt;meta name="fuzzy"&gt;</code>
+tag directly inside the test's HTML file. This tag accepts two
+parameters:</p>
+<ul>
+<li><strong><code>maxDifference</code>:</strong> The maximum allowed
+numerical delta (from 0 to 255) in any single color channel for a given
+pixel.</li>
+<li><strong><code>totalPixels</code>:</strong> The maximum number of
+pixels in the entire image that are allowed to have a difference.</li>
+</ul>
+<p>When fuzzy parameters are present, the <code>image_diff</code> tool
+evaluates the calculated channel deltas against these thresholds. If the
+visual differences fall within the defined boundaries, the test is
+marked as passed.</p>
+<h3 id="failure-output-and-triage">Failure Output and Triage</h3>
+<p>When the differences between the rendered output and the baseline
+exceed the allowed thresholds, the test fails. The test runner then
+writes three files to an output directory for developer inspection:</p>
+<ul>
+<li><strong><code>-actual.png</code>:</strong> The image that was just
+rendered by the test.</li>
+<li><strong><code>-expected.png</code>:</strong> A copy of the baseline
+image used for the comparison.</li>
+<li><strong><code>-diff.png</code>:</strong> A newly generated image
+that visually highlights the exact pixels that failed the comparison,
+typically coloring the mismatched pixels in bright red while dimming the
+rest of the image.</li>
+</ul>
+<p>Developers review these three files to determine if the failure was
+caused by an unintended visual bug in their code, or if it was an
+intentional rendering change that simply requires updating the baseline
+PNG.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-pixel-tests-compare-output-to-baseline-pn-gs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

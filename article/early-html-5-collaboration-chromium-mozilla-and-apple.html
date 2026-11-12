@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Early HTML5 Collaboration: Chromium, Mozilla, and Apple - chromium</title>
+    <meta name="description" content="In the mid-to-late 2000s, the future of the web was shaped by an unprecedented alliance between major browser vendors. This article explores how the Chromium team collaborated with Mozilla and Apple through the Web Hypertext Application Technology Working">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/early-html-5-collaboration-chromium-mozilla-and-apple">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Early HTML5 Collaboration: Chromium, Mozilla, and Apple - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/early-html-5-collaboration-chromium-mozilla-and-apple" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the mid-to-late 2000s, the future of the web was shaped by an unprecedented alliance between major browser vendors. This article explores how the Chromium team collaborated with Mozilla and Apple through the Web Hypertext Application Technology Working" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="early-html5-collaboration-chromium-mozilla-and-apple">Early
+HTML5 Collaboration: Chromium, Mozilla, and Apple</h1>
+<p>In the mid-to-late 2000s, the future of the web was shaped by an
+unprecedented alliance between major browser vendors. This article
+explores how the Chromium team collaborated with Mozilla and Apple
+through the Web Hypertext Application Technology Working Group (WHATWG)
+to create the HTML5 specification. By sharing code, aligning on new web
+APIs, and prioritizing real-world implementation over theoretical
+standards, these competitors united to modernize the internet and
+replace aging proprietary technologies with open web standards.</p>
+<h3 id="the-formation-of-whatwg-and-chromiums-entry">The Formation of
+WHATWG and Chromium's Entry</h3>
+<p>In 2004, representatives from Apple, Mozilla, and Opera formed the
+WHATWG. They were frustrated with the World Wide Web Consortium (W3C)
+and its decision to abandon traditional HTML in favor of the strict,
+XML-based XHTML 2.0. The WHATWG wanted to evolve HTML incrementally to
+support modern web applications without breaking existing websites.</p>
+<p>Google soon joined this effort and hired Ian Hickson, the primary
+author and editor of the HTML5 specification. When Google launched the
+open-source Chromium project in 2008, HTML5 was its foundational pillar.
+The Chromium team immediately dedicated massive engineering resources to
+the WHATWG, working directly alongside Mozilla and Apple to turn the
+theoretical specification into a working reality.</p>
+<h3 id="shared-codebases-chromium-and-apples-webkit">Shared Codebases:
+Chromium and Apple’s WebKit</h3>
+<p>The collaboration between the Chromium team and Apple was uniquely
+tight-knit because they shared the same rendering engine. Instead of
+building a new engine from scratch, the Chromium team chose to use
+Apple’s open-source WebKit engine.</p>
+<p>For several years, Chromium and Apple engineers worked side-by-side
+in the exact same codebase. They divided the labor of implementing early
+HTML5 features. When Chromium engineers wrote code to support HTML5
+forms, WebSockets, or local storage in WebKit, Apple’s Safari browser
+inherited those features. Conversely, Apple’s work on
+hardware-accelerated CSS and media playback directly benefited Chromium.
+The two teams reviewed each other's code daily, fixing bugs and refining
+the HTML5 specification based on what they learned during
+implementation.</p>
+<h3 id="cross-pollination-of-features-with-mozilla">Cross-Pollination of
+Features with Mozilla</h3>
+<p>While Chromium and Apple shared WebKit, Mozilla used its own
+rendering engine, Gecko. Collaboration with Mozilla focused on API
+design, security, and interoperability. A pattern emerged where one
+vendor would invent a feature, and the others would collaborate to
+standardize and improve it.</p>
+<p>For example, Apple originally invented the
+<code>&lt;canvas&gt;</code> element for its macOS Dashboard widgets.
+Mozilla and Chromium engineers worked with Apple through the WHATWG to
+strip out proprietary behaviors, write a formal specification, and
+implement the 2D drawing API identically across both Gecko and WebKit.
+Similarly, Mozilla’s early experiments with offline web applications and
+audio/video integration heavily influenced the
+<code>&lt;video&gt;</code>, <code>&lt;audio&gt;</code>, and
+<code>localStorage</code> specifications that Chromium and Apple
+subsequently adopted and helped refine.</p>
+<h3 id="unifying-the-html-parser">Unifying the HTML Parser</h3>
+<p>Before HTML5, every browser handled broken or invalid HTML code
+differently. This forced web developers to write frustrating,
+browser-specific workarounds. One of the greatest achievements of the
+Chromium, Mozilla, and Apple collaboration was the creation of a unified
+HTML5 parsing algorithm.</p>
+<p>Led by Ian Hickson at Google, the teams analyzed billions of web
+pages to reverse-engineer how browsers handled bad code. Mozilla
+engineer Henri Sivonen developed the first complete HTML5 parser based
+on this data. Rather than reinventing the wheel, the Chromium and Apple
+teams collaborated closely with Mozilla to port those exact parsing
+rules into WebKit. By sharing test suites and edge-case data, the three
+teams ensured that Chromium, Firefox, and Safari would generate the
+exact same Document Object Model (DOM) from the same HTML code, even if
+that code was broken.</p>
+<h3 id="real-time-communication-and-running-code">Real-Time
+Communication and "Running Code"</h3>
+<p>The day-to-day collaboration bypassed traditional, slow-moving
+committee meetings. Instead, engineers from Chromium, Mozilla, and Apple
+communicated in real-time on the public <code>#whatwg</code> IRC channel
+and open mailing lists.</p>
+<p>Decisions were governed by the philosophy of "rough consensus and
+running code." If a Chromium engineer proposed a new HTML5 feature,
+Mozilla and Apple engineers would critique its security, performance,
+and developer usability within minutes on IRC. A feature was only kept
+in the HTML5 specification if the browser vendors proved they could
+implement it successfully. If Chromium, Mozilla, or Apple hit a
+technical roadblock while coding a feature, the specification was
+quickly rewritten to match reality. This rapid feedback loop between the
+three teams allowed HTML5 to mature quickly and become the definitive
+standard for the modern web.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/early-html-5-collaboration-chromium-mozilla-and-apple';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

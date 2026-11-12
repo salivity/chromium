@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Restricts Third-Party Storage in Frames - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser restricts and isolates third-party storage APIs, such as localStorage and IndexedDB, within partitioned frames. By implementing storage partitioning, Chromium prevents cross-site tracking by binding third">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-restricts-third-party-storage-in-frames">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Restricts Third-Party Storage in Frames - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-restricts-third-party-storage-in-frames" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser restricts and isolates third-party storage APIs, such as localStorage and IndexedDB, within partitioned frames. By implementing storage partitioning, Chromium prevents cross-site tracking by binding third" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-restricts-third-party-storage-in-frames">How
+Chromium Restricts Third-Party Storage in Frames</h1>
+<p>This article explains how the Chromium web browser restricts and
+isolates third-party storage APIs, such as localStorage and IndexedDB,
+within partitioned frames. By implementing storage partitioning,
+Chromium prevents cross-site tracking by binding third-party storage
+data to the specific top-level website where the frame is embedded.
+Additionally, this overview covers how Chromium's internal
+<code>StorageKey</code> mechanism functions and how user-level privacy
+settings can completely deny access to these storage APIs in third-party
+contexts.</p>
+<h2 id="the-shift-from-origin-keyed-to-partitioned-storage">The Shift
+from Origin-Keyed to Partitioned Storage</h2>
+<p>Historically, web browsers keyed storage APIs like
+<code>localStorage</code> and <code>IndexedDB</code> solely by the
+origin of the frame accessing them. If an iframe from
+<code>example-tracker.com</code> was embedded on both
+<code>site-a.com</code> and <code>site-b.com</code>, it could access the
+exact same storage bucket on both websites. This allowed third parties
+to track users across the web by storing unique identifiers in
+<code>localStorage</code> or <code>IndexedDB</code>.</p>
+<p>Chromium restricts this behavior through a mechanism called Storage
+Partitioning. Instead of granting a third-party iframe access to a
+global storage bucket based only on its own origin, Chromium forces the
+iframe to use an isolated storage bucket that is specific to the
+top-level site the user is currently visiting.</p>
+<h2 id="how-chromiums-storagekey-works">How Chromium's StorageKey
+Works</h2>
+<p>To enforce partitioning at the browser architecture level, Chromium
+replaces simple origin checks with a composite key known as a
+<code>StorageKey</code>. When a frame requests access to
+<code>localStorage</code>, <code>IndexedDB</code>,
+<code>CacheStorage</code>, or the Origin Private File System (OPFS),
+Chromium generates a <code>StorageKey</code> made of three main
+components:</p>
+<ol type="1">
+<li><strong>The Frame Origin:</strong> The exact origin (scheme, host,
+and port) of the embedded frame requesting the storage.</li>
+<li><strong>The Top-Level Site:</strong> The "schemeful site" (scheme
+and registrable domain, or eTLD+1) of the main page the user is visiting
+in the address bar.</li>
+<li><strong>The Ancestor Chain Bit:</strong> A boolean value that
+indicates whether there are any cross-site frames located between the
+requesting frame and the top-level site.</li>
+</ol>
+<p>Because of this key structure, an iframe from <code>widget.com</code>
+embedded on <code>news.com</code> is assigned a <code>StorageKey</code>
+combining both domains. If the same <code>widget.com</code> iframe is
+embedded on <code>weather.com</code>, it receives a completely different
+<code>StorageKey</code>. The data written to <code>IndexedDB</code> or
+<code>localStorage</code> on one site is entirely invisible and
+inaccessible when the iframe loads on the other site.</p>
+<h2 id="handling-nested-frames-the-ancestor-chain">Handling Nested
+Frames (The Ancestor Chain)</h2>
+<p>Chromium also restricts storage access in complex nested
+scenarios,often referred to as "A-B-A" embeds.</p>
+<p>If <code>site-a.com</code> is the top-level page, and it embeds a
+cross-site iframe from <code>site-b.com</code>, which in turn embeds an
+iframe from <code>site-a.com</code>, the inner <code>site-a.com</code>
+frame is not granted access to the top-level <code>site-a.com</code>
+storage. The Ancestor Chain Bit detects <code>site-b.com</code> in the
+hierarchy and marks the inner frame as cross-site. Consequently, the
+inner <code>site-a.com</code> frame is restricted to a separate,
+partitioned storage bucket to prevent <code>site-b.com</code> from
+exploiting it to access first-party data.</p>
+<h2 id="complete-blocking-via-user-settings">Complete Blocking via User
+Settings</h2>
+<p>Beyond partitioning, Chromium ties the availability of DOM storage
+APIs directly to the browser's cookie settings. For Chromium, "cookies
+and site data" are governed by the same permission model.</p>
+<p>If a user configures their Chromium browser to block third-party
+cookies entirely, Chromium strips third-party iframes of their ability
+to even use partitioned storage. When an embedded cross-site frame
+attempts to access <code>window.localStorage</code> or call
+<code>indexedDB.open()</code> under these strict settings, the browser
+intercepts the call and immediately throws a <code>SecurityError</code>
+(a <code>DOMException</code>).</p>
+<h2 id="ephemeral-partitioning-in-opaque-origins">Ephemeral Partitioning
+in Opaque Origins</h2>
+<p>For frames that utilize the <code>sandbox</code> attribute (without
+the <code>allow-same-origin</code> token) or anonymous iframes (fenced
+frames/credentialless iframes), Chromium restricts storage further by
+adding a cryptographic nonce (a random, single-use number) to the
+<code>StorageKey</code>.</p>
+<p>In these instances, if the sandboxed frame is permitted to access
+storage APIs at all, the storage is completely ephemeral. It is isolated
+not only from other sites, but also from other frames on the exact same
+page, and the data is permanently wiped by the browser the moment the
+user closes the tab or navigates away.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-restricts-third-party-storage-in-frames';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

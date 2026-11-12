@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How WebNFC on Android Chromium Reads and Writes NDEF Tags - chromium</title>
+    <meta name="description" content="This article explains the technical process of how the WebNFC API on the Android version of the Chromium web browser interacts with physical smart tags. It covers the complete lifecycle of reading and writing NFC Data Exchange Format (NDEF) messages, deta">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-web-nfc-on-android-chromium-reads-and-writes-ndef-tags">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How WebNFC on Android Chromium Reads and Writes NDEF Tags - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-web-nfc-on-android-chromium-reads-and-writes-ndef-tags" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the technical process of how the WebNFC API on the Android version of the Chromium web browser interacts with physical smart tags. It covers the complete lifecycle of reading and writing NFC Data Exchange Format (NDEF) messages, deta" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-webnfc-on-android-chromium-reads-and-writes-ndef-tags">How
+WebNFC on Android Chromium Reads and Writes NDEF Tags</h1>
+<p>This article explains the technical process of how the WebNFC API on
+the Android version of the Chromium web browser interacts with physical
+smart tags. It covers the complete lifecycle of reading and writing NFC
+Data Exchange Format (NDEF) messages, detailing the communication bridge
+between JavaScript in the browser, the Android operating system, the
+device's NFC hardware controller, and the physical tag when a user taps
+their phone against it.</p>
+<h3 id="the-communication-bridge-browser-to-hardware">The Communication
+Bridge: Browser to Hardware</h3>
+<p>The WebNFC API does not communicate directly with a phone's NFC
+antenna. Instead, it acts as a bridge. When a web application uses the
+WebNFC API, the Chromium browser translates JavaScript commands into
+native Android API calls.</p>
+<p>Before any NFC operation can occur, Chromium enforces strict security
+rules. The website must be served over HTTPS, the web page must be
+visible in the foreground, and the user must explicitly trigger the NFC
+action through a physical gesture, such as tapping a button on the
+screen. Once granted permission, Chromium communicates with Android's
+native <code>NfcAdapter</code> system service to manage the
+hardware.</p>
+<h3 id="the-physical-connection">The Physical Connection</h3>
+<p>When an Android phone with an active NFC controller is brought within
+a few centimeters of a physical smart tag, the hardware initiates a
+connection:</p>
+<ol type="1">
+<li><strong>Inductive Coupling:</strong> The phone's NFC antenna emits a
+small radio frequency (RF) electromagnetic field.</li>
+<li><strong>Powering the Tag:</strong> The physical smart tag, which
+usually has no battery of its own, absorbs energy from this RF field to
+power its tiny microchip.</li>
+<li><strong>Handshake:</strong> The tag modulates the RF field to send
+its unique identifier (UID) and formatting data back to the phone.</li>
+<li><strong>Format Verification:</strong> The Android OS checks if the
+tag is formatted for NDEF, which is the lightweight binary message
+format standardized for NFC communication. WebNFC only interacts with
+NDEF-compatible tags.</li>
+</ol>
+<h3 id="how-webnfc-reads-an-ndef-tag">How WebNFC Reads an NDEF Tag</h3>
+<p>Reading a tag involves passing data from the physical tag up through
+the operating system to the web application.</p>
+<ol type="1">
+<li><strong>Initiating the Scan:</strong> The web developer instantiates
+an <code>NDEFReader</code> object in JavaScript and calls the
+<code>scan()</code> method.</li>
+<li><strong>OS Registration:</strong> Chromium requests the Android OS
+to enable "Reader Mode" or foreground dispatch. This tells Android to
+route any detected NDEF tags directly to the browser rather than
+triggering a default system app.</li>
+<li><strong>Tag Detection:</strong> The user touches the phone to the
+smart tag. The phone's NFC controller reads the raw binary data from the
+tag's memory.</li>
+<li><strong>OS to Browser Translation:</strong> Android packages the raw
+binary into a native NDEF message and passes it to Chromium. Chromium
+parses this native object and converts it into a WebNFC
+<code>NDEFReadingEvent</code>.</li>
+<li><strong>JavaScript Execution:</strong> The <code>reading</code>
+event fires in the browser. The web application accesses the data
+through an array of <code>NDEFRecord</code> objects, which contain the
+record type (such as plain text, a URL, or a MIME type) and the actual
+data payload, which JavaScript decodes for the user.</li>
+</ol>
+<h3 id="how-webnfc-writes-to-an-ndef-tag">How WebNFC Writes to an NDEF
+Tag</h3>
+<p>Writing data reverses the flow, taking input from the web page and
+encoding it onto the physical microchip.</p>
+<ol type="1">
+<li><strong>Preparing the Data:</strong> The web application calls the
+<code>write()</code> method on the <code>NDEFReader</code> object,
+passing in the data to be written (such as a simple text string, a URL,
+or a complex array of records).</li>
+<li><strong>Formatting to NDEF:</strong> Chromium takes the JavaScript
+input and serializes it into a standardized binary NDEF message. It then
+waits for the Android OS to detect a tag.</li>
+<li><strong>Tag Connection:</strong> The user touches the phone to the
+physical tag. The Android OS establishes the RF connection and verifies
+that the tag is not locked (read-only) and has enough memory bytes to
+store the new payload.</li>
+<li><strong>Data Transmission:</strong> Chromium passes the binary NDEF
+payload to the Android <code>NfcAdapter</code>. The phone's NFC
+controller modulates the RF field to transmit the bytes to the tag,
+overwriting the existing NDEF memory blocks on the tag's microchip.</li>
+<li><strong>Confirmation:</strong> The tag sends a success signal back
+to the NFC controller. Android informs Chromium that the write operation
+is complete, and Chromium resolves the JavaScript Promise associated
+with the <code>write()</code> method, allowing the web page to notify
+the user that the tag has been updated.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-web-nfc-on-android-chromium-reads-and-writes-ndef-tags';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

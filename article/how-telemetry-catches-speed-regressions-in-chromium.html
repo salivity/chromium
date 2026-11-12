@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Telemetry Catches Speed Regressions in Chromium - chromium</title>
+    <meta name="description" content="This article explores how Telemetry, the performance testing framework for the Chromium web browser, simulates real-world user interactions to detect speed regressions. By combining automated user stories, deterministic network replays, and deep system tr">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-telemetry-catches-speed-regressions-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Telemetry Catches Speed Regressions in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-telemetry-catches-speed-regressions-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Telemetry, the performance testing framework for the Chromium web browser, simulates real-world user interactions to detect speed regressions. By combining automated user stories, deterministic network replays, and deep system tr" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-telemetry-catches-speed-regressions-in-chromium">How
+Telemetry Catches Speed Regressions in Chromium</h1>
+<p>This article explores how Telemetry, the performance testing
+framework for the Chromium web browser, simulates real-world user
+interactions to detect speed regressions. By combining automated user
+stories, deterministic network replays, and deep system tracing,
+Telemetry allows developers to measure how code changes impact
+real-world browsing performance across different platforms before those
+changes reach users.</p>
+<h2 id="scripting-real-world-user-stories">Scripting Real-World User
+Stories</h2>
+<p>Telemetry defines its performance tests around the concept of
+"Stories." A story is a scripted scenario written in Python that
+dictates a specific sequence of user actions on a web page or a set of
+pages.</p>
+<p>Instead of merely loading a static URL, a story simulates realistic
+human behaviors. These include scrolling down an infinite social media
+feed, clicking navigation buttons, typing into search bars, or
+performing pinch-to-zoom gestures on mobile devices. Telemetry uses
+specialized gesture APIs to execute these actions, ensuring that a
+simulated scroll or tap happens at the exact same speed and coordinates
+during every single test run.</p>
+<h2 id="eliminating-variability-with-web-page-replay">Eliminating
+Variability with Web Page Replay</h2>
+<p>Testing browser performance against live websites is unreliable. Live
+content changes constantly, advertisements rotate, and network speeds
+fluctuate, making it impossible to know if a slowdown was caused by a
+bad code change in Chromium or a slow third-party server.</p>
+<p>Telemetry solves this problem using a tool called Web Page Replay
+(WPR). When a developer creates a new user story, they record the
+interaction against the live website once. WPR captures all the HTML,
+JavaScript, CSS, images, and network responses, saving them into a
+static archive file.</p>
+<p>When Telemetry runs the test later, it routes the browser’s traffic
+through a local WPR server using that archive. WPR even simulates
+specific network latencies and bandwidth constraints. This guarantees
+that the browser loads the exact same web page content under identical
+network conditions every time, isolating the browser's performance as
+the only variable.</p>
+<h2 id="controlling-the-browser-via-devtools">Controlling the Browser
+via DevTools</h2>
+<p>To get accurate performance data, the testing framework must not
+interfere with the browser's normal operations. Telemetry does not
+require a specially modified build of Chromium, nor does it inject heavy
+testing code into the web pages being measured.</p>
+<p>Instead, Telemetry controls a standard, unmodified Chromium binary
+remotely using the Chrome DevTools Protocol. Telemetry launches the
+browser, connects to its debugging port, and sends lightweight commands
+over a WebSocket connection to navigate to URLs and trigger the scripted
+user gestures. Because the browser is running in its natural state, the
+resulting performance metrics accurately reflect what a real user would
+experience on their device.</p>
+<h2 id="measuring-metrics-and-catching-regressions">Measuring Metrics
+and Catching Regressions</h2>
+<p>While the browser executes the actions defined in a user story,
+Telemetry activates Chromium's internal tracing system. This system
+records a massive timeline of low-level events happening inside the
+browser, including JavaScript execution, DOM layout calculations, GPU
+rendering, and memory allocation.</p>
+<p>Once the user story finishes, Telemetry stops the trace and processes
+the raw data into actionable metrics. Depending on the benchmark being
+run, it calculates values such as:</p>
+<ul>
+<li><strong>Loading speed:</strong> Time to First Contentful Paint (FCP)
+and Largest Contentful Paint (LCP).</li>
+<li><strong>Smoothness:</strong> Frame rates and dropped frames during
+scrolling or animations.</li>
+<li><strong>Resource usage:</strong> Peak memory consumption, CPU time,
+and power drain.</li>
+</ul>
+<p>These tests run continuously on dedicated hardware labs across
+Windows, Mac, Linux, Android, and ChromeOS as developers submit new
+code. The results are plotted on Chromium's performance dashboard. If a
+new code commit causes a metric in a user story to degrade beyond a
+strict statistical threshold, the system flags the speed regression,
+identifies the exact commit responsible, and alerts the engineering team
+to fix or revert the change.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-telemetry-catches-speed-regressions-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

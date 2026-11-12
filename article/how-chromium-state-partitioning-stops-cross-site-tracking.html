@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium State Partitioning Stops Cross-Site Tracking - chromium</title>
+    <meta name="description" content="This article provides an overview of how State Partitioning in the Chromium web browser protects user privacy by preventing third-party trackers from correlating user activity across different websites. It explains the historical flaw of unpartitioned bro">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-state-partitioning-stops-cross-site-tracking">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium State Partitioning Stops Cross-Site Tracking - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-state-partitioning-stops-cross-site-tracking" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how State Partitioning in the Chromium web browser protects user privacy by preventing third-party trackers from correlating user activity across different websites. It explains the historical flaw of unpartitioned bro" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-state-partitioning-stops-cross-site-tracking">How
+Chromium State Partitioning Stops Cross-Site Tracking</h1>
+<p>This article provides an overview of how State Partitioning in the
+Chromium web browser protects user privacy by preventing third-party
+trackers from correlating user activity across different websites. It
+explains the historical flaw of unpartitioned browser storage, the
+mechanics of double-keyed isolation, the specific browser APIs affected,
+and how partitioning neutralizes both direct and side-channel tracking
+methods.</p>
+<h2 id="the-flaw-of-unpartitioned-browser-state">The Flaw of
+Unpartitioned Browser State</h2>
+<p>Historically, web browsers stored data—such as local storage, caches,
+and databases—using a single key: the origin of the script requesting
+the storage. If a third-party tracker (<code>tracker.com</code>) was
+embedded as an iframe on both <code>news-site.com</code> and
+<code>shopping-site.com</code>, the browser granted
+<code>tracker.com</code> access to the exact same storage bucket on both
+websites.</p>
+<p>This allowed the third party to drop a unique identifier into its
+storage while a user visited the news site, and then read that exact
+same identifier when the user visited the shopping site. Consequently,
+the tracker could easily correlate the user's browsing history across
+the web without their knowledge.</p>
+<h2 id="the-solution-double-keyed-storage">The Solution: Double-Keyed
+Storage</h2>
+<p>State Partitioning eliminates this vulnerability by changing how
+Chromium indexes stored data. Instead of keying storage solely by the
+third-party origin, Chromium implements "double-keying" (and in some
+cases, triple-keying).</p>
+<p>With State Partitioning, the browser creates a unique storage key
+composed of two main elements:</p>
+<ol type="1">
+<li><strong>The Top-Level Site:</strong> The primary website the user is
+actively visiting (shown in the address bar).</li>
+<li><strong>The Frame Origin:</strong> The third-party domain embedded
+within that top-level site.</li>
+</ol>
+<p>Using the previous example, when <code>tracker.com</code> runs on
+<code>news-site.com</code>, its storage is locked to the key
+<code>(news-site.com, tracker.com)</code>. When the user moves to
+<code>shopping-site.com</code>, the tracker is assigned a completely
+different key: <code>(shopping-site.com, tracker.com)</code>.</p>
+<p>Because the keys do not match, <code>tracker.com</code> is placed
+into separate, isolated sandboxes on each site. It cannot access the
+data it stored on the previous site, making cross-site user correlation
+via browser storage impossible.</p>
+<h2 id="what-chromium-partitions">What Chromium Partitions</h2>
+<p>Trackers do not rely solely on traditional cookies; they use various
+browser mechanisms to fingerprint and track users. To prevent
+workarounds, Chromium partitions multiple layers of browser state:</p>
+<h3 id="1-storage-apis">1. Storage APIs</h3>
+<p>All client-side storage mechanisms are partitioned. If a third-party
+script attempts to save a tracking ID using <code>localStorage</code>,
+<code>sessionStorage</code>, <code>IndexedDB</code>, or the File System
+API, that data is strictly confined to the top-level site where it was
+created.</p>
+<h3 id="2-communication-apis">2. Communication APIs</h3>
+<p>Browsers provide APIs that allow different tabs or iframes from the
+same origin to talk to each other in real time. Trackers previously
+abused this by opening communication channels between two different
+websites open in separate tabs to sync user IDs. Chromium partitions
+<code>BroadcastChannel</code>, <code>SharedWorker</code>, and
+<code>ServiceWorker</code> APIs, ensuring a third party on Site A cannot
+send messages to an instance of itself running on Site B.</p>
+<h3 id="3-network-state-and-http-cache">3. Network State and HTTP
+Cache</h3>
+<p>Even without storage, trackers could deduce a user's history through
+"timing attacks" and cache probing. A tracker on Site B could request a
+specific image or script known to be used only on Site A. If the file
+loaded instantly from the browser's cache, the tracker knew the user had
+recently visited Site A.</p>
+<p>Chromium prevents this by partitioning the HTTP cache, DNS cache, and
+network socket pools. If <code>tracker.com</code> caches a file on Site
+A, it must download it again from the network on Site B, blinding the
+tracker to the user's previous activity.</p>
+<h2 id="summary-of-the-privacy-impact">Summary of the Privacy
+Impact</h2>
+<p>By enforcing State Partitioning, Chromium fundamentally alters the
+architecture of the web from a model of shared third-party access to one
+of strict isolation. Third-party services can still function—such as
+saving user preferences for an embedded video player on a specific
+site—but their ability to aggregate data into a global profile of the
+user's browsing habits is completely severed.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-state-partitioning-stops-cross-site-tracking';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

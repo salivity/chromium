@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Ozone Layer Supports X11 and Wayland - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of the Ozone platform abstraction layer within the Chromium web browser and explains how it manages Linux display servers. We will cover the fundamental architecture of Ozone, its role in abstracting graphics">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-ozone-layer-supports-x-11-and-wayland">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Ozone Layer Supports X11 and Wayland - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-ozone-layer-supports-x-11-and-wayland" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the Ozone platform abstraction layer within the Chromium web browser and explains how it manages Linux display servers. We will cover the fundamental architecture of Ozone, its role in abstracting graphics" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-ozone-layer-supports-x11-and-wayland">How
+Chromium's Ozone Layer Supports X11 and Wayland</h1>
+<p>This article provides a comprehensive overview of the Ozone platform
+abstraction layer within the Chromium web browser and explains how it
+manages Linux display servers. We will cover the fundamental
+architecture of Ozone, its role in abstracting graphics and input
+systems, and the specific mechanisms that allow a single Chromium binary
+to support both the legacy X11 windowing system and the modern Wayland
+protocol.</p>
+<h2 id="what-is-the-ozone-abstraction-layer">What is the Ozone
+Abstraction Layer?</h2>
+<p>Ozone is a collection of C++ classes within the Chromium codebase
+designed to abstract the underlying operating system's windowing and
+graphics system. Located under the <code>ui/ozone</code> directory in
+the Chromium source tree, its primary job is to isolate
+platform-specific code regarding display management, Accelerated GPU
+rendering, window creation, and input events (such as keyboard, mouse,
+and touch).</p>
+<p>Originally developed for ChromeOS and embedded systems that did not
+use standard desktop environments, Ozone was later expanded to desktop
+Linux. By sitting between Chromium's core user interface framework
+(Aura) and the operating system, Ozone ensures that the rest of the
+browser does not need to know how pixels are actually drawn to the
+screen or how mouse clicks are captured by the OS.</p>
+<h2 id="the-shift-from-hardcoded-x11-to-ozone">The Shift from Hardcoded
+X11 to Ozone</h2>
+<p>For many years, Chromium on Linux relied on hardcoded X11 calls
+scattered throughout its codebase. As the Linux ecosystem began
+transitioning to Wayland—a modern replacement for X11 with a completely
+different architecture—Chromium developers faced a challenge. Writing
+Wayland support directly into the core browser would have resulted in a
+tangled mess of conditional code, making maintenance nearly
+impossible.</p>
+<p>To solve this, the Chromium team migrated the existing X11 code into
+the Ozone framework and built the Wayland implementation alongside it.
+By using Ozone, the browser's core engine only communicates with generic
+Ozone interfaces, such as <code>PlatformWindow</code> and
+<code>SurfaceFactoryOzone</code>.</p>
+<h2 id="how-ozone-supports-both-x11-and-wayland">How Ozone Supports Both
+X11 and Wayland</h2>
+<p>Ozone achieves dual support by using modular backends, known as
+"Ozone platforms." When Chromium is compiled for desktop Linux, both the
+X11 backend (<code>ozone/x11</code>) and the Wayland backend
+(<code>ozone/wayland</code>) are built into the same browser binary.</p>
+<h3 id="the-x11-backend">The X11 Backend</h3>
+<p>The X11 Ozone backend encapsulates all the legacy Xlib and XCB APIs.
+When running on an X11 session, Ozone translates Chromium’s generic
+windowing requests into X11 events and properties. It manages the
+XWindow creation, handles the XInput2 extension for mouse and touch
+events, and sets up GLX or EGL surfaces so the GPU process can render
+web pages directly to the X server.</p>
+<h3 id="the-wayland-backend">The Wayland Backend</h3>
+<p>Wayland does not have a global coordinate system or a central server
+that draws windows like X11 does; instead, the compositor and the client
+(Chromium) communicate via protocols. The Wayland Ozone backend
+translates Chromium's requests into core Wayland protocols and
+extensions like <code>xdg-shell</code> for window management.</p>
+<p>For graphics, the Wayland backend heavily utilizes DMA-BUF (Direct
+Memory Access Buffer) and EGL. The Chromium GPU process renders a web
+page into a buffer and passes the file descriptor of that buffer through
+Ozone to the Wayland compositor. This allows for zero-copy rendering,
+which significantly improves performance and battery life.</p>
+<h2 id="runtime-backend-selection">Runtime Backend Selection</h2>
+<p>Because Ozone abstracts the windowing system behind a unified
+interface, Chromium does not need separate installations for X11 and
+Wayland. Instead, the browser decides which Ozone backend to initialize
+at runtime when the user launches the application.</p>
+<p>When Chromium starts, the Ozone layer inspects the user's environment
+variables (such as <code>DISPLAY</code> for X11 or
+<code>WAYLAND_DISPLAY</code> for Wayland) and command-line flags. Based
+on this check, Ozone dynamically loads the correct backend. Users and
+developers can even force a specific backend using the
+<code>--ozone-platform=wayland</code> or
+<code>--ozone-platform=x11</code> flags, or let the browser decide
+automatically using <code>--ozone-platform-hint=auto</code>. Once
+initialized, the chosen backend handles all communication with the Linux
+display server until the browser is closed.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-ozone-layer-supports-x-11-and-wayland';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
