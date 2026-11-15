@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium&#39;s Composited UI for Android Tab Animations - chromium</title>
+    <meta name="description" content="This article explores the specialized composited user interface architecture that enables the Chromium web browser on Android to render and animate tab switcher cards at consistently high frame rates. It breaks down how Chromium bypasses standard Android">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-s-composited-ui-for-android-tab-animations">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium&#39;s Composited UI for Android Tab Animations - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-s-composited-ui-for-android-tab-animations" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the specialized composited user interface architecture that enables the Chromium web browser on Android to render and animate tab switcher cards at consistently high frame rates. It breaks down how Chromium bypasses standard Android" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromiums-composited-ui-for-android-tab-animations">Chromium's
+Composited UI for Android Tab Animations</h1>
+<p>This article explores the specialized composited user interface
+architecture that enables the Chromium web browser on Android to render
+and animate tab switcher cards at consistently high frame rates. It
+breaks down how Chromium bypasses standard Android UI rendering
+bottlenecks by leveraging a dedicated C++ browser compositor,
+hardware-accelerated texture caching, and a split Java-C++ layout engine
+to achieve smooth, jank-free transitions.</p>
+<h2 id="bypassing-the-standard-android-view-system">Bypassing the
+Standard Android View System</h2>
+<p>Standard Android UI elements are built using the <code>View</code>
+hierarchy. While effective for standard application interfaces, the
+traditional Android <code>View</code> system struggles when animating
+dozens of high-resolution web page previews simultaneously. Allocating,
+resizing, and drawing large bitmaps on the Android UI thread often
+triggers garbage collection pauses and missed frame deadlines, resulting
+in animation stutter.</p>
+<p>To solve this, Chromium uses a custom <strong>Composited UI
+Architecture</strong>. Instead of relying on Android's
+<code>Canvas</code> to draw the tab switcher, Chromium delegates the
+rendering to its own internal C++ compositor engine, rendering the UI
+directly to an Android <code>SurfaceView</code> or
+<code>TextureView</code> using OpenGL or Vulkan.</p>
+<h2 id="the-browser-compositor">The Browser Compositor</h2>
+<p>At the core of this architecture is the <strong>Browser
+Compositor</strong>. While Chromium uses a compositor inside each
+renderer process to draw web pages, it also runs a separate instance of
+the compositor (<code>cc::LayerTreeHost</code>) inside the main browser
+process.</p>
+<p>This Browser Compositor is responsible for uniting the web content
+with the browser’s surrounding UI (such as the toolbar and tab switcher)
+into a single composited frame. Because it operates directly with the
+GPU, it can apply complex transformations—such as scaling, translating,
+and fading tab cards—at 60, 90, or 120 frames per second with minimal
+CPU overhead.</p>
+<h2 id="layoutmanager-and-scenelayers">LayoutManager and
+SceneLayers</h2>
+<p>The architecture divides responsibilities between Java (for UI logic
+and gesture handling) and C++ (for rendering and composition).</p>
+<ul>
+<li><strong>LayoutManager (Java):</strong> This component drives the
+state of the UI. When a user opens the tab switcher or flings through
+tab cards, the <code>LayoutManager</code> processes the touch events and
+calculates the exact position, scale, and opacity of every tab card for
+the current frame. It represents each tab as a lightweight virtual view
+called a <code>LayoutTab</code>.</li>
+<li><strong>SceneLayer (C++):</strong> Once Java calculates the
+positions for a frame, it pushes these properties across the Java Native
+Interface (JNI) to a C++ <code>SceneLayer</code> (specifically, a
+<code>TabListSceneLayer</code>). The <code>SceneLayer</code> translates
+these properties into nodes within the Chromium compositor’s layer tree
+(<code>cc::Layer</code>), instructing the GPU where to draw the textures
+on the screen.</li>
+</ul>
+<p>By keeping the layout math in lightweight Java objects and the actual
+drawing in C++, Chromium avoids the expensive layout and measure passes
+of the native Android <code>View</code> system.</p>
+<h2 id="tabcontentmanager-and-texture-compression">TabContentManager and
+Texture Compression</h2>
+<p>Animating tab cards requires immediate access to visual snapshots of
+the user's open web pages. The <strong>TabContentManager</strong> is the
+C++ subsystem responsible for capturing, compressing, and caching these
+snapshots.</p>
+<ol type="1">
+<li><strong>Live Layers:</strong> If a tab is currently active and its
+renderer process is alive in memory, the compositor can grab the live
+<code>cc::SurfaceLayer</code> directly from the renderer and scale it
+down into a tab card.</li>
+<li><strong>ETC1 Compressed Textures:</strong> For background tabs whose
+renderers have been killed to save memory, the
+<code>TabContentManager</code> captures a snapshot of the page before it
+closes. It compresses this snapshot into an ETC1 texture—a format that
+GPUs can read directly without decompression.</li>
+<li><strong>In-Memory Caching:</strong> When the user opens the tab
+switcher, these compressed textures are streamed straight into GPU
+memory, allowing the compositor to draw dozens of high-resolution tab
+previews instantly without stalling the main thread.</li>
+</ol>
+<h2 id="resourcemanager-and-hybrid-ui">ResourceManager and Hybrid
+UI</h2>
+<p>A tab card is not just a web page preview; it also contains standard
+UI elements like the website favicon, the page title, and a close
+button. Drawing text and vector icons directly in C++ OpenGL is complex,
+so Chromium uses a hybrid approach managed by the
+<strong>ResourceManager</strong>.</p>
+<p>Chromium renders the tab card's header (title, favicon, close button)
+using standard Android <code>View</code> components off-screen. A
+<code>ViewResourceAdapter</code> captures this Android <code>View</code>
+as a single bitmap and uploads it to the GPU via the
+<code>ResourceManager</code>. Once uploaded as a texture resource, the
+C++ compositor attaches it to the top of the tab's
+<code>SceneLayer</code>. The text and icons only need to be redrawn by
+Android if the tab's title changes; otherwise, the GPU simply moves the
+cached texture around the screen alongside the tab thumbnail.</p>
+<h2 id="the-modern-grid-tab-switcher">The Modern Grid Tab Switcher</h2>
+<p>In newer versions of Chromium, the browser introduced the Grid Tab
+Switcher, which utilizes a standard Android <code>RecyclerView</code>
+for the grid layout. However, to maintain high frame rates during the
+critical zoom-in and zoom-out animations (transitioning from a
+fullscreen webpage to a small card in the grid), Chromium still relies
+on the Composited UI Architecture.</p>
+<p>When the transition animation begins, the Android
+<code>RecyclerView</code> is hidden, and the C++ Browser Compositor
+takes over. It animates the live web page <code>SceneLayer</code>
+shrinking down to the exact coordinates of the grid card. Only after the
+high-speed animation finishes does Chromium swap the composited layer
+out and reveal the underlying Android <code>RecyclerView</code> for
+standard scrolling.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-s-composited-ui-for-android-tab-animations';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Hidden Classes Optimize JavaScript in Chromium - chromium</title>
+    <meta name="description" content="This article explores how the Chromium web browser, specifically through its V8 JavaScript engine, optimizes property access on dynamic JavaScript objects using hidden classes, internally known as Maps. Because JavaScript is a dynamically typed language,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-hidden-classes-optimize-java-script-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Hidden Classes Optimize JavaScript in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-hidden-classes-optimize-java-script-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium web browser, specifically through its V8 JavaScript engine, optimizes property access on dynamic JavaScript objects using hidden classes, internally known as Maps. Because JavaScript is a dynamically typed language," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-hidden-classes-optimize-javascript-in-chromium">How Hidden
+Classes Optimize JavaScript in Chromium</h1>
+<p>This article explores how the Chromium web browser, specifically
+through its V8 JavaScript engine, optimizes property access on dynamic
+JavaScript objects using hidden classes, internally known as Maps.
+Because JavaScript is a dynamically typed language, objects can change
+structure at runtime, which traditionally forces engines to use slow
+dictionary-like lookups to find properties. You will learn how V8
+overcomes this limitation by assigning virtual shapes to objects,
+creating transition chains, and utilizing inline caching to achieve
+property access speeds comparable to statically typed languages.</p>
+<h3 id="the-challenge-of-dynamic-objects">The Challenge of Dynamic
+Objects</h3>
+<p>In statically typed languages like C++, object structures are fixed
+at compile time. Because the layout of an object never changes, the
+compiler knows the exact memory offset of every property. Accessing a
+property is as simple as reading a specific memory address.</p>
+<p>JavaScript is dynamically typed, allowing developers to add or delete
+properties on the fly. Without optimization, a JavaScript engine must
+treat objects like hash tables (dictionaries). Every time a property is
+accessed, the engine has to compute a hash of the property name to find
+its value in memory. This process is computationally expensive and
+significantly slows down execution.</p>
+<h3 id="what-are-hidden-classes-maps">What Are Hidden Classes
+(Maps)?</h3>
+<p>To avoid slow dictionary lookups, Chromium’s V8 engine attaches a
+hidden class—referred to as a "Map" in V8's source code—to every
+JavaScript object.</p>
+<p>A hidden class separates an object's structure (its shape) from its
+data (its values). Instead of storing property names and values together
+in a dictionary, V8 stores the object's values in a flat, contiguous
+array in memory. The hidden class acts as a blueprint, storing the
+property names and their corresponding index (memory offset) within that
+value array.</p>
+<p>When a property is accessed, V8 consults the object's hidden class,
+retrieves the exact memory offset, and jumps straight to the value in
+the array.</p>
+<h3 id="transition-chains-and-shared-shapes">Transition Chains and
+Shared Shapes</h3>
+<p>Because JavaScript objects mutate, hidden classes must adapt
+dynamically. V8 handles this by creating "transition chains" as
+properties are added to an object:</p>
+<ol type="1">
+<li><strong>Initial State:</strong> When you create an empty object
+(<code>const obj = {}</code>), V8 assigns it an initial empty hidden
+class, let's call it <code>C0</code>.</li>
+<li><strong>First Property:</strong> When you add a property
+(<code>obj.x = 10</code>), V8 creates a new hidden class,
+<code>C1</code>, which inherits from <code>C0</code>. <code>C1</code>
+records that property <code>x</code> is located at offset 0. V8 then
+updates the object to point to <code>C1</code>.</li>
+<li><strong>Transition Link:</strong> Crucially, V8 adds a "transition"
+pointer on <code>C0</code> that says: "If property <code>x</code> is
+added to an object with class <code>C0</code>, transition it to class
+<code>C1</code>."</li>
+<li><strong>Second Property:</strong> Adding another property
+(<code>obj.y = 20</code>) creates hidden class <code>C2</code>,
+recording <code>y</code> at offset 1, and links <code>C1</code> to
+<code>C2</code>.</li>
+</ol>
+<p>This transition mechanism allows objects to share hidden classes. If
+you create a second empty object and add <code>x</code> and
+<code>y</code> in the exact same order, V8 will not create new hidden
+classes. Instead, it follows the existing transition chain from
+<code>C0</code> to <code>C1</code> to <code>C2</code>. Both objects now
+share the <code>C2</code> hidden class, saving memory and establishing
+that both objects have the exact same structural layout.</p>
+<h3 id="the-payoff-inline-caching">The Payoff: Inline Caching</h3>
+<p>Hidden classes unlock V8's most powerful optimization technique:
+Inline Caching (IC).</p>
+<p>When a function accesses an object's property, V8 observes the hidden
+class of the object passed into that function. For example, consider a
+function that returns <code>obj.y</code>.</p>
+<ol type="1">
+<li><strong>First Execution:</strong> The first time the function runs,
+V8 looks up the object's hidden class (<code>C2</code>), finds that
+<code>y</code> is at offset 1, and retrieves the value.</li>
+<li><strong>Caching:</strong> V8 then modifies the compiled machine code
+of the function itself—a process called inline caching. It hardcodes the
+expected hidden class (<code>C2</code>) and the offset (1) directly into
+the instruction path.</li>
+<li><strong>Subsequent Executions:</strong> The next time the function
+is called, V8 does not look up the property name at all. It simply
+checks if the incoming object has the hidden class <code>C2</code>. If
+it matches, V8 immediately reads the memory at offset 1.</li>
+</ol>
+<p>By combining hidden classes with inline caching, Chromium reduces a
+complex dynamic property lookup into a single comparison and a direct
+memory read.</p>
+<h3 id="deoptimization-and-property-order">Deoptimization and Property
+Order</h3>
+<p>The reliance on transition chains means that the order in which
+properties are added matters.</p>
+<p>If Object A is assigned <code>x</code> then <code>y</code>, and
+Object B is assigned <code>y</code> then <code>x</code>, they will
+follow different transition paths and end up with two different hidden
+classes. Furthermore, the memory offsets for <code>x</code> and
+<code>y</code> will be reversed between the two objects.</p>
+<p>If both objects are passed into the same function, the inline cache
+will fail because the hidden classes do not match. If a function
+receives objects with too many different hidden classes, V8 gives up on
+inline caching for that operation (a state known as megamorphism) and
+falls back to slower lookup methods. Maintaining consistent object
+initialization orders ensures Chromium can reuse hidden classes and keep
+property access fully optimized.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-hidden-classes-optimize-java-script-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

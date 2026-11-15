@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When Chromium Dropped Support for Windows XP and Vista - chromium</title>
+    <meta name="description" content="The Chromium web browser officially ended support for both Windows XP and Windows Vista in April 2016 with the release of version 50. This article covers the exact timeline of the discontinuation, identifies the final compatible release for these operatin">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/when-chromium-dropped-support-for-windows-xp-and-vista">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="When Chromium Dropped Support for Windows XP and Vista - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/when-chromium-dropped-support-for-windows-xp-and-vista" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium web browser officially ended support for both Windows XP and Windows Vista in April 2016 with the release of version 50. This article covers the exact timeline of the discontinuation, identifies the final compatible release for these operatin" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="when-chromium-dropped-support-for-windows-xp-and-vista">When
+Chromium Dropped Support for Windows XP and Vista</h1>
+<p>The Chromium web browser officially ended support for both Windows XP
+and Windows Vista in April 2016 with the release of version 50. This
+article covers the exact timeline of the discontinuation, identifies the
+final compatible release for these operating systems, and explains the
+security and technical reasons that drove the Chromium project to leave
+these legacy Microsoft platforms behind.</p>
+<p>Chromium version 49, released in March 2016, was the final version of
+the browser to function on Windows XP and Windows Vista. When the
+development team branched the code for Chromium 50, which launched to
+the public in April 2016, the minimum system requirements were
+officially raised to Windows 7.</p>
+<p>The decision to end support was announced several months prior, in
+November 2015. While the Chromium project had initially planned to drop
+Windows XP in mid-2015, the timeline was extended to give remaining
+users and enterprise environments adequate time to migrate to newer
+operating systems. By late 2015, developers began actively removing
+Windows XP and Vista-specific code paths and disabling the corresponding
+build bots used for testing the browser on those platforms.</p>
+<p>The primary driver behind this decision was security. Microsoft had
+already ended extended support for Windows XP in April 2014, meaning the
+operating system was no longer receiving critical security patches.
+Although Windows Vista was technically still in its extended support
+phase until 2017, its low market share and lack of modern architectural
+features led the Chromium team to group it with XP. Without ongoing
+operating system updates from Microsoft, it became nearly impossible for
+Chromium developers to guarantee a secure browsing environment against
+modern web threats, malware, and exploits.</p>
+<p>Additionally, maintaining compatibility with legacy operating systems
+hindered the development of the browser. Windows XP and Vista lacked
+modern graphics APIs, advanced sandboxing capabilities, and updated
+networking stacks present in Windows 7 and later versions. Dropping
+these older systems allowed engineers to streamline the Chromium
+codebase, improve browser performance, and implement new web standards
+without having to build complex workarounds for outdated software.</p>
+<p>Following the April 2016 cutoff, users running Chromium on Windows XP
+or Vista were not locked out of their browsers. Instead, their software
+simply remained frozen on version 49. However, these users no longer
+received security updates, bug fixes, or new features, and they were met
+with a persistent warning banner advising them to upgrade their
+operating system. Because Chromium serves as the open-source foundation
+for many other browsers, this milestone also marked the end of Windows
+XP and Vista support for Google Chrome, Opera, and Vivaldi.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/when-chromium-dropped-support-for-windows-xp-and-vista';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

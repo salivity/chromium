@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why the Chromium Team Sunset Lacros on ChromeOS - chromium</title>
+    <meta name="description" content="This article explores the reasons behind the Chromium engineering team&#39;s decision to cancel the Lacros project on ChromeOS. Originally designed to decouple the Chrome web browser from the underlying operating system to extend device longevity and speed up">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-the-chromium-team-sunset-lacros-on-chrome-os">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why the Chromium Team Sunset Lacros on ChromeOS - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-the-chromium-team-sunset-lacros-on-chrome-os" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the reasons behind the Chromium engineering team&#39;s decision to cancel the Lacros project on ChromeOS. Originally designed to decouple the Chrome web browser from the underlying operating system to extend device longevity and speed up" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-the-chromium-team-sunset-lacros-on-chromeos">Why the
+Chromium Team Sunset Lacros on ChromeOS</h1>
+<p>This article explores the reasons behind the Chromium engineering
+team's decision to cancel the Lacros project on ChromeOS. Originally
+designed to decouple the Chrome web browser from the underlying
+operating system to extend device longevity and speed up browser
+updates, Lacros was ultimately sunset after years of development. The
+cancellation stemmed from the introduction of a 10-year automatic update
+policy that solved the longevity problem differently, the high
+engineering cost and bugginess of maintaining a split system, and a
+major strategic shift toward integrating the Android technology stack
+into ChromeOS.</p>
+<h2 id="what-was-the-lacros-initiative">What Was the Lacros
+Initiative?</h2>
+<p>Historically, the Chrome browser and the ChromeOS system interface
+were combined into a single executable binary. Updating the browser
+meant updating the entire operating system. Furthermore, once a
+Chromebook reached its End of Life (now called Automatic Update
+Expiration), it stopped receiving both OS and browser updates, rendering
+the device insecure for web browsing.</p>
+<p>Lacros—short for <strong>L</strong>inux <strong>a</strong>nd
+<strong>C</strong>h<strong>r</strong>ome<strong>OS</strong>—was an
+initiative to separate the two. It turned the Chrome browser into an
+independent Linux application running on top of the ChromeOS system UI.
+While the concept was sound, several practical and strategic factors led
+the Chromium team to abandon the project in late 2024.</p>
+<h2 id="the-10-year-update-policy-made-lacros-redundant">The 10-Year
+Update Policy Made Lacros Redundant</h2>
+<p>The primary motivation for Lacros was to provide indefinitely updated
+browsers to aging Chromebooks whose hardware could no longer support
+full OS updates. However, in late 2023, Google announced that it would
+extend automatic full-system updates for Chromebooks to 10 years.</p>
+<p>By committing to update the entire operating system for a full
+decade—longer than the physical lifespan of most laptops—Google solved
+the core problem Lacros was meant to fix. Because the OS and browser
+could continue updating together for 10 years, the urgent need to
+separate them vanished.</p>
+<h2 id="high-engineering-complexity-and-technical-debt">High Engineering
+Complexity and Technical Debt</h2>
+<p>Untangling years of deeply integrated code proved to be a massive
+engineering hurdle. Because ChromeOS was built under the assumption that
+the browser and the window manager were the same entity, splitting them
+broke hundreds of basic system functions.</p>
+<p>To make Lacros work, the Chromium team had to build complex bridges
+using the Wayland display protocol. This introduced persistent bugs and
+regressions in everyday features, including:</p>
+<ul>
+<li>Screen sharing and video capture.</li>
+<li>Password manager integration and biometric authentication.</li>
+<li>Accessibility tools like screen readers.</li>
+<li>File system access and drag-and-drop functionality.</li>
+</ul>
+<p>Maintaining two separate architectures (the legacy combined system
+and the new Lacros system) required double the testing and slowed down
+the development of new ChromeOS features.</p>
+<h2 id="performance-overhead-on-low-end-hardware">Performance Overhead
+on Low-End Hardware</h2>
+<p>A vast majority of Chromebooks, particularly in the education sector,
+run on budget processors with limited RAM (often 4GB). Under the
+traditional ChromeOS model, the system UI and the browser shared the
+same underlying processes and memory footprint.</p>
+<p>With Lacros, the Chromebook had to run one instance of Chromium to
+power the desktop environment and a second, separate instance of
+Chromium to run the web browser. This duplication increased RAM
+consumption and CPU overhead, degrading performance on the entry-level
+devices that needed optimization the most.</p>
+<h2 id="the-pivot-to-the-android-tech-stack">The Pivot to the Android
+Tech Stack</h2>
+<p>The final nail in the coffin for Lacros was a major shift in Google's
+long-term operating system strategy. In June 2024, Google announced that
+ChromeOS would soon begin adopting large portions of the Android OS
+stack, specifically the Android Linux kernel and Android system
+frameworks, to power its foundation.</p>
+<p>This initiative, aimed at unifying Google's hardware ecosystems and
+accelerating AI integration, required a massive reallocation of
+engineering resources. Continuing to pour time and money into Lacros—a
+Linux-specific Wayland implementation—no longer aligned with a future
+where ChromeOS was moving closer to Android's architecture.</p>
+<p>By officially ending the Lacros project, the Chromium team eliminated
+years of accumulating technical debt, restored system performance on
+low-end devices, and freed up developers to focus on the transition to
+an Android-backed ChromeOS.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-the-chromium-team-sunset-lacros-on-chrome-os';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Compresses Memory Under Critical Pressure - chromium</title>
+    <meta name="description" content="This article provides an overview of the mechanisms the Chromium web browser uses to reduce memory consumption when a system experiences critical memory pressure. Specifically, it covers how Chromium identifies and compresses inactive foreground memory st">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-compresses-memory-under-critical-pressure">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Compresses Memory Under Critical Pressure - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-compresses-memory-under-critical-pressure" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the mechanisms the Chromium web browser uses to reduce memory consumption when a system experiences critical memory pressure. Specifically, it covers how Chromium identifies and compresses inactive foreground memory st" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-compresses-memory-under-critical-pressure">How
+Chromium Compresses Memory Under Critical Pressure</h1>
+<p>This article provides an overview of the mechanisms the Chromium web
+browser uses to reduce memory consumption when a system experiences
+critical memory pressure. Specifically, it covers how Chromium
+identifies and compresses inactive foreground memory strings using the
+ParkableStrings API, and how the rendering engine manages, compresses,
+and purges decoded image caches in the active tab to prevent browser
+crashes and maintain system stability.</p>
+<h3 id="detecting-critical-memory-pressure">Detecting Critical Memory
+Pressure</h3>
+<p>Chromium relies on a cross-platform component called the
+<code>MemoryPressureListener</code> to monitor the host operating
+system's RAM usage. When available memory drops below a critical
+threshold, the OS broadcasts a critical memory pressure signal. Upon
+receiving this alert, Chromium bypasses standard, passive garbage
+collection routines and immediately executes aggressive memory-saving
+interventions, even within the currently active foreground tab.</p>
+<h3 id="compressing-inactive-foreground-strings">Compressing Inactive
+Foreground Strings</h3>
+<p>Web pages often load massive strings into memory, such as large
+JavaScript bundles, JSON payloads, or HTML source code. Once parsed or
+executed, many of these strings sit idle in the foreground tab. Chromium
+manages these using a mechanism in its Blink rendering engine called
+<code>ParkableString</code>.</p>
+<p>When a string exceeds a specific size threshold (typically 10KB) and
+is allocated on the main thread, Blink wraps it as a
+<code>ParkableString</code>. Chromium tracks whether this string is
+actively being read or referenced by the V8 JavaScript engine or the
+DOM.</p>
+<p>Under normal conditions, Chromium uses a background timer to "age"
+these strings, eventually compressing them if they remain unused.
+However, when critical memory pressure hits, Chromium takes immediate
+action:</p>
+<ol type="1">
+<li><strong>Immediate Parking:</strong> Chromium scans for any
+foreground <code>ParkableString</code> that does not have an active lock
+(meaning it is not currently being read by an active process).</li>
+<li><strong>In-Memory Compression:</strong> A background worker thread
+compresses the raw string data in place using fast compression
+algorithms like Zlib or Snappy.</li>
+<li><strong>Purging the Original:</strong> Once the compressed copy is
+generated, the original uncompressed string is immediately purged from
+RAM, reducing its memory footprint by up to 80%.</li>
+<li><strong>Disk Eviction:</strong> If memory pressure remains critical
+after compression, Chromium can write the compressed string to disk (if
+swap space allows) and drop it from physical RAM entirely.</li>
+</ol>
+<p>If the foreground tab suddenly requires the string again, Chromium
+pauses the requesting operation for a fraction of a millisecond,
+decompresses the string back into memory on the fly, and resumes
+execution seamlessly.</p>
+<h3 id="managing-decoded-image-caches">Managing Decoded Image
+Caches</h3>
+<p>Images represent one of the largest memory consumers in a foreground
+tab. When an image (like a JPEG or WebP) is downloaded, it is small
+because it is encoded. To display it on the screen, Chromium's graphics
+engine (Skia) and the Chrome Compositor must decode the image into a
+raw, uncompressed bitmap, which takes up a massive amount of RAM.</p>
+<p>In an active foreground tab, many images are "inactive" because the
+user has scrolled past them, placing them outside the current viewport.
+Chromium manages these through the <code>ImageDecodeCache</code> and
+<code>DiscardableMemory</code> systems.</p>
+<p>When critical memory pressure is triggered, Chromium handles decoded
+image caches through the following steps:</p>
+<ol type="1">
+<li><strong>Shrinking Cache Limits:</strong> The Chrome Compositor
+drastically reduces the maximum allowed size of the
+<code>ImageDecodeCache</code>, often setting the limit for off-screen
+images to zero.</li>
+<li><strong>Discarding Decoded Bitmaps:</strong> Chromium identifies all
+decoded image bitmaps in the foreground tab that are not currently
+visible inside the active viewport. Rather than running a CPU-heavy
+compression algorithm on the raw bitmap, Chromium simply deletes the
+decoded bitmap from <code>DiscardableMemory</code>.</li>
+<li><strong>Falling Back to Encoded Data:</strong> By deleting the raw
+bitmap, Chromium effectively reverts the image back to its original,
+heavily compressed source format (e.g., PNG, JPEG, WebP) which is still
+held in the browser's <code>MemoryCache</code>.</li>
+<li><strong>Parking Encoded Images:</strong> To save even more RAM under
+critical conditions, Chromium utilizes <code>ParkableImage</code>—a
+system identical to <code>ParkableString</code>. It takes the
+already-compressed source image data of off-screen foreground images and
+writes it to disk, freeing both the decoded bitmap and the encoded file
+from physical RAM.</li>
+</ol>
+<p>If the user scrolls back up to view the image, the compositor fetches
+the encoded data, re-decodes it into a bitmap just before it enters the
+viewport, and renders it to the screen.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-compresses-memory-under-critical-pressure';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

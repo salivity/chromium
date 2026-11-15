@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow DOM Encapsulation in Chromium&#39;s Blink Engine - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Blink rendering engine in the Chromium browser implements Shadow DOM encapsulation for web components. It covers the core mechanisms Blink uses to enforce boundaries between the main document and isolated compo">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/shadow-dom-encapsulation-in-chromium-s-blink-engine">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Shadow DOM Encapsulation in Chromium&#39;s Blink Engine - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/shadow-dom-encapsulation-in-chromium-s-blink-engine" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Blink rendering engine in the Chromium browser implements Shadow DOM encapsulation for web components. It covers the core mechanisms Blink uses to enforce boundaries between the main document and isolated compo" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="shadow-dom-encapsulation-in-chromiums-blink-engine">Shadow DOM
+Encapsulation in Chromium's Blink Engine</h1>
+<p>This article provides an overview of how the Blink rendering engine
+in the Chromium browser implements Shadow DOM encapsulation for web
+components. It covers the core mechanisms Blink uses to enforce
+boundaries between the main document and isolated components: the
+<code>TreeScope</code> architecture for DOM isolation, CSS containment
+via <code>ScopedStyleResolver</code>, the construction of the flat tree
+for layout, and event retargeting during event propagation.</p>
+<h3 id="dom-isolation-via-treescope">DOM Isolation via TreeScope</h3>
+<p>Blink achieves structural encapsulation by separating the main
+document tree from shadow trees using an internal C++ class called
+<code>TreeScope</code>. Both the main <code>Document</code> node and the
+<code>ShadowRoot</code> node implement the <code>TreeScope</code>
+interface.</p>
+<p>Every node in Blink maintains a pointer to its owning
+<code>TreeScope</code>. Each <code>TreeScope</code> maintains its own
+isolated lookup tables, including maps for element IDs, named elements,
+and labels. When a script executes a query method such as
+<code>document.getElementById()</code> or <code>querySelector()</code>,
+Blink restricts the search algorithm to the specific
+<code>TreeScope</code> on which the method was called. Because a
+<code>ShadowRoot</code> is a separate <code>TreeScope</code>, nodes
+inside the Shadow DOM are invisible to standard DOM queries originating
+from the main document.</p>
+<h3 id="css-encapsulation-and-scopedstyleresolver">CSS Encapsulation and
+ScopedStyleResolver</h3>
+<p>To prevent CSS rules from leaking in or out of a web component, Blink
+pairs each <code>TreeScope</code> with its own
+<code>ScopedStyleResolver</code>.</p>
+<p>When a <code>&lt;style&gt;</code> tag or constructed stylesheet is
+added to a <code>ShadowRoot</code>, Blink parses the CSS rules and
+stores them exclusivamente within that shadow root's
+<code>ScopedStyleResolver</code>. During the style recalculation phase,
+Blink determines the computed style for an element by matching rules
+only from the <code>ScopedStyleResolver</code> associated with that
+element's <code>TreeScope</code>.</p>
+<p>This architecture enforces two rules:</p>
+<ul>
+<li><strong>Outer styles do not leak in:</strong> Selectors defined in
+the main document are not evaluated against nodes in a shadow tree. Only
+inherited CSS properties (such as <code>font-family</code> or
+<code>color</code>) and CSS custom properties (variables) naturally
+cross the shadow boundary because they are passed down through computed
+values rather than selector matching.</li>
+<li><strong>Inner styles do not leak out:</strong> Selectors inside the
+<code>ShadowRoot</code> are never evaluated against nodes in the main
+document. Blink only allows a shadow tree to style its own container via
+specific pseudo-classes like <code>:host</code> and
+<code>:host-context()</code>, which the engine resolves by temporarily
+inspecting the shadow host element.</li>
+</ul>
+<h3 id="the-flat-tree-and-slot-assignment">The Flat Tree and Slot
+Assignment</h3>
+<p>While the main DOM (Light DOM) and Shadow DOM are logically separated
+for scripts and styles, Blink must merge them to render the final visual
+layout on the screen. It achieves this without breaking encapsulation by
+using a concept called the "Flat Tree."</p>
+<p>When a component uses <code>&lt;slot&gt;</code> elements to project
+Light DOM content into the Shadow DOM, Blink utilizes a
+<code>SlotAssignment</code> engine. Instead of physically moving the
+Light DOM nodes into the Shadow DOM—which would alter their
+<code>parentNode</code> pointers and break encapsulation—Blink
+constructs a virtual tree structure.</p>
+<p>In memory, each DOM node holds pointers for both its actual DOM tree
+position and its flat tree position. Blink's layout, compositing, and
+painting engines ignore the standard DOM tree and instead traverse the
+flat tree. This allows Light DOM nodes to be visually rendered inside
+the Shadow DOM while logically remaining part of the main document's
+<code>TreeScope</code>.</p>
+<h3 id="event-retargeting">Event Retargeting</h3>
+<p>To maintain encapsulation during user interactions, Blink hides the
+internal structure of a web component from external event listeners
+through a process called event retargeting.</p>
+<p>When an event (such as a mouse click) occurs on an element inside a
+Shadow DOM, Blink builds an <code>EventPath</code> by walking up the
+flat tree from the target node to the root document. This path records
+the boundaries between different <code>TreeScope</code> instances.</p>
+<p>As the event bubbles up and crosses a <code>ShadowRoot</code>
+boundary into the enclosing <code>TreeScope</code>, Blink modifies the
+event's properties before invoking any listeners in the outer scope.
+Specifically, it changes the <code>event.target</code> property to point
+to the shadow host element rather than the actual internal element that
+was clicked. To the main document, the event appears to have originated
+from the custom element itself, keeping the internal shadow nodes
+completely hidden. If the <code>ShadowRoot</code> was created with
+<code>mode: 'open'</code>, Blink allows developers to bypass this
+encapsulation only by explicitly calling
+<code>event.composedPath()</code>, which returns the unedited array of
+nodes traversed in the flat tree.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/shadow-dom-encapsulation-in-chromium-s-blink-engine';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

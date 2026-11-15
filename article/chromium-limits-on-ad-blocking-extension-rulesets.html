@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Limits on Ad-Blocking Extension Rulesets - chromium</title>
+    <meta name="description" content="This article provides a quick overview of the specific limits the Chromium web browser imposes on ad-blocking extensions under the Manifest V3 architecture. Through the declarativeNetRequest API, Chromium enforces strict quotas on the number of static rul">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-limits-on-ad-blocking-extension-rulesets">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Limits on Ad-Blocking Extension Rulesets - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-limits-on-ad-blocking-extension-rulesets" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a quick overview of the specific limits the Chromium web browser imposes on ad-blocking extensions under the Manifest V3 architecture. Through the declarativeNetRequest API, Chromium enforces strict quotas on the number of static rul" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-limits-on-ad-blocking-extension-rulesets">Chromium
+Limits on Ad-Blocking Extension Rulesets</h1>
+<p>This article provides a quick overview of the specific limits the
+Chromium web browser imposes on ad-blocking extensions under the
+Manifest V3 architecture. Through the <code>declarativeNetRequest</code>
+API, Chromium enforces strict quotas on the number of static rulesets,
+enabled rulesets, and dynamic rules an extension can register to
+preserve browser performance and user security. Below is a direct
+breakdown of the exact numerical limits for static, dynamic, session,
+and regular expression rules.</p>
+<h2 id="static-ruleset-limits">Static Ruleset Limits</h2>
+<p>Static rulesets are pre-packaged lists of blocking or modification
+rules included directly within the extension's package when it is
+uploaded to the web store. Chromium imposes limits on both the number of
+ruleset files and the total number of individual rules they contain:</p>
+<ul>
+<li><strong>Total Registered Static Rulesets:</strong> An extension can
+define a maximum of <strong>100</strong> static rulesets in its
+<code>manifest.json</code> file.</li>
+<li><strong>Enabled Static Rulesets:</strong> Out of the 100 possible
+static rulesets, an extension can only have a maximum of
+<strong>50</strong> rulesets active (enabled) at any given time.</li>
+<li><strong>Guaranteed Minimum Static Rules:</strong> Every individual
+extension is guaranteed the ability to enable at least
+<strong>30,000</strong> static rules across its active rulesets.</li>
+<li><strong>Global Static Rule Pool:</strong> Beyond the 30,000
+guaranteed rules, Chromium provides a shared global pool of
+<strong>300,000</strong> rules across all installed extensions. An
+extension can use rules from this global pool up to the 330,000
+theoretical maximum, provided other installed extensions have not
+already exhausted the shared pool.</li>
+</ul>
+<h2 id="dynamic-and-session-rule-limits">Dynamic and Session Rule
+Limits</h2>
+<p>Unlike static rulesets, dynamic and session rules are not separated
+into multiple named rulesets. Instead, Chromium treats them as one
+dynamic ruleset and one session ruleset per extension, allowing the
+extension to add or remove rules programmatically while the browser is
+running.</p>
+<h3 id="dynamic-rules">Dynamic Rules</h3>
+<p>Dynamic rules persist across browser restarts and extension updates.
+Chromium divides dynamic rule limits based on whether the rules are
+considered "safe" (such as simple blocking or allowing rules) or
+potentially "unsafe" (such as redirecting requests or modifying
+headers):</p>
+<ul>
+<li><strong>Total Dynamic Rules:</strong> An extension can register up
+to <strong>30,000</strong> safe dynamic rules.</li>
+<li><strong>Unsafe Dynamic Rules:</strong> Within that 30,000 limit, an
+extension can only register a maximum of <strong>5,000</strong> unsafe
+rules.</li>
+</ul>
+<h3 id="session-rules">Session Rules</h3>
+<p>Session rules are temporary and are wiped from memory as soon as the
+browser is closed. They are often used for temporary user-defined
+exceptions or immediate threat mitigation.</p>
+<ul>
+<li><strong>Total Session Rules:</strong> An extension can register a
+maximum of <strong>5,000</strong> session rules, regardless of whether
+they are classified as safe or unsafe.</li>
+</ul>
+<h2 id="regular-expression-regex-rule-limits">Regular Expression (Regex)
+Rule Limits</h2>
+<p>Rules that use regular expressions to match URLs consume
+significantly more CPU and memory than standard filter rules.
+Consequently, Chromium imposes a much stricter sub-limit on regex rules,
+which counts toward the broader rule limits mentioned above:</p>
+<ul>
+<li><strong>Static Regex Rules:</strong> An extension can enable a
+maximum of <strong>1,000</strong> regular expression rules across all of
+its active static rulesets.</li>
+<li><strong>Dynamic and Session Regex Rules:</strong> An extension can
+register a maximum of <strong>1,000</strong> regular expression rules
+within its dynamic rules, and another <strong>1,000</strong> within its
+session rules.</li>
+<li><strong>Memory Limit per Regex Rule:</strong> In addition to the
+count limit, each individual compiled regex rule cannot exceed
+<strong>2KB</strong> in memory size.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-limits-on-ad-blocking-extension-rulesets';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

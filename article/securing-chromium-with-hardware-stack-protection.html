@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Securing Chromium with Hardware Stack Protection - chromium</title>
+    <meta name="description" content="This article explores how Hardware-enforced Stack Protection on modern processors defends the Chromium web browser against shadow stack tampering and control-flow hijacking. By leveraging CPU-level security features like Intel Control-flow Enforcement Tec">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/securing-chromium-with-hardware-stack-protection">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Securing Chromium with Hardware Stack Protection - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/securing-chromium-with-hardware-stack-protection" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Hardware-enforced Stack Protection on modern processors defends the Chromium web browser against shadow stack tampering and control-flow hijacking. By leveraging CPU-level security features like Intel Control-flow Enforcement Tec" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="securing-chromium-with-hardware-stack-protection">Securing
+Chromium with Hardware Stack Protection</h1>
+<p>This article explores how Hardware-enforced Stack Protection on
+modern processors defends the Chromium web browser against shadow stack
+tampering and control-flow hijacking. By leveraging CPU-level security
+features like Intel Control-flow Enforcement Technology (CET) and AMD
+Shadow Stack, Chromium isolates return addresses in a hardware-protected
+memory space. This mechanism prevents attackers from using memory
+corruption vulnerabilities to overwrite return addresses, effectively
+neutralizing Return-Oriented Programming (ROP) exploits and ensuring the
+integrity of the browser's execution flow.</p>
+<h2 id="the-vulnerability-of-traditional-and-software-stacks">The
+Vulnerability of Traditional and Software Stacks</h2>
+<p>In a standard processor architecture, the call stack stores both
+local data and the return addresses that tell the CPU where to go after
+a function finishes executing. Because Chromium is written primarily in
+C++, a language susceptible to memory corruption bugs like buffer
+overflows, attackers frequently target the call stack. By overflowing a
+buffer, an attacker can overwrite a return address—a technique used in
+Return-Oriented Programming (ROP)—to redirect the CPU into executing
+malicious code.</p>
+<p>To combat this, developers initially introduced software-based shadow
+stacks. A shadow stack is a secondary, separate stack that duplicates
+only the return addresses. Before a function returns, the software
+checks if the return address on the main stack matches the one on the
+shadow stack. However, software shadow stacks have a fatal flaw: they
+reside in standard readable and writable memory. If an attacker finds a
+vulnerability that allows arbitrary memory writes, they can simply
+locate the software shadow stack and tamper with it directly, bypassing
+the protection entirely.</p>
+<h2 id="how-hardware-enforced-shadow-stacks-prevent-tampering">How
+Hardware-Enforced Shadow Stacks Prevent Tampering</h2>
+<p>Hardware-enforced Stack Protection solves the tampering problem by
+moving the management and protection of the shadow stack directly into
+the processor's silicon. When Chromium runs on modern operating systems
+with compatible hardware, it enables this protection for its
+processes.</p>
+<p>The processor prevents shadow stack tampering through strict,
+hardware-level memory access controls:</p>
+<ul>
+<li><strong>Dedicated Page Table Attributes:</strong> The memory pages
+allocated for the hardware shadow stack are marked with a specific,
+restricted attribute in the CPU's page tables. The processor recognizes
+these pages exclusively as shadow stack memory.</li>
+<li><strong>Immunity to Standard Write Instructions:</strong> To prevent
+tampering, the CPU blocks all standard memory-writing instructions (such
+as <code>MOV</code> or <code>PUSH</code>) from modifying the shadow
+stack. Even if an attacker achieves an arbitrary memory write
+vulnerability within Chromium, their exploit code uses standard write
+instructions. The hardware will automatically block any attempt to
+overwrite the shadow stack and trigger a fatal system exception.</li>
+<li><strong>Restricted Instruction Access:</strong> Only specific
+control-flow instructions, such as <code>CALL</code> (which initiates a
+function) and <code>RET</code> (which exits a function), are permitted
+by the processor to modify the shadow stack.</li>
+</ul>
+<h2 id="safeguarding-the-chromium-architecture">Safeguarding the
+Chromium Architecture</h2>
+<p>Chromium relies on a multi-process architecture, dividing tasks among
+the main browser process, the GPU process, and multiple sandboxed
+renderer processes. Because these processes constantly parse untrusted
+web content like HTML, JavaScript, and WebAssembly, they are prime
+targets for exploitation.</p>
+<p>When Hardware-enforced Stack Protection is active in Chromium, the
+defense operates seamlessly during code execution:</p>
+<ol type="1">
+<li><strong>Function Call:</strong> When a Chromium process executes a
+<code>CALL</code> instruction, the CPU simultaneously pushes the return
+address onto the regular data stack and the hardware-protected shadow
+stack.</li>
+<li><strong>Execution and Potential Attack:</strong> While the function
+executes, an attacker might exploit a bug in Chromium to corrupt the
+regular data stack, overwriting the return address to hijack the
+browser. Because of hardware restrictions, the attacker cannot alter the
+copy of the return address stored on the shadow stack.</li>
+<li><strong>Function Return and Verification:</strong> When the function
+concludes and executes the <code>RET</code> instruction, the CPU pops
+the return addresses from both stacks and compares them in
+hardware.</li>
+<li><strong>Threat Neutralization:</strong> If the addresses do not
+match, the CPU detects the tampering before the malicious code can run.
+It immediately generates a control-protection fault. The operating
+system catches this fault and instantly terminates the compromised
+Chromium process, containing the breach and preventing the attacker from
+taking over the user's system.</li>
+</ol>
+<p>By stripping away the ability for standard instructions to write to
+the shadow stack, modern processors provide Chromium with a tamper-proof
+ledger of its intended execution path, rendering an entire class of
+memory exploits ineffective.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/securing-chromium-with-hardware-stack-protection';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s GPU Blocklist Prevents Browser Crashes - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser uses a built-in GPU blocklist to maintain system stability and prevent visual corruption. By identifying known buggy graphics drivers and specific hardware configurations at startup, Chromium can selectiv">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-gpu-blocklist-prevents-browser-crashes">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s GPU Blocklist Prevents Browser Crashes - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-gpu-blocklist-prevents-browser-crashes" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser uses a built-in GPU blocklist to maintain system stability and prevent visual corruption. By identifying known buggy graphics drivers and specific hardware configurations at startup, Chromium can selectiv" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-gpu-blocklist-prevents-browser-crashes">How
+Chromium's GPU Blocklist Prevents Browser Crashes</h1>
+<p>This article explains how the Chromium web browser uses a built-in
+GPU blocklist to maintain system stability and prevent visual
+corruption. By identifying known buggy graphics drivers and specific
+hardware configurations at startup, Chromium can selectively disable
+hardware acceleration features, forcing the browser to rely on safer
+software-based rendering alternatives instead.</p>
+<h2 id="the-role-of-hardware-acceleration">The Role of Hardware
+Acceleration</h2>
+<p>Modern web browsers use the Graphics Processing Unit (GPU) to speed
+up tasks like rendering web pages, playing videos, and running 3D
+graphics via WebGL. While offloading these tasks from the CPU to the GPU
+improves performance and battery life, it makes the browser heavily
+dependent on the host system's graphics drivers. Graphics drivers are
+complex pieces of software, and bugs within them can cause visual
+glitches, browser freezes, or even system-wide crashes like the Blue
+Screen of Death (BSOD).</p>
+<h2 id="what-is-the-gpu-blocklist">What is the GPU Blocklist?</h2>
+<p>To protect users from faulty drivers, Chromium maintains a file
+within its source code called <code>software_rendering_list.json</code>.
+This file acts as a comprehensive database of known problematic hardware
+and driver combinations across Windows, macOS, Linux, Android, and
+ChromeOS.</p>
+<p>Chromium developers populate this list based on crash reports,
+automated testing, and bug reports submitted by users and hardware
+vendors. Each entry in the blocklist specifies exact criteria,
+including:</p>
+<ul>
+<li>Operating system and version</li>
+<li>GPU vendor ID (e.g., Intel, AMD, NVIDIA)</li>
+<li>GPU device ID (specific graphics card models)</li>
+<li>Driver version numbers (e.g., versions older than a specific
+release)</li>
+</ul>
+<h2 id="how-chromium-detects-and-blocks-buggy-drivers">How Chromium
+Detects and Blocks Buggy Drivers</h2>
+<p>When you launch a Chromium-based browser, it initiates a dedicated
+GPU process. Before rendering any web content, this process gathers
+information about your system's graphics hardware and installed driver
+versions.</p>
+<p>Chromium then compares your system's profile against the rules
+defined in the <code>software_rendering_list.json</code> file. If your
+system matches an entry on the blocklist, Chromium intervenes before the
+buggy driver code can be executed.</p>
+<h2 id="granular-feature-disabling">Granular Feature Disabling</h2>
+<p>Chromium does not necessarily disable the GPU entirely when it finds
+a match on the blocklist. Instead, it uses a granular approach to
+preserve as much performance as possible. A driver might be perfectly
+stable when decoding video, for instance, but crash when executing
+complex 3D shaders.</p>
+<p>Depending on the specific bug documented in the blocklist, Chromium
+will selectively disable only the affected features, such as:</p>
+<ul>
+<li><strong>2D Canvas Acceleration:</strong> Disables GPU rendering for
+HTML5 canvas elements.</li>
+<li><strong>GPU Rasterization:</strong> Stops the GPU from converting
+vector graphics and text into pixels.</li>
+<li><strong>WebGL and WebGPU:</strong> Blocks hardware-accelerated 3D
+graphics APIs.</li>
+<li><strong>Hardware Video Decode/Encode:</strong> Prevents the GPU from
+processing video streams, which is a common source of crashes on older
+drivers.</li>
+</ul>
+<h2 id="the-fallback-software-rendering">The Fallback: Software
+Rendering</h2>
+<p>When a GPU feature is disabled by the blocklist, the browser must
+still display the web page correctly. Chromium achieves this by falling
+back to software rendering, which shifts the workload from the GPU back
+to the system's CPU.</p>
+<p>For basic page rendering, Chromium uses its Skia graphics engine to
+draw pixels directly using the CPU. For complex 3D content like WebGL,
+Chromium utilizes a built-in software renderer called SwiftShader.
+SwiftShader emulates a GPU on the CPU, ensuring that 3D web applications
+still function without triggering the buggy graphics driver, albeit at a
+slower frame rate.</p>
+<h2 id="driver-bug-workarounds">Driver Bug Workarounds</h2>
+<p>In addition to the main blocklist, Chromium maintains a secondary
+list called <code>gpu_driver_bug_list.json</code>. Instead of disabling
+a feature entirely, this list applies specific code workarounds. If a
+driver has a known bug when handling a specific graphics command,
+Chromium will alter how it issues that command to bypass the bug,
+allowing hardware acceleration to remain active safely.</p>
+<h2 id="checking-your-browsers-gpu-status">Checking Your Browser's GPU
+Status</h2>
+<p>Users can inspect how the GPU blocklist is affecting their browser at
+any time. By typing <code>chrome://gpu</code> into the address bar,
+Chromium displays a detailed report showing which features are
+hardware-accelerated and which have been disabled due to blocklist
+rules. Advanced users can bypass this safety mechanism by enabling the
+<code>chrome://flags/#ignore-gpu-blocklist</code> flag, though doing so
+exposes the system to the exact crashes and visual corruption the
+blocklist was designed to prevent.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-gpu-blocklist-prevents-browser-crashes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

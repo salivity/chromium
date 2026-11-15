@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the V8 Heap Sandbox Prevents Arbitrary Code Execution - chromium</title>
+    <meta name="description" content="This article explores the V8 Heap Sandbox, a security architecture in the Chromium web browser designed to neutralize memory corruption vulnerabilities within the V8 JavaScript engine. By isolating the V8 heap into a dedicated virtual address space and re">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-the-v-8-heap-sandbox-prevents-arbitrary-code-execution">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the V8 Heap Sandbox Prevents Arbitrary Code Execution - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-the-v-8-heap-sandbox-prevents-arbitrary-code-execution" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the V8 Heap Sandbox, a security architecture in the Chromium web browser designed to neutralize memory corruption vulnerabilities within the V8 JavaScript engine. By isolating the V8 heap into a dedicated virtual address space and re" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-v8-heap-sandbox-prevents-arbitrary-code-execution">How
+the V8 Heap Sandbox Prevents Arbitrary Code Execution</h1>
+<p>This article explores the V8 Heap Sandbox, a security architecture in
+the Chromium web browser designed to neutralize memory corruption
+vulnerabilities within the V8 JavaScript engine. By isolating the V8
+heap into a dedicated virtual address space and replacing raw memory
+pointers with bounded offsets and indirection tables, the sandbox
+ensures that even if an attacker successfully corrupts memory inside the
+V8 heap, they cannot escape it to modify outside memory or achieve
+arbitrary code execution within the browser's renderer process.</p>
+<h2 id="the-threat-of-v8-memory-corruption">The Threat of V8 Memory
+Corruption</h2>
+<p>V8 is Google’s open-source JavaScript and WebAssembly engine,
+responsible for executing untrusted code from the web in Chromium-based
+browsers. Because JavaScript is a dynamically typed language and V8
+relies on complex Just-In-Time (JIT) compilation for performance, the
+engine is a prime target for attackers.</p>
+<p>Historically, logical bugs in V8—such as type confusion or
+out-of-bounds array accesses—allowed attackers to corrupt the V8 heap.
+Attackers would weaponize this initial corruption by overwriting raw
+64-bit memory pointers inside the heap. By changing where a pointer
+aimed, an attacker could construct an "arbitrary read/write primitive,"
+allowing them to read or modify memory anywhere in the renderer process.
+Ultimately, they would overwrite executable code or hijack the CPU's
+control flow (such as overwriting a return address on the system stack)
+to achieve arbitrary code execution.</p>
+<h2 id="what-is-the-v8-heap-sandbox">What is the V8 Heap Sandbox?</h2>
+<p>The V8 Heap Sandbox is a software-based, in-process sandbox designed
+to break the chain between initial memory corruption and arbitrary code
+execution. Instead of trying to prevent every possible bug in the V8
+engine, the sandbox operates under the assumption that an attacker
+<em>already</em> has the ability to arbitrarily read and write memory
+anywhere inside the V8 heap.</p>
+<p>To contain this threat, Chromium reserves a large, contiguous region
+of virtual address space—typically one terabyte (1TB) on 64-bit
+systems—specifically for the V8 heap. This region is the sandbox. The
+core security invariant of the V8 Heap Sandbox is that corrupting memory
+inside this 1TB space can never lead to the corruption of memory outside
+of it. Consequently, sensitive data like the program stack, C++ virtual
+method tables (vtables), and executable machine code are stored entirely
+outside the sandbox.</p>
+<h2 id="how-the-sandbox-prevents-escape">How the Sandbox Prevents
+Escape</h2>
+<p>To stop an attacker from modifying memory outside the sandbox, V8
+completely eliminates the use of raw 64-bit pointers within the heap.
+Instead, it relies on three primary mechanisms to safely reference data
+and code.</p>
+<h3 id="1-sandboxed-pointers-relative-offsets">1. Sandboxed Pointers
+(Relative Offsets)</h3>
+<p>To reference other objects <em>inside</em> the V8 heap, raw pointers
+are replaced with "sandboxed pointers." These are 32-bit or 40-bit
+integers that represent a byte offset relative to the base address of
+the sandbox.</p>
+<p>When V8 needs to access an object, it takes the base address of the
+sandbox and adds the offset. Because the maximum possible value of the
+offset is mathematically constrained to be smaller than the size of the
+sandbox (plus surrounding guard regions), it is impossible for an
+attacker to reach outside the sandbox. Even if an attacker overwrites a
+sandboxed pointer with a malicious value, the resulting memory access is
+guaranteed to stay within the 1TB sandbox boundary.</p>
+<h3 id="2-the-external-pointer-table-ept">2. The External Pointer Table
+(EPT)</h3>
+<p>V8 frequently needs to interact with objects located <em>outside</em>
+the sandbox, such as Document Object Model (DOM) nodes managed by
+Chromium's Blink rendering engine. Since V8 objects cannot hold raw
+pointers to these external C++ objects, the sandbox uses an indirection
+mechanism called the External Pointer Table (EPT), which works similarly
+to a kernel file descriptor table.</p>
+<p>The EPT is an array of raw pointers located safely outside the
+sandbox. When a V8 object needs to reference an external Blink object,
+it stores a 32-bit index pointing to an entry in the EPT.</p>
+<p>If an attacker corrupts this index inside the V8 heap, they can only
+point to a different entry within the EPT, not to an arbitrary memory
+address. Furthermore, every pointer in the EPT is tagged with a specific
+type identifier. When V8 accesses an external object via the EPT, it
+checks that the expected type matches the tag in the table. This
+prevents attackers from causing "type confusion" by swapping indices of
+different external object types.</p>
+<h3 id="3-protecting-executable-code">3. Protecting Executable Code</h3>
+<p>A common method for achieving arbitrary code execution is to
+overwrite JIT-compiled machine code or alter pointers that direct the
+CPU where to execute next.</p>
+<p>To prevent this, the V8 Heap Sandbox moves all executable machine
+code, WebAssembly code, and sensitive compiler metadata out of the V8
+heap and into trusted memory space outside the sandbox. References to
+executable code are managed through a dedicated Code Pointer Table
+(CPT), functioning similarly to the EPT. Because the code itself is
+outside the sandbox and mapped with strict permissions, and the pointers
+to that code are hidden behind a read-only indirection table, an
+attacker cannot inject malicious shellcode or redirect the execution
+flow of the browser.</p>
+<p>By combining bounded offsets for internal data with strict
+indirection tables for external data and executable code, the V8 Heap
+Sandbox effectively neutralizes the most common exploit primitives,
+rendering V8 memory corruption bugs harmless to the broader system.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-the-v-8-heap-sandbox-prevents-arbitrary-code-execution';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

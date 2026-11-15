@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium User-Agent Reduction Limits Fingerprinting - chromium</title>
+    <meta name="description" content="This article explains how the User-Agent Reduction initiative in the Chromium web browser minimizes passive fingerprinting surfaces on the web. By stripping away granular system details from the default User-Agent string and replacing them with fixed valu">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-user-agent-reduction-limits-fingerprinting">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium User-Agent Reduction Limits Fingerprinting - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-user-agent-reduction-limits-fingerprinting" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the User-Agent Reduction initiative in the Chromium web browser minimizes passive fingerprinting surfaces on the web. By stripping away granular system details from the default User-Agent string and replacing them with fixed valu" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-user-agent-reduction-limits-fingerprinting">How
+Chromium User-Agent Reduction Limits Fingerprinting</h1>
+<p>This article explains how the User-Agent Reduction initiative in the
+Chromium web browser minimizes passive fingerprinting surfaces on the
+web. By stripping away granular system details from the default
+User-Agent string and replacing them with fixed values, Chromium
+significantly decreases the identifying information shared automatically
+during web browsing. The following sections break down the
+vulnerabilities of legacy User-Agent strings, the specific mechanics of
+the reduction process, and how the introduction of User-Agent Client
+Hints shifts data collection from a passive risk to an active, auditable
+request.</p>
+<h2 id="the-vulnerability-of-legacy-user-agent-strings">The
+Vulnerability of Legacy User-Agent Strings</h2>
+<p>Every time a browser connects to a website, it sends an HTTP
+<code>User-Agent</code> header. Historically, this string contained a
+wealth of specific information: the exact browser version, the operating
+system and its precise build number, the CPU architecture, and, on
+mobile devices, the exact hardware model.</p>
+<p>Because this data is sent automatically with every request without
+requiring JavaScript execution, it creates a massive passive
+fingerprinting surface. Trackers can combine these highly specific data
+points with an IP address or other basic headers to uniquely identify
+and shadow users across different websites without their knowledge or
+consent.</p>
+<h2 id="the-mechanics-of-user-agent-reduction">The Mechanics of
+User-Agent Reduction</h2>
+<p>Chromium addresses this privacy gap by drastically lowering the
+entropy—the uniqueness of the data—found in the User-Agent string.
+Instead of reporting the exact specifications of a user's machine, the
+reduced string substitutes granular details with frozen, generic
+values.</p>
+<p>Chromium's reduction modifies the string in four primary ways:</p>
+<ul>
+<li><strong>Minor Browser Versions:</strong> The minor build numbers of
+the browser are reduced to zeros. For example, version
+<code>115.0.5790.102</code> is reported simply as
+<code>115.0.0.0</code>.</li>
+<li><strong>Operating System Versions:</strong> The OS version is frozen
+to a single, unchanging legacy value. For instance, Windows devices
+always report <code>Windows NT 10.0</code>, and macOS devices always
+report <code>10_15_7</code>, regardless of the actual OS installed.</li>
+<li><strong>CPU Architecture:</strong> Desktop CPU architectures and
+bitness are unified to standard tokens (such as <code>Win64; x64</code>
+on Windows), hiding whether a user is on an Intel, AMD, or ARM-based
+processor.</li>
+<li><strong>Mobile Device Models:</strong> On Android, the specific
+phone or tablet model is replaced with a single generic <code>K</code>
+token, and the Android version is permanently frozen at
+<code>10</code>.</li>
+</ul>
+<h2 id="shrinking-the-passive-fingerprinting-surface">Shrinking the
+Passive Fingerprinting Surface</h2>
+<p>Passive fingerprinting is particularly problematic because it happens
+silently on the server side. Browsers and privacy extensions cannot
+detect when a server uses incoming HTTP headers to build a tracking
+profile.</p>
+<p>By standardizing the User-Agent string across millions of devices,
+Chromium forces vastly different hardware and software configurations to
+look identical to web servers on initial contact. A user on a brand-new
+Samsung Galaxy phone now broadcasts the exact same User-Agent string as
+someone on an older Motorola device. This dramatically expands the
+user's "anonymity set," making it mathematically much harder for
+trackers to isolate an individual based on their default connection
+headers.</p>
+<h2 id="moving-to-user-agent-client-hints">Moving to User-Agent Client
+Hints</h2>
+<p>To ensure legitimate websites—such as those offering
+architecture-specific software downloads—can still function, Chromium
+replaced the lost User-Agent data with the User-Agent Client Hints
+(UA-CH) API.</p>
+<p>By default, UA-CH only shares low-entropy information: the browser
+brand, the major version, a boolean indicating if the device is mobile,
+and the broad platform name (e.g., "Windows").</p>
+<p>If a server genuinely needs high-entropy data—like the exact device
+model, CPU architecture, or true OS version—it must explicitly ask the
+browser for it using the <code>Accept-CH</code> HTTP response header or
+a specific JavaScript API. This crucial shift transforms a
+<em>passive</em> fingerprinting surface into an <em>active</em> one.
+Because the server must now actively request sensitive data, the browser
+can detect, audit, restrict, or block these requests via privacy budgets
+or user permissions, effectively stripping invisible trackers of their
+easiest data source.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-user-agent-reduction-limits-fingerprinting';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Process-per-Site-Instance vs. Process-per-Tab - chromium</title>
+    <meta name="description" content="This article examines how the Chromium web browser manages its multi-process architecture by comparing its default process-per-site-instance policy against the process-per-tab configuration. It details the underlying enforcement mechanisms managed by the">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-process-per-site-instance-vs-process-per-tab">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Process-per-Site-Instance vs. Process-per-Tab - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-process-per-site-instance-vs-process-per-tab" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines how the Chromium web browser manages its multi-process architecture by comparing its default process-per-site-instance policy against the process-per-tab configuration. It details the underlying enforcement mechanisms managed by the" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-process-per-site-instance-vs-process-per-tab">Chromium
+Process-per-Site-Instance vs. Process-per-Tab</h1>
+<p>This article examines how the Chromium web browser manages its
+multi-process architecture by comparing its default
+process-per-site-instance policy against the process-per-tab
+configuration. It details the underlying enforcement mechanisms managed
+by the browser kernel, specifically focusing on how Chromium isolates
+web content, handles cross-site navigations, allocates system memory,
+and maintains security boundaries between different web origins.</p>
+<h3 id="architectural-foundation">Architectural Foundation</h3>
+<p>To enforce any process model, Chromium divides its architecture into
+a single privileged Browser Process and multiple sandboxed Renderer
+Processes. The Browser Process acts as the kernel; it manages network
+access, the user interface, and process creation. Renderer Processes
+execute HTML, CSS, and JavaScript inside restricted operating system
+sandboxes. The Browser Process dictates which Renderer Process handles
+which web content using two primary internal abstractions:</p>
+<ul>
+<li><strong>BrowsingInstance:</strong> Represents a group of connected
+tabs or windows that might need to communicate with each other (for
+example, a tab and a popup window it opened via JavaScript).</li>
+<li><strong>SiteInstance:</strong> Represents a group of pages within a
+<code>BrowsingInstance</code> that share the same registered domain name
+(site) and therefore must share a Renderer Process to allow synchronous
+scripting access.</li>
+</ul>
+<h3 id="how-process-per-tab-works">How Process-per-Tab Works</h3>
+<p>In a strict process-per-tab configuration (triggered via the
+<code>--process-per-tab</code> command-line flag), Chromium attempts to
+dedicate a single Renderer Process to a single tab, regardless of the
+user's navigation history within that tab.</p>
+<p><strong>Enforcement Mechanism:</strong></p>
+<ol type="1">
+<li><strong>Tab Creation:</strong> When a user opens a new tab, the
+Browser Process generates a new <code>BrowsingInstance</code> and spawns
+a dedicated <code>RenderProcessHost</code>, which launches a single
+OS-level Renderer Process.</li>
+<li><strong>Cross-Site Navigation:</strong> If the user navigates from
+<code>site-a.com</code> to <code>site-b.com</code> within that same tab,
+the Browser Process instructs the <em>existing</em> Renderer Process to
+unload the old document and render the new one.</li>
+<li><strong>Subframes:</strong> Historically, under this model, all
+<code>&lt;iframe&gt;</code> elements within that tab—even those from
+different domains—are rendered inside the same process assigned to that
+tab.</li>
+</ol>
+<p><strong>Limitations:</strong> Process-per-tab fails to isolate
+malicious code effectively. If <code>site-a.com</code> and
+<code>site-b.com</code> share a process during a navigation transition
+or via an iframe, side-channel attacks (such as Spectre) can allow one
+site to read memory belonging to the other.</p>
+<h3 id="how-process-per-site-instance-works">How
+Process-per-Site-Instance Works</h3>
+<p>Process-per-site-instance is Chromium’s default policy. It aligns
+process boundaries with security origins rather than user interface
+tabs. A "site" is defined by its scheme and registered domain (e.g.,
+<code>https://example.com</code>).</p>
+<p><strong>Enforcement Mechanism:</strong></p>
+<ol type="1">
+<li><strong>Independent Tabs:</strong> When a user opens two separate
+tabs and navigates both to <code>example.com</code>, Chromium creates
+two separate <code>BrowsingInstances</code> and two separate
+<code>SiteInstances</code>. Consequently, it spawns two distinct
+Renderer Processes, even though the website is the same.</li>
+<li><strong>Connected Tabs:</strong> If a page on
+<code>example.com</code> uses <code>window.open()</code> to launch a new
+tab to <code>sub.example.com</code>, both tabs share the same
+<code>BrowsingInstance</code> and the same <code>SiteInstance</code>.
+The Browser Process forces both tabs to run inside the exact same
+Renderer Process so their scripts can synchronously interact via the
+DOM.</li>
+<li><strong>Cross-Site Navigation:</strong> When a user in a single tab
+clicks a link that navigates from <code>example.com</code> to
+<code>other-domain.org</code>, the Browser Process intercepts the
+network request. It recognizes the domain change, creates a new
+<code>SiteInstance</code>, spawns a new Renderer Process for
+<code>other-domain.org</code>, swaps the tab's view to the new process,
+and terminates the old <code>example.com</code> process.</li>
+</ol>
+<h3 id="strict-enforcement-via-site-isolation">Strict Enforcement via
+Site Isolation</h3>
+<p>Modern Chromium strengthens the process-per-site-instance policy
+through a feature called <strong>Site Isolation</strong>, which is
+enabled by default on desktop platforms. Site Isolation ensures that a
+Renderer Process never hosts documents from more than one site,
+overriding standard process-per-tab behaviors even if flags are
+applied.</p>
+<p><strong>Out-of-Process iframes (OOPIFs):</strong> If a page on
+<code>example.com</code> embeds an <code>&lt;iframe&gt;</code> pointing
+to <code>ads.com</code>, the Browser Process creates a separate
+<code>SiteInstance</code> for the iframe. It spawns a distinct Renderer
+Process for <code>ads.com</code> and uses the GPU process to composite
+the visual output of the iframe seamlessly into the parent tab.</p>
+<p><strong>IPC Filtering:</strong> The Browser Process enforces this
+isolation at the communication layer using Mojo (Chromium's
+Inter-Process Communication system). The Browser Process locks each
+<code>RenderProcessHost</code> to a specific site origin. If a
+compromised Renderer Process locked to <code>ads.com</code> attempts to
+send an IPC message requesting cookies or local storage for
+<code>example.com</code>, the Browser Process rejects the request and
+terminates the offending Renderer Process.</p>
+<h3 id="process-allocation-under-memory-pressure">Process Allocation
+Under Memory Pressure</h3>
+<p>Chromium dynamically alters its enforcement of
+process-per-site-instance when system resources are constrained. The
+browser sets a hard limit on the maximum number of Renderer Processes
+based on the device's available RAM and CPU cores.</p>
+<ul>
+<li><strong>Process-per-Tab Behavior:</strong> Continues to spawn
+processes for new tabs until the OS runs out of memory, resulting in
+crashed tabs.</li>
+<li><strong>Process-per-Site-Instance Behavior:</strong> Once the
+process limit is reached, the Browser Process stops creating new
+processes for new <code>SiteInstances</code>. Instead, it consolidates
+processes by searching for an existing Renderer Process already
+dedicated to the target domain (even if it belongs to an unrelated
+<code>BrowsingInstance</code>) and assigns the new tab to that existing
+process. This preserves security isolation between different domains
+while capping memory consumption.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-process-per-site-instance-vs-process-per-tab';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

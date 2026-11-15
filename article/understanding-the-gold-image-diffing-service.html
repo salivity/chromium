@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Gold Image Diffing Service - chromium</title>
+    <meta name="description" content="This article provides a complete overview of the Gold image diffing service, an automated visual regression testing tool utilized by the Skia graphics library and Chromium web browser teams. It explains why traditional image comparison fails at scale, how">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-the-gold-image-diffing-service">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Gold Image Diffing Service - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-the-gold-image-diffing-service" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a complete overview of the Gold image diffing service, an automated visual regression testing tool utilized by the Skia graphics library and Chromium web browser teams. It explains why traditional image comparison fails at scale, how" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-gold-image-diffing-service">Understanding the
+Gold Image Diffing Service</h1>
+<p>This article provides a complete overview of the Gold image diffing
+service, an automated visual regression testing tool utilized by the
+Skia graphics library and Chromium web browser teams. It explains why
+traditional image comparison fails at scale, how Gold solves the problem
+of hardware-induced rendering variations, and the specific workflow
+developers use to triage visual changes and prevent software
+regressions.</p>
+<h2 id="the-core-purpose-of-gold">The Core Purpose of Gold</h2>
+<p>The primary purpose of the Gold service (often referred to as Skia
+Gold) is to manage and automate visual regression testing across
+thousands of different hardware and operating system combinations. In
+complex rendering projects like Skia and Chromium, code changes can
+inadvertently alter how pixels are drawn to the screen. Gold captures
+the visual output of tests, compares them against a database of
+previously approved images, and alerts developers when an unexpected
+visual change occurs.</p>
+<h2 id="why-traditional-image-diffing-fails">Why Traditional Image
+Diffing Fails</h2>
+<p>In standard software testing, comparing an output image to a single
+"baseline" or "golden" image stored in a code repository is common.
+However, this approach fails for Chromium and Skia for several
+reasons:</p>
+<ul>
+<li><strong>Hardware Variance:</strong> Different Graphics Processing
+Units (GPUs) from vendors like NVIDIA, AMD, Intel, and Apple implement
+math and anti-aliasing slightly differently. The exact same code will
+produce slightly different pixel outputs on different machines.</li>
+<li><strong>Operating System Differences:</strong> Font rendering and
+system-level graphics APIs (like Direct3D, Metal, and Vulkan) behave
+differently across Windows, macOS, Linux, Android, and iOS.</li>
+<li><strong>Repository Bloat:</strong> Storing thousands of large
+baseline images directly in a Git repository slows down version control
+operations for developers.</li>
+</ul>
+<p>Because of these factors, there is never just one "correct" image for
+a test. Instead, there are dozens of acceptable variations for a single
+test. Gold was built to manage this exact complexity.</p>
+<h2 id="how-the-triage-workflow-operates">How the Triage Workflow
+Operates</h2>
+<p>Instead of storing images in the source code repository, Gold
+operates as an external web service backed by a cloud database. The
+workflow follows a strict, automated path:</p>
+<ol type="1">
+<li><strong>Image Generation:</strong> During continuous integration
+(CI) testing, the browser or graphics engine renders a test scene and
+saves the output as a PNG image.</li>
+<li><strong>Hashing and Uploading:</strong> The test runner generates a
+cryptographic hash of the image and sends the hash, the image, and the
+machine's configuration (OS, GPU, CPU) to the Gold server.</li>
+<li><strong>Comparison:</strong> Gold checks if this exact image hash
+has been seen before.
+<ul>
+<li>If the hash is marked as <strong>Positive</strong>, the test passes
+immediately.</li>
+<li>If the hash is marked as <strong>Negative</strong>, the test fails,
+blocking the code from being merged.</li>
+<li>If the hash is unknown, it is marked as
+<strong>Untriaged</strong>.</li>
+</ul></li>
+</ol>
+<h2 id="triaging-visual-changes">Triaging Visual Changes</h2>
+<p>When a developer intentionally changes how a feature renders, or when
+a new GPU driver is introduced to the testing fleet, Gold detects the
+new visual output and flags it as Untriaged.</p>
+<p>Developers then use the Gold web interface to "triage" the change.
+The interface provides a side-by-side comparison of the new image, the
+closest known Positive image, and a visual diff highlighting the exact
+pixels that changed.</p>
+<ul>
+<li><strong>Approving Changes:</strong> If the visual change is the
+intended result of a new feature, or an acceptable minor pixel shift
+caused by a specific GPU, the developer marks the new image as Positive.
+Gold instantly updates its database, and any future test runs producing
+this image will automatically pass.</li>
+<li><strong>Catching Regressions:</strong> If the visual diff reveals a
+bug—such as missing text, corrupted textures, or incorrect colors—the
+developer marks the image as Negative and fixes their code before the
+bug can reach users.</li>
+</ul>
+<h2 id="ignore-rules-and-maintenance">Ignore Rules and Maintenance</h2>
+<p>To further reduce the workload on engineers, Gold allows teams to set
+up "Ignore Rules." If a specific test is known to be flaky—meaning it
+produces random, inconsequential pixel noise on a specific
+device—engineers can create a rule in Gold to temporarily ignore
+failures from that test on that specific hardware until the underlying
+issue is resolved. This keeps the automated commit queue moving smoothly
+without sacrificing overall test coverage.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-the-gold-image-diffing-service';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

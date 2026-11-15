@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Handles JavaScript Promise Microtasks - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser manages and executes JavaScript Promise microtasks at the conclusion of a standard task execution turn. By exploring the interaction between Chromium&#39;s Blink rendering engine and the V8 Jav">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-handles-java-script-promise-microtasks">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Handles JavaScript Promise Microtasks - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-handles-java-script-promise-microtasks" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser manages and executes JavaScript Promise microtasks at the conclusion of a standard task execution turn. By exploring the interaction between Chromium&#39;s Blink rendering engine and the V8 Jav" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-handles-javascript-promise-microtasks">How Chromium
+Handles JavaScript Promise Microtasks</h1>
+<p>This article provides an overview of how the Chromium web browser
+manages and executes JavaScript Promise microtasks at the conclusion of
+a standard task execution turn. By exploring the interaction between
+Chromium's Blink rendering engine and the V8 JavaScript engine, this
+guide explains the lifecycle of the microtask queue, the mechanics of
+the microtask checkpoint, and how the browser ensures all Promises are
+resolved before moving on to the next event loop task or rendering
+update.</p>
+<h3 id="the-architecture-blink-and-v8">The Architecture: Blink and
+V8</h3>
+<p>In Chromium, the event loop is orchestrated by Two main components:
+Blink (the rendering engine) and V8 (the JavaScript engine).</p>
+<p>Blink manages the main thread's event loop, which handles standard
+tasks (often called macrotasks) such as parsing HTML, handling user
+input events, and executing <code>setTimeout</code> callbacks. V8, on
+the other hand, is directly responsible for maintaining and executing
+the JavaScript call stack and the Microtask Queue, which is where
+Promise callbacks (<code>.then()</code>, <code>.catch()</code>,
+<code>.finally()</code>, and code following an <code>await</code>)
+reside.</p>
+<h3 id="queuing-the-microtasks">Queuing the Microtasks</h3>
+<p>During a single task execution turn, synchronous JavaScript code runs
+on the V8 call stack. When a Promise settles (either resolves or
+rejects) during this execution, its associated reaction callbacks are
+not executed immediately. Instead, V8 creates a
+<code>PromiseReactionJob</code> and appends it to the end of its
+internal Microtask Queue.</p>
+<h3 id="the-end-of-a-task-turn">The End of a Task Turn</h3>
+<p>A task execution turn ends when the synchronous JavaScript code
+finishes running and the V8 JavaScript execution stack becomes
+completely empty. Before Chromium can return control to the Blink event
+loop to update the UI, paint the screen, or pick up the next macrotask,
+it must handle the pending microtasks.</p>
+<p>Chromium manages this transition using a strict policy. Blink sets
+V8's microtask policy to track the depth of the JavaScript call stack.
+Every time a JavaScript function is entered, a scope counter increments;
+when the function exits, the counter decrements.</p>
+<h3 id="the-microtask-checkpoint">The Microtask Checkpoint</h3>
+<p>When the final JavaScript function on the stack exits and the
+execution depth counter reaches zero, Chromium triggers a
+<strong>Microtask Checkpoint</strong>. Here is the exact sequence of
+events that occurs during this checkpoint:</p>
+<ol type="1">
+<li><strong>Entering the Checkpoint:</strong> Blink signals V8 that the
+current task turn is concluding and invokes V8's microtask runner.</li>
+<li><strong>Draining the Queue:</strong> V8 begins executing the
+microtasks in the Microtask Queue on a First-In, First-Out (FIFO)
+basis.</li>
+<li><strong>Handling Chained Promises:</strong> If a running microtask
+resolves another Promise or hits another <code>await</code>, a new
+microtask is immediately appended to the back of the exact same
+Microtask Queue.</li>
+<li><strong>Exhaustion:</strong> V8 does not process a snapshot of the
+queue; it processes the live queue until it is completely empty. Any
+newly added microtasks are executed within the exact same microtask
+checkpoint.</li>
+</ol>
+<h3 id="returning-to-the-event-loop">Returning to the Event Loop</h3>
+<p>Only when the Microtask Queue is 100% depleted does V8 yield control
+back to Blink. At this point, the task execution turn is officially
+over. Chromium can now proceed with the rest of the event loop cycle,
+which may include running <code>requestAnimationFrame</code> callbacks,
+recalculating styles, updating the layout, painting the screen, or
+pulling the next macrotask from the task queue.</p>
+<p>Because V8 will not relinquish control until the microtask queue is
+empty, an infinite loop of resolving Promises will starve the Blink
+event loop, completely freezing the browser tab and preventing any UI
+rendering or user interaction.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-handles-java-script-promise-microtasks';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

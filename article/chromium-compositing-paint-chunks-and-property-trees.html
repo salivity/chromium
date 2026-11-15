@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Compositing: Paint Chunks and Property Trees - chromium</title>
+    <meta name="description" content="This article provides an overview of the critical roles that paint chunks and property trees play within the Chromium web browser&#39;s rendering pipeline. It explains how property trees decouple visual effects and scrolling from the complex Document Object M">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-compositing-paint-chunks-and-property-trees">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Compositing: Paint Chunks and Property Trees - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-compositing-paint-chunks-and-property-trees" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the critical roles that paint chunks and property trees play within the Chromium web browser&#39;s rendering pipeline. It explains how property trees decouple visual effects and scrolling from the complex Document Object M" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-compositing-paint-chunks-and-property-trees">Chromium
+Compositing: Paint Chunks and Property Trees</h1>
+<p>This article provides an overview of the critical roles that paint
+chunks and property trees play within the Chromium web browser's
+rendering pipeline. It explains how property trees decouple visual
+effects and scrolling from the complex Document Object Model (DOM)
+hierarchy, how paint chunks group drawing commands together, and how the
+browser's compositor combines these two data structures to efficiently
+divide a web page into GPU-accelerated layers for smooth rendering and
+scrolling.</p>
+<h3 id="the-shift-to-compositeafterpaint">The Shift to
+CompositeAfterPaint</h3>
+<p>To understand paint chunks and property trees, you must first
+understand their context within Chromium's architecture, specifically
+the system known as CompositeAfterPaint (part of the broader RenderingNG
+architecture).</p>
+<p>Historically, Chromium decided which HTML elements needed their own
+GPU compositing layers <em>before</em> painting the page. This caused
+bugs and performance bottlenecks because the browser had to guess how
+elements would overlap and animate. Today, Chromium paints the page into
+a flat list of lightweight recording data first, and only decides how to
+break the page into GPU layers <em>after</em> the paint phase. Paint
+chunks and property trees are the exact mechanisms that make this
+possible.</p>
+<h3 id="what-are-property-trees">What are Property Trees?</h3>
+<p>In the past, calculating an element's final screen position, clipping
+boundaries, or opacity required traversing a massive, tangled layout
+tree. Chromium solved this by introducing <strong>Property
+Trees</strong> during the "Pre-Paint" phase of the rendering
+pipeline.</p>
+<p>Instead of one complex hierarchy, the browser extracts spatial and
+visual relationships into four flat, specialized trees:</p>
+<ul>
+<li><strong>Transform Tree:</strong> Defines 2D and 3D CSS transforms,
+hardware-accelerated animations, and positional offsets.</li>
+<li><strong>Clip Tree:</strong> Defines rectangular and rounded clipping
+boundaries, such as those created by <code>overflow: hidden</code>.</li>
+<li><strong>Effect Tree:</strong> Defines pixel-level visual effects,
+including opacity, CSS filters (like blur), masks, and blend modes.</li>
+<li><strong>Scroll Tree:</strong> Defines scrollable areas, how they
+nest inside one another, and their current scroll offsets.</li>
+</ul>
+<p>Every visual element on a web page is assigned a <strong>Property
+Tree State</strong>. This state is simply a tuple of four pointers—one
+pointing to its respective node in the Transform, Clip, Effect, and
+Scroll trees.</p>
+<h3 id="what-are-paint-chunks">What are Paint Chunks?</h3>
+<p>During the "Paint" phase, Chromium walks the layout tree and
+generates <strong>Display Items</strong>. A Display Item is a low-level
+drawing instruction, such as "draw a blue border" or "draw this string
+of text." Display items do not contain actual pixels; they are fast,
+lightweight recordings of <em>how</em> to draw the pixels later.</p>
+<p>A <strong>Paint Chunk</strong> is a contiguous sequence of these
+Display Items that share the exact same Property Tree State.</p>
+<p>As Chromium records Display Items, it groups them into a single Paint
+Chunk. The moment the browser encounters an element that alters the
+Property Tree State—for example, a <code>&lt;div&gt;</code> with an
+<code>opacity: 0.5</code> or a new CSS <code>transform</code>—it closes
+the current Paint Chunk and starts a new one with the updated Property
+Tree State. The final output of the Paint phase is simply an ordered
+list of Paint Chunks and the four Property Trees.</p>
+<h3 id="how-they-drive-the-compositing-pipeline">How They Drive the
+Compositing Pipeline</h3>
+<p>Once the Paint phase concludes, the compositing pipeline takes over.
+Paint chunks and property trees work together to execute two major
+tasks: Layerization and Compositor-Thread Animation.</p>
+<h4 id="1-layerization-merging-and-splitting">1. Layerization (Merging
+and Splitting)</h4>
+<p>Because creating a separate GPU texture (layer) for every single
+Paint Chunk would quickly exhaust the device's video memory, the
+compositor must group Paint Chunks into a smaller number of
+<strong>Composited Layers</strong>.</p>
+<p>The compositor iterates through the list of Paint Chunks and compares
+their Property Tree States:</p>
+<ul>
+<li><strong>Splitting:</strong> If a Paint Chunk is tied to a Transform
+Tree node with an active animation, or a Scroll Tree node that the user
+can actively scroll, the compositor isolates that Paint Chunk into its
+own dedicated GPU layer.</li>
+<li><strong>Merging:</strong> If two adjacent Paint Chunks have
+compatible Property Tree States (e.g., they don't animate independently
+and exist in the same coordinate space), the compositor merges them into
+a single layer to save memory.</li>
+</ul>
+<h4 id="2-fast-animations-and-scrolling">2. Fast Animations and
+Scrolling</h4>
+<p>Once the Paint Chunks are merged into layers and rasterized into
+pixels on the GPU, the Property Trees are sent over to the browser's
+<strong>Compositor Thread</strong>.</p>
+<p>This separation is what makes modern web browsing feel smooth even
+when the Main Thread is bogged down by heavy JavaScript:</p>
+<ul>
+<li>When a user scrolls the page, the Compositor Thread simply updates
+the offset values inside the <strong>Scroll Tree</strong> and
+<strong>Transform Tree</strong>.</li>
+<li>When a CSS opacity animation runs, the Compositor Thread updates the
+value in the <strong>Effect Tree</strong>.</li>
+</ul>
+<p>Because the Paint Chunks have already been turned into GPU textures,
+the browser does not need to re-layout or re-paint the page. The
+compositor simply takes the existing textures derived from the Paint
+Chunks and composites them onto the screen using the newly updated math
+from the Property Trees.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-compositing-paint-chunks-and-property-trees';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

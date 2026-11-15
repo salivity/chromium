@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Page Loads with the Speculation Rules API - chromium</title>
+    <meta name="description" content="This article explores how the Speculation Rules API in Chromium-based browsers achieves near-instantaneous page loads. By utilizing declarative JSON structures, developers can instruct the browser to proactively prefetch or fully prerender target web page">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/instant-page-loads-with-the-speculation-rules-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Instant Page Loads with the Speculation Rules API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/instant-page-loads-with-the-speculation-rules-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Speculation Rules API in Chromium-based browsers achieves near-instantaneous page loads. By utilizing declarative JSON structures, developers can instruct the browser to proactively prefetch or fully prerender target web page" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="instant-page-loads-with-the-speculation-rules-api">Instant Page
+Loads with the Speculation Rules API</h1>
+<p>This article explores how the Speculation Rules API in Chromium-based
+browsers achieves near-instantaneous page loads. By utilizing
+declarative JSON structures, developers can instruct the browser to
+proactively prefetch or fully prerender target web pages in the
+background before a user clicks a link. Below, you will learn the core
+mechanics of this API, the differences between prefetching and
+prerendering, how to implement the code, and how the browser manages
+system resources during background rendering.</p>
+<h2 id="what-is-the-speculation-rules-api">What is the Speculation Rules
+API?</h2>
+<p>The Speculation Rules API is a JSON-based syntax defined within a
+<code>&lt;script type="speculationrules"&gt;</code> tag. It replaces
+older, less reliable hints like
+<code>&lt;link rel="prerender"&gt;</code>. Instead of guessing which
+link a user might click next, the API allows developers to explicitly
+define rules that tell the Chromium browser which outgoing URLs should
+be prepared in the background.</p>
+<p>When a user finally clicks a speculated link, the browser simply
+swaps the current view with the pre-loaded background view, resulting in
+a zero-latency navigation experience.</p>
+<h2 id="prefetching-vs-prerendering">Prefetching vs. Prerendering</h2>
+<p>The API enables instant loading through two distinct background
+mechanisms:</p>
+<ul>
+<li><strong>Prefetching:</strong> The browser downloads the raw HTML
+document of the target URL and stores it in the memory cache. It does
+not download subresources (like images, CSS, or JavaScript) or execute
+any code. This uses minimal bandwidth and CPU while completely
+eliminating the network wait time for the initial document request.</li>
+<li><strong>Prerendering:</strong> The browser downloads the HTML
+document, fetches all necessary subresources, executes JavaScript, and
+builds the entire Document Object Model (DOM) in an invisible background
+tab. When the user clicks the link, the hidden tab is instantly
+activated, making the page load appear instantaneous.</li>
+</ul>
+<h2 id="how-to-implement-speculation-rules">How to Implement Speculation
+Rules</h2>
+<p>To use the API, you insert a script tag with the type set to
+<code>speculationrules</code> into your HTML document's
+<code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. There are two
+main ways to define targets: URL Lists and Document Rules.</p>
+<h3 id="1-url-lists">1. URL Lists</h3>
+<p>You can specify an exact array of URLs that the browser should
+prefetch or prerender. This is ideal when analytics show a high
+probability that the user will visit a specific next page.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> type=</span><span class="st">&quot;speculationrules&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;prerender&quot;</span><span class="op">:</span> [</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;source&quot;</span><span class="op">:</span> <span class="st">&quot;list&quot;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;urls&quot;</span><span class="op">:</span> [<span class="st">&quot;/checkout&quot;</span><span class="op">,</span> <span class="st">&quot;/next-article&quot;</span>]</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  ]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<h3 id="2-document-rules">2. Document Rules</h3>
+<p>Instead of hardcoding URLs, you can instruct the browser to scan the
+current document for links matching specific CSS selectors or URL
+patterns.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> type=</span><span class="st">&quot;speculationrules&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;prerender&quot;</span><span class="op">:</span> [</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;source&quot;</span><span class="op">:</span> <span class="st">&quot;document&quot;</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;where&quot;</span><span class="op">:</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;and&quot;</span><span class="op">:</span> [</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>          { <span class="st">&quot;href_matches&quot;</span><span class="op">:</span> <span class="st">&quot;/products/*&quot;</span> }<span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>          { <span class="st">&quot;not&quot;</span><span class="op">:</span> { <span class="st">&quot;selector_matches&quot;</span><span class="op">:</span> <span class="st">&quot;.no-prerender&quot;</span> } }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;eagerness&quot;</span><span class="op">:</span> <span class="st">&quot;moderate&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  ]</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<h2 id="controlling-triggers-with-eagerness">Controlling Triggers with
+Eagerness</h2>
+<p>Prerendering every link on a page would quickly exhaust a user's
+bandwidth and memory. To prevent this, Chromium uses the
+<code>eagerness</code> setting to combine developer rules with user
+interaction signals:</p>
+<ul>
+<li><strong><code>immediate</code>:</strong> The browser speculates as
+soon as it parses the rule, without waiting for user action.</li>
+<li><strong><code>eager</code>:</strong> Currently behaves like
+<code>immediate</code>, though future Chromium updates may trigger this
+when the user moves their cursor toward a link.</li>
+<li><strong><code>moderate</code>:</strong> The browser triggers the
+speculation when the user hovers over a link for 200 milliseconds (or on
+the <code>pointerdown</code> event on mobile devices).</li>
+<li><strong><code>conservative</code>:</strong> The browser waits until
+the user actively touches or clicks down on the link
+(<code>pointerdown</code> or <code>mousedown</code>), giving the browser
+a roughly 100-millisecond head start before the click completes.</li>
+</ul>
+<h2 id="chromiums-built-in-safeguards">Chromium's Built-In
+Safeguards</h2>
+<p>To ensure background prerendering does not degrade the user's current
+browsing experience or cause unintended side effects, Chromium enforces
+strict operational limits:</p>
+<ul>
+<li><strong>Resource Limits:</strong> Chromium caps the number of
+concurrent prerenders (typically up to 10 for
+<code>immediate</code>/<code>eager</code> and 2 for
+<code>moderate</code>/<code>conservative</code> on a first-in, first-out
+basis).</li>
+<li><strong>Deferred APIs:</strong> Features that would confuse the user
+if triggered in the background—such as auto-playing video/audio, WebRTC
+requests, geolocation prompts, and notifications—are automatically
+paused until the user actually clicks the link and activates the
+page.</li>
+<li><strong>System Conditions:</strong> If the user has "Energy Saver"
+or "Data Saver" enabled, or if the device is low on memory, Chromium
+will automatically ignore speculation rules to preserve system
+health.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/instant-page-loads-with-the-speculation-rules-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

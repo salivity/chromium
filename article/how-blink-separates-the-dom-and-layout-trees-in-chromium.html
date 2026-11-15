@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Blink Separates the DOM and Layout Trees in Chromium - chromium</title>
+    <meta name="description" content="This article explores how the Blink rendering engine in the Chromium browser separates the Document Object Model (DOM) tree from the Layout tree. By dividing the structural representation of a webpage from its visual geometry, Blink optimizes rendering pe">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-blink-separates-the-dom-and-layout-trees-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Blink Separates the DOM and Layout Trees in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-blink-separates-the-dom-and-layout-trees-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Blink rendering engine in the Chromium browser separates the Document Object Model (DOM) tree from the Layout tree. By dividing the structural representation of a webpage from its visual geometry, Blink optimizes rendering pe" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-blink-separates-the-dom-and-layout-trees-in-chromium">How
+Blink Separates the DOM and Layout Trees in Chromium</h1>
+<p>This article explores how the Blink rendering engine in the Chromium
+browser separates the Document Object Model (DOM) tree from the Layout
+tree. By dividing the structural representation of a webpage from its
+visual geometry, Blink optimizes rendering performance, manages CSS
+styling efficiently, and handles non-visual elements seamlessly.
+Understanding this architectural separation clarifies how modern
+browsers translate raw HTML and CSS into the pixels seen on a
+screen.</p>
+<h3 id="the-purpose-of-each-tree">The Purpose of Each Tree</h3>
+<p>The DOM tree and the Layout tree serve fundamentally different
+purposes in Blink. The DOM tree is the parsed representation of the raw
+HTML document. Constructed out of C++ <code>Node</code> objects, it
+stores the hierarchical relationships between elements, attributes, and
+text, acting as the primary interface for JavaScript manipulation.</p>
+<p>Conversely, the Layout tree (historically referred to as the Render
+tree) contains the visual and geometric information required to paint
+the page. Built from <code>LayoutObject</code> instances, this tree
+calculates and stores the exact widths, heights, and screen coordinates
+of the elements that the user will actually see.</p>
+<h3 id="the-style-calculation-bridge">The Style Calculation Bridge</h3>
+<p>Blink separates these two trees through a process that occurs during
+the style calculation phase. When Blink parses HTML, it builds the DOM
+tree. Next, the engine parses the CSS and computes the final visual
+rules for each DOM node, storing this data in a read-only object called
+<code>ComputedStyle</code>.</p>
+<p>Only after the style is computed does Blink decide whether to attach
+a DOM node to the Layout tree. While a DOM <code>Node</code> holds a
+pointer to its corresponding <code>LayoutObject</code>, the two remain
+completely distinct data structures in memory. This separation allows
+scripts to query or mutate the DOM without immediately triggering
+expensive geometric recalculations.</p>
+<h3 id="filtering-out-non-visual-elements">Filtering Out Non-Visual
+Elements</h3>
+<p>A primary reason for separating the trees is that a one-to-one
+mapping between HTML and visual output is inefficient and unnecessary.
+Blink inspects the <code>ComputedStyle</code> of a DOM node before
+generating a <code>LayoutObject</code>.</p>
+<p>If an element has the CSS property <code>display: none</code>, or if
+it is a naturally invisible tag such as <code>&lt;script&gt;</code>,
+<code>&lt;meta&gt;</code>, or <code>&lt;head&gt;</code>, Blink simply
+skips creating a <code>LayoutObject</code> for it. The element remains
+in the DOM tree for JavaScript access, but it is entirely excluded from
+the Layout tree. However, elements styled with
+<code>visibility: hidden</code> do receive a <code>LayoutObject</code>
+because they are merely invisible, meaning they still occupy physical
+space in the page's geometry.</p>
+<h3 id="handling-pseudo-elements-and-anonymous-boxes">Handling
+Pseudo-Elements and Anonymous Boxes</h3>
+<p>Just as the DOM has nodes that do not appear in the Layout tree, the
+Layout tree contains objects that do not exist in the DOM.</p>
+<p>CSS pseudo-elements like <code>::before</code> and
+<code>::after</code> generate <code>LayoutObject</code> nodes in the
+Layout tree so they can be rendered on screen, even though they do not
+exist as standard, queryable nodes in the DOM tree.</p>
+<p>Furthermore, Blink enforces strict structural rules in the Layout
+tree to simplify geometry math. For example, a block container in the
+Layout tree can only contain either all inline children or all
+block-level children—never a mix of both. If a developer writes HTML
+that mixes raw inline text alongside a block-level
+<code>&lt;div&gt;</code>, Blink maintains the separation of trees by
+automatically inserting "anonymous" <code>LayoutObject</code> wrapper
+boxes into the Layout tree. This keeps the layout math consistent
+without altering the developer's actual DOM structure.</p>
+<h3 id="layoutng-and-the-fragment-tree">LayoutNG and the Fragment
+Tree</h3>
+<p>In recent years, Chromium upgraded Blink with a modern architecture
+called LayoutNG, which takes tree separation a step further. Previously,
+the <code>LayoutObject</code> held both the input data for layout and
+the resulting geometric output, making the tree mutable during rendering
+and prone to performance bottlenecks.</p>
+<p>With LayoutNG, the Layout tree acts strictly as a read-only input.
+When Blink calculates the geometry of the page, it traverses the Layout
+tree and generates a completely separate, immutable structure called the
+Fragment Tree. This modern pipeline ensures a strict separation of
+concerns: the DOM tree manages document structure, the Layout tree maps
+the styled visual hierarchy, and the Fragment tree holds the final
+physical dimensions ready to be painted to the screen.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-blink-separates-the-dom-and-layout-trees-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

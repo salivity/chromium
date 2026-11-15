@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome vs. Chromium: Codecs, Branding, and Cloud Services - chromium</title>
+    <meta name="description" content="While the open-source Chromium project serves as the foundational codebase for Google Chrome, the two web browsers are not identical. Google takes the base Chromium source code and adds several proprietary layers to create its flagship browser. This artic">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chrome-vs-chromium-codecs-branding-and-cloud-services">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chrome vs. Chromium: Codecs, Branding, and Cloud Services - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chrome-vs-chromium-codecs-branding-and-cloud-services" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="While the open-source Chromium project serves as the foundational codebase for Google Chrome, the two web browsers are not identical. Google takes the base Chromium source code and adds several proprietary layers to create its flagship browser. This artic" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chrome-vs-chromium-codecs-branding-and-cloud-services">Chrome
+vs. Chromium: Codecs, Branding, and Cloud Services</h1>
+<p>While the open-source Chromium project serves as the foundational
+codebase for Google Chrome, the two web browsers are not identical.
+Google takes the base Chromium source code and adds several proprietary
+layers to create its flagship browser. This article provides an overview
+of the exact proprietary media codecs, official branding assets, and
+integrated cloud services that distinguish the commercial Google Chrome
+browser from its open-source Chromium counterpart.</p>
+<h2 id="proprietary-media-codecs-and-drm">Proprietary Media Codecs and
+DRM</h2>
+<p>Chromium is designed to be entirely open-source, which means it only
+includes royalty-free, open audio and video codecs by default. To ensure
+users can play all media types across the web, Google licenses and
+bundles proprietary codecs directly into Google Chrome.</p>
+<ul>
+<li><strong>Audio and Video Codecs:</strong> Chromium natively supports
+open formats like VP8, VP9, AV1, Opus, and Vorbis. Google Chrome
+includes all of these, plus licensed proprietary codecs, most notably
+<strong>H.264</strong> (video) and <strong>AAC</strong> (audio). Without
+these, standard Chromium builds cannot play many videos on platforms
+like Twitter, Instagram, or certain HTML5 web players.</li>
+<li><strong>Widevine DRM:</strong> Google Chrome comes pre-packaged with
+the Widevine Content Decryption Module (CDM). This Digital Rights
+Management (DRM) technology is required to stream protected content from
+major subscription services such as Netflix, Spotify, Disney+, and
+Amazon Prime Video. Raw Chromium builds lack Widevine, rendering them
+unable to play DRM-protected media without manual configuration.</li>
+</ul>
+<h2 id="branding-assets-and-proprietary-mechanics">Branding Assets and
+Proprietary Mechanics</h2>
+<p>Google modifies the user interface, licensing agreements, and
+background mechanics of the Chromium codebase to transform it into an
+official Google product.</p>
+<ul>
+<li><strong>Visual Identity:</strong> Chromium features a purely
+blue-toned logo and refers to itself strictly as "Chromium" throughout
+the user interface. Google Chrome replaces these assets with the
+trademarked red, yellow, green, and blue Google Chrome logo and official
+naming conventions.</li>
+<li><strong>Licensing:</strong> Chromium is distributed under the
+permissive BSD license and various other open-source licenses, allowing
+anyone to modify and redistribute the code. Google Chrome is distributed
+as freeware under the restrictive Google Chrome Terms of Service.</li>
+<li><strong>Automatic Updates:</strong> Google Chrome includes a
+proprietary background service called Google Update (on Windows and
+macOS). This mechanism silently downloads and installs browser updates
+to keep users secure. Chromium does not have a built-in auto-updater;
+users must manually download new builds or rely on third-party package
+managers.</li>
+<li><strong>Crash Reporting and Metrics:</strong> Chrome includes
+proprietary tracking mechanisms that send usage statistics and crash
+reports directly to Google servers, a feature that is toggled on by
+default during installation.</li>
+</ul>
+<h2 id="cloud-services-and-google-ecosystem-integration">Cloud Services
+and Google Ecosystem Integration</h2>
+<p>In 2021, Google restricted access to several of its private APIs,
+effectively cutting off third-party Chromium builds from utilizing
+Google's cloud infrastructure. Google Chrome retains exclusive access to
+these integrated cloud services through baked-in API keys.</p>
+<ul>
+<li><strong>Google Sync:</strong> In Google Chrome, users can sign in
+with their Google Account to synchronize bookmarks, browsing history,
+open tabs, and saved passwords across devices via Google's cloud
+servers. This synchronization feature is blocked in Chromium.</li>
+<li><strong>Google Safe Browsing:</strong> Chrome actively utilizes
+Google's cloud-based Safe Browsing API to warn users in real-time before
+they navigate to known phishing sites or download malicious files.
+Chromium lacks the necessary API keys to utilize this real-time cloud
+database effectively.</li>
+<li><strong>Cloud-Assisted Features:</strong> Chrome uses Google cloud
+services to power built-in features like one-click page translation
+(Google Translate), enhanced spell-checking, and network-based
+geolocation services. In Chromium, these features are either absent,
+degraded, or require the user to manually acquire and input their own
+Google Cloud API keys.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chrome-vs-chromium-codecs-branding-and-cloud-services';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

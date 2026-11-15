@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Handles the prefers-reduced-motion Query - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Chromium web browser detects operating system accessibility settings to support the prefers-reduced-motion CSS media query. It covers the specific OS-level APIs Chromium monitors across Windows, macOS,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-handles-the-prefers-reduced-motion-query">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Handles the prefers-reduced-motion Query - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-handles-the-prefers-reduced-motion-query" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Chromium web browser detects operating system accessibility settings to support the prefers-reduced-motion CSS media query. It covers the specific OS-level APIs Chromium monitors across Windows, macOS," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-handles-the-prefers-reduced-motion-query">How
+Chromium Handles the prefers-reduced-motion Query</h1>
+<p>This article provides a technical overview of how the Chromium web
+browser detects operating system accessibility settings to support the
+<code>prefers-reduced-motion</code> CSS media query. It covers the
+specific OS-level APIs Chromium monitors across Windows, macOS, Linux,
+and Android, how the browser communicates these user preferences to its
+Blink rendering engine, and how web pages dynamically adapt to these
+settings to create a safer browsing experience for users with motion
+sensitivities.</p>
+<h2 id="operating-system-api-detection">Operating System API
+Detection</h2>
+<p>Chromium does not have its own persistent accessibility toggle for
+reduced motion. Instead, it relies entirely on the host operating
+system's native accessibility configurations. Chromium’s
+platform-specific UI code actively queries and listens for changes in
+the following OS APIs:</p>
+<ul>
+<li><strong>Windows:</strong> Chromium monitors the
+<code>SPI_GETCLIENTAREAANIMATION</code> flag via the Win32
+<code>SystemParametersInfo</code> function, as well as modern UWP
+<code>UISettings.AnimationsEnabled</code> APIs. If the user turns off
+"Show animations in Windows" in the OS settings, Chromium registers that
+reduced motion is preferred.</li>
+<li><strong>macOS:</strong> The browser listens to the
+<code>NSWorkspace</code> notification center, specifically checking the
+<code>accessibilityDisplayShouldReduceMotion</code> boolean property.
+This corresponds to the "Reduce motion" checkbox in macOS System
+Settings.</li>
+<li><strong>Android:</strong> Chromium checks the global system settings
+via <code>Settings.Global.ANIMATOR_DURATION_SCALE</code>. If the user
+disables animations or sets the animator duration scale to
+<code>0.0</code> in Android's Developer Options or Accessibility
+settings, Chromium enables the reduced motion flag.</li>
+<li><strong>Linux:</strong> Because Linux uses various desktop
+environments, Chromium primarily relies on GTK settings. It monitors the
+<code>gtk-enable-animations</code> property. If this property is set to
+false, Chromium activates the <code>prefers-reduced-motion</code>
+state.</li>
+</ul>
+<h2 id="communicating-with-the-blink-rendering-engine">Communicating
+with the Blink Rendering Engine</h2>
+<p>Chromium uses a multi-process architecture, meaning the part of the
+browser that talks to the operating system (the Browser Process) is
+separate from the part that renders the webpage (the Renderer Process,
+powered by the Blink engine).</p>
+<p>To bridge this gap, Chromium follows a strict communication
+pipeline:</p>
+<ol type="1">
+<li><strong>Event Detection:</strong> When a user toggles their OS
+motion setting, the OS broadcasts a system-wide event. Chromium's
+Browser Process captures this event in real time.</li>
+<li><strong>Updating WebPreferences:</strong> The Browser Process
+updates an internal data structure called <code>WebPreferences</code>.
+Within this structure, a boolean state for
+<code>prefers_reduced_motion</code> is switched to
+<code>true</code>.</li>
+<li><strong>Inter-Process Communication (IPC):</strong> The Browser
+Process sends an IPC message containing the updated
+<code>WebPreferences</code> to all active Renderer Processes.</li>
+<li><strong>Blink Notification:</strong> Each Renderer Process receives
+the IPC message and updates the local settings of its Blink instance.
+This ensures that the user does not need to restart the browser or
+refresh the webpage for the accessibility setting to take effect.</li>
+</ol>
+<h2 id="evaluating-the-media-query-in-css-and-javascript">Evaluating the
+Media Query in CSS and JavaScript</h2>
+<p>Once the Blink rendering engine receives the updated preference, it
+immediately re-evaluates the state of the active document.</p>
+<p>For <strong>CSS</strong>, Blink scans the CSS Object Model (CSSOM)
+for any <code>@media (prefers-reduced-motion: reduce)</code> blocks. If
+the OS setting is active, Blink applies the styles within those blocks
+and recalculates the page layout and style rules, instantly stopping or
+altering CSS transitions and keyframe animations defined by the web
+developer.</p>
+<p>For <strong>JavaScript</strong>, Blink triggers change events on any
+active <code>MediaQueryList</code> objects created via
+<code>window.matchMedia('(prefers-reduced-motion: reduce)')</code>. If a
+web application is listening to this API to control JavaScript-driven
+animations (such as WebGL, Canvas, or third-party animation libraries),
+the event listener fires immediately, allowing the script to halt motion
+on the fly.</p>
+<h2 id="overriding-os-settings-via-devtools">Overriding OS Settings via
+DevTools</h2>
+<p>For testing purposes, Chromium allows developers to bypass the
+operating system detection pipeline entirely. Within Chrome DevTools
+(under the "Rendering" tab), developers can emulate the
+<code>prefers-reduced-motion</code> media feature. When enabled,
+DevTools intercepts the <code>WebPreferences</code> state and forces
+Blink to render the page as if the OS has requested reduced motion,
+without actually altering the host machine's accessibility
+configurations.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-handles-the-prefers-reduced-motion-query';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

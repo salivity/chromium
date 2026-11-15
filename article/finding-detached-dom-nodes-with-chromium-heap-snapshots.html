@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finding Detached DOM Nodes with Chromium Heap Snapshots - chromium</title>
+    <meta name="description" content="This article provides a comprehensive guide on how web developers can identify and resolve memory leaks caused by detached DOM nodes using the Chromium web browser&#39;s Memory panel. It covers the essential techniques for capturing accurate heap snapshots, u">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/finding-detached-dom-nodes-with-chromium-heap-snapshots">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Finding Detached DOM Nodes with Chromium Heap Snapshots - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/finding-detached-dom-nodes-with-chromium-heap-snapshots" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive guide on how web developers can identify and resolve memory leaks caused by detached DOM nodes using the Chromium web browser&#39;s Memory panel. It covers the essential techniques for capturing accurate heap snapshots, u" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="finding-detached-dom-nodes-with-chromium-heap-snapshots">Finding
+Detached DOM Nodes with Chromium Heap Snapshots</h1>
+<p>This article provides a comprehensive guide on how web developers can
+identify and resolve memory leaks caused by detached DOM nodes using the
+Chromium web browser's Memory panel. It covers the essential techniques
+for capturing accurate heap snapshots, utilizing the three-snapshot
+method to isolate leaks, filtering snapshot data specifically for
+detached elements, and analyzing the retainers tree to pinpoint the
+exact JavaScript references preventing garbage collection.</p>
+<h2 id="taking-a-baseline-heap-snapshot">Taking a Baseline Heap
+Snapshot</h2>
+<p>A detached DOM node is an element that has been removed from the
+Document Object Model (DOM) tree, meaning it is no longer visible on the
+page, yet remains in memory because a JavaScript object still references
+it. To find these nodes, you must first capture the current state of
+your application's memory.</p>
+<ol type="1">
+<li>Open the Chromium Developer Tools by pressing <code>F12</code> or
+<code>Ctrl+Shift+I</code> (<code>Cmd+Option+I</code> on Mac).</li>
+<li>Navigate to the <strong>Memory</strong> panel.</li>
+<li>Under the "Select profiling type" section, choose <strong>Heap
+snapshot</strong>.</li>
+<li>Click the <strong>Take snapshot</strong> button at the bottom.</li>
+</ol>
+<p>Chromium automatically runs garbage collection before taking the
+snapshot to ensure that only active, reachable objects are recorded.
+Once complete, the snapshot will appear in the left-hand sidebar and
+automatically open in the "Summary" view.</p>
+<h2 id="filtering-for-detached-dom-nodes">Filtering for Detached DOM
+Nodes</h2>
+<p>Once you have captured a heap snapshot, you can immediately search
+for detached elements that are lingering in memory.</p>
+<ol type="1">
+<li>Ensure the view dropdown at the top of the snapshot pane is set to
+<strong>Summary</strong>.</li>
+<li>Locate the <strong>Class filter</strong> input box at the top of the
+panel.</li>
+<li>Type <code>Detached</code> into the filter box.</li>
+</ol>
+<p>The panel will filter the memory constructors to show only detached
+elements, such as <code>Detached HTMLDivElement</code>,
+<code>Detached HTMLButtonElement</code>, or <code>Detached Text</code>.
+Expanding any of these constructors will reveal the individual nodes
+currently held in memory.</p>
+<h2 id="the-three-snapshot-technique">The Three-Snapshot Technique</h2>
+<p>Sometimes, a single snapshot contains too much noise to determine if
+an action is actively causing a leak. The three-snapshot technique is a
+precise method to isolate detached DOM nodes created by specific user
+interactions.</p>
+<ol type="1">
+<li>Load your web page and take <strong>Snapshot 1</strong> to serve as
+your baseline.</li>
+<li>Perform a specific action on your page that creates and then removes
+DOM elements (for example, opening and closing a modal window).</li>
+<li>Take <strong>Snapshot 2</strong>.</li>
+<li>Perform the exact same action a second time (open and close the
+modal again).</li>
+<li>Take <strong>Snapshot 3</strong>.</li>
+</ol>
+<p>To analyze the results, click on <strong>Snapshot 3</strong>. Change
+the perspective dropdown at the top (which defaults to "All objects") to
+<strong>Objects allocated between Snapshot 1 and Snapshot
+2</strong>.</p>
+<p>Because you performed the action twice, any temporary memory from the
+first action should have been overwritten or garbage collected by the
+time the third snapshot was taken. The objects remaining in this
+filtered view—especially when combined with the <code>Detached</code>
+class filter—are almost certainly memory leaks triggered by that
+specific user interaction.</p>
+<h2 id="analyzing-the-retainers-tree">Analyzing the Retainers Tree</h2>
+<p>Finding a detached DOM node is only half the battle; you must also
+find the JavaScript code keeping it alive. You can do this using the
+<strong>Retainers</strong> pane located at the bottom half of the Memory
+panel.</p>
+<ol type="1">
+<li>Click on an individual detached node under one of the expanded
+<code>Detached</code> constructors in the upper pane.</li>
+<li>Look at the <strong>Retainers</strong> tree at the bottom. This tree
+shows the path of references from the detached node back to the root
+object (usually the <code>Window</code>), which explains why the garbage
+collector cannot delete it.</li>
+</ol>
+<p>As you inspect the nodes in the upper and lower panes, pay attention
+to the color-coding provided by Chromium:</p>
+<ul>
+<li><strong>Yellow Highlight:</strong> Nodes highlighted in yellow have
+a direct reference from your JavaScript code (e.g., an event listener, a
+global variable, or a closure). These are the root causes of the
+leak.</li>
+<li><strong>Red Highlight:</strong> Nodes highlighted in red do not have
+direct JavaScript references. They are only alive because they are part
+of a DOM tree anchored by a yellow node.</li>
+</ul>
+<p>Focus your efforts on the yellow nodes. Expand the Retainers tree for
+a yellow node to see the exact variable name and the file line number
+holding the reference.</p>
+<h2 id="resolving-the-leak">Resolving the Leak</h2>
+<p>Once the Retainers tree reveals the source of the reference, navigate
+to that location in your source code. The most common culprits for
+detached DOM nodes include:</p>
+<ul>
+<li><strong>Unremoved Event Listeners:</strong> Removing a DOM node
+without first calling <code>removeEventListener</code> if the listener
+is bound to an external scope.</li>
+<li><strong>Global Variables or Caches:</strong> Storing a reference to
+a DOM element in a global object or state manager and failing to set it
+to <code>null</code> when the element is removed from the page.</li>
+<li><strong>Closures:</strong> Asynchronous callbacks (like
+<code>setTimeout</code> or <code>fetch</code>) or closures that
+inadvertently capture a DOM element reference in their lexical
+scope.</li>
+</ul>
+<p>After updating your code to sever these references when elements are
+destroyed, repeat the snapshot process to verify that the
+<code>Detached</code> constructors no longer appear.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/finding-detached-dom-nodes-with-chromium-heap-snapshots';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

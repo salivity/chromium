@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrating Rust into Chromium&#39;s C++ Codebase for Security - chromium</title>
+    <meta name="description" content="This article explores how the Chromium project is integrating the Rust programming language into its massive C++ codebase to eliminate memory safety vulnerabilities. It covers the primary security motivations behind this shift, the technical mechanisms an">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/integrating-rust-into-chromium-s-c-codebase-for-security">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integrating Rust into Chromium&#39;s C++ Codebase for Security - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/integrating-rust-into-chromium-s-c-codebase-for-security" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium project is integrating the Rust programming language into its massive C++ codebase to eliminate memory safety vulnerabilities. It covers the primary security motivations behind this shift, the technical mechanisms an" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="integrating-rust-into-chromiums-c-codebase-for-security">Integrating
+Rust into Chromium's C++ Codebase for Security</h1>
+<p>This article explores how the Chromium project is integrating the
+Rust programming language into its massive C++ codebase to eliminate
+memory safety vulnerabilities. It covers the primary security
+motivations behind this shift, the technical mechanisms and
+interoperability tools used to bridge C++ and Rust, and the strategic
+approach engineers are taking to implement Rust in high-risk browser
+components without rewriting the entire browser from scratch.</p>
+<h2 id="the-security-motivation-eliminating-memory-bugs">The Security
+Motivation: Eliminating Memory Bugs</h2>
+<p>The primary driver for bringing Rust into Chromium—the open-source
+project behind Google Chrome, Microsoft Edge, and Brave—is memory
+safety. According to the Chromium security team, approximately 70% of
+all high-severity security bugs in the browser are memory safety issues.
+These are mistakes made in C++ regarding how memory is allocated, read,
+and freed, such as "use-after-free" errors and buffer overflows.</p>
+<p>While C++ relies on the developer to manage memory correctly, Rust
+enforces memory safety at compile time through its ownership and
+borrowing system. By writing components in Rust, developers can
+mathematically guarantee the absence of these specific vulnerabilities
+before the code is ever shipped to users.</p>
+<h2 id="simplifying-the-rule-of-two">Simplifying the Rule of Two</h2>
+<p>Historically, Chromium’s security architecture has relied on the
+"Rule of 2." This rule states that code can pick no more than two of the
+following traits:</p>
+<ol type="1">
+<li>It processes untrustworthy inputs.</li>
+<li>It is written in an unsafe language (like C or C++).</li>
+<li>It runs with high privileges (outside a sandbox).</li>
+</ol>
+<p>Because C++ is an unsafe language, any C++ code that processes
+untrusted web data (like an image or a font) must be isolated in a
+restricted sandbox process. Sandbox processes are expensive in terms of
+system memory and performance. Because Rust is a memory-safe language,
+Chromium engineers can now process untrusted inputs using Rust without
+always needing a heavy process sandbox, thereby improving both security
+and browser performance.</p>
+<h2 id="bridging-c-and-rust-with-interoperability-tools">Bridging C++
+and Rust with Interoperability Tools</h2>
+<p>Chromium consists of tens of millions of lines of C++ code, making a
+complete rewrite in Rust impossible. Instead, Rust must coexist and
+communicate with the existing C++ code. This requires two-way
+interoperability, allowing C++ to call Rust functions and Rust to call
+C++ functions.</p>
+<p>To achieve this safely, the Chromium team uses specialized Foreign
+Function Interface (FFI) tools, primarily a library called
+<strong>CXX</strong>.</p>
+<ul>
+<li><strong>How CXX works:</strong> Standard FFI requires writing
+<code>unsafe</code> Rust code, which defeats the purpose of using Rust
+for security. CXX allows developers to define a shared boundary between
+the two languages. It automatically generates the necessary bindings and
+statically checks that the data types on both the C++ side and the Rust
+side match safely.</li>
+<li><strong>Build System Integration:</strong> The Chromium team has
+added support for the official Rust compiler (<code>rustc</code>)
+directly into <code>GN</code> and <code>Ninja</code>, the build systems
+used to compile Chromium. This allows developers to add Rust libraries
+(crates) to the project just as easily as they add new C++ files.</li>
+</ul>
+<h2 id="replacing-high-risk-third-party-libraries">Replacing High-Risk
+Third-Party Libraries</h2>
+<p>Rather than rewriting core browser architecture, the integration
+strategy focuses on the most vulnerable parts of the browser:
+third-party libraries that parse complex data formats. Web browsers must
+constantly decode fonts, images, audio, and video from unknown sources
+on the internet, making parsers a prime target for hackers.</p>
+<p>Chromium is actively replacing older C and C++ parsing libraries with
+memory-safe Rust equivalents. Examples include:</p>
+<ul>
+<li><strong>Font Parsing:</strong> Moving away from C-based font
+processing toward Rust-based alternatives (like Skrifa) to prevent
+malicious web fonts from executing code on a user's machine.</li>
+<li><strong>QR Code Generation:</strong> Replacing C++ utilities with
+Rust crates to handle data parsing securely.</li>
+<li><strong>JSON and Image Parsers:</strong> Isolating and swapping out
+legacy decoders with audited, third-party Rust crates from the
+open-source ecosystem.</li>
+</ul>
+<p>By strategically inserting Rust at the boundaries where the browser
+interacts with untrusted web content, the Chromium project is
+systematically reducing its attack surface while maintaining the
+stability of its foundational C++ codebase.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/integrating-rust-into-chromium-s-c-codebase-for-security';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

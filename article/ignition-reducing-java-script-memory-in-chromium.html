@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ignition: Reducing JavaScript Memory in Chromium - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Ignition interpreter drastically reduces memory consumption during JavaScript execution in the Chromium web browser. Introduced as a core component of Chromium&#39;s V8 JavaScript engine, Ignition replaces older, m">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/ignition-reducing-java-script-memory-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ignition: Reducing JavaScript Memory in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/ignition-reducing-java-script-memory-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Ignition interpreter drastically reduces memory consumption during JavaScript execution in the Chromium web browser. Introduced as a core component of Chromium&#39;s V8 JavaScript engine, Ignition replaces older, m" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="ignition-reducing-javascript-memory-in-chromium">Ignition:
+Reducing JavaScript Memory in Chromium</h1>
+<p>This article provides an overview of how the Ignition interpreter
+drastically reduces memory consumption during JavaScript execution in
+the Chromium web browser. Introduced as a core component of Chromium's
+V8 JavaScript engine, Ignition replaces older, memory-heavy baseline
+compilers by translating JavaScript code into a compact bytecode format.
+By avoiding the immediate generation of bulky native machine code,
+reducing parsing overhead, and seamlessly integrating with the TurboFan
+optimizing compiler, Ignition significantly lowers the memory footprint
+of web applications, particularly benefiting mobile and low-end
+devices.</p>
+<h2 id="the-machine-code-problem">The Machine Code Problem</h2>
+<p>Before Ignition was introduced, Chromium’s V8 engine relied on a
+two-tiered compilation pipeline that compiled all JavaScript directly
+into native machine code. The baseline compiler, known as Full-codegen,
+quickly generated unoptimized machine code so the script could run
+immediately.</p>
+<p>While this approach offered fast execution, native machine code is
+extremely verbose and takes up a massive amount of memory. Web pages
+often contain large libraries of JavaScript where many functions are
+only executed once during startup. Compiling all of this code into heavy
+machine instructions wasted megabytes of RAM per browser tab.</p>
+<h2 id="the-shift-to-compact-bytecode">The Shift to Compact
+Bytecode</h2>
+<p>Ignition solves the machine code bloat by acting as an interpreter.
+Instead of compiling JavaScript directly into native machine code, V8
+parses the JavaScript into an Abstract Syntax Tree (AST) and Ignition
+translates that tree into bytecode.</p>
+<p>Bytecode is a highly concise, abstract representation of the code.
+Ignition’s bytecode is roughly 25% to 50% the size of the equivalent
+baseline machine code generated by the older V8 architecture. By holding
+this compact bytecode in memory rather than sprawling machine
+instructions, Chromium immediately slashes the memory overhead required
+to load and run complex websites.</p>
+<h2 id="register-based-efficiency">Register-Based Efficiency</h2>
+<p>To keep the bytecode as small as possible, Ignition is designed as a
+register-based interpreter rather than a traditional stack-based
+interpreter.</p>
+<p>Stack-based interpreters require numerous push and pop instructions
+to move data around, which increases the overall size of the bytecode.
+Ignition’s register-based design operates on virtual registers, allowing
+it to express complex operations in fewer instructions. Fewer
+instructions mean smaller bytecode arrays, directly translating to lower
+memory usage.</p>
+<h2 id="eliminating-redundant-source-code-storage">Eliminating Redundant
+Source Code Storage</h2>
+<p>In the pre-Ignition era, when a function became "hot" (executed
+frequently), V8's optimizing compiler had to re-parse the original
+JavaScript source code to generate optimized machine code. This meant
+Chromium had to keep the original JavaScript source or the memory-heavy
+AST in RAM just in case it needed to be optimized later.</p>
+<p>Ignition eliminates this requirement. Its bytecode serves as the
+single source of truth for execution. When a function becomes hot, the
+bytecode itself is fed directly into V8's optimizing compiler, TurboFan.
+Because TurboFan optimizes directly from the bytecode, V8 can
+aggressively discard the AST and avoid re-parsing the JavaScript source,
+freeing up substantial amounts of memory.</p>
+<h2 id="smarter-deoptimization">Smarter Deoptimization</h2>
+<p>When optimized code makes assumptions that turn out to be false
+during execution, the engine must "deoptimize" and fall back to a safer
+state. Previously, V8 fell back to the bulky, unoptimized machine code.
+With Ignition, when TurboFan deoptimizes code, it falls directly back to
+the lightweight Ignition bytecode. This removes the need to ever keep
+unoptimized machine code in memory as a safety net, permanently lowering
+the baseline memory cost of running JavaScript in Chromium.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/ignition-reducing-java-script-memory-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

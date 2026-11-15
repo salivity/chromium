@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Raw Draw: Bypassing Intermediate Tile Textures - chromium</title>
+    <meta name="description" content="This article explores the Raw Draw project in the Chromium web browser, an architectural shift in how web pages are rendered to the screen. It explains the traditional tiled rendering approach, details how Raw Draw bypasses intermediate tile textures by d">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-raw-draw-bypassing-intermediate-tile-textures">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Raw Draw: Bypassing Intermediate Tile Textures - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-raw-draw-bypassing-intermediate-tile-textures" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the Raw Draw project in the Chromium web browser, an architectural shift in how web pages are rendered to the screen. It explains the traditional tiled rendering approach, details how Raw Draw bypasses intermediate tile textures by d" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-raw-draw-bypassing-intermediate-tile-textures">Chromium
+Raw Draw: Bypassing Intermediate Tile Textures</h1>
+<p>This article explores the Raw Draw project in the Chromium web
+browser, an architectural shift in how web pages are rendered to the
+screen. It explains the traditional tiled rendering approach, details
+how Raw Draw bypasses intermediate tile textures by drawing directly to
+the final framebuffer, and examines the performance benefits and
+technical trade-offs of this modern rendering pipeline.</p>
+<h2 id="the-traditional-tiled-rendering-pipeline">The Traditional Tiled
+Rendering Pipeline</h2>
+<p>To understand Raw Draw, it is necessary to understand what it
+replaces. Historically, Chromium has used a tiled rendering architecture
+to display web pages. When a web page is loaded, the browser breaks the
+page’s content down into layers, and those layers are further divided
+into a grid of smaller squares called tiles.</p>
+<p>During the rasterization phase, Chromium takes a list of recorded
+drawing commands—known internally as <code>PaintOps</code>—and executes
+them using the Skia graphics library. Instead of drawing directly to the
+screen, Skia draws these pixels into intermediate GPU textures
+representing the individual tiles. Once the tiles are rasterized and
+stored in GPU memory, the display compositor (Viz) stitches these tile
+textures together and draws them onto the final screen framebuffer.</p>
+<h2 id="the-problem-with-intermediate-tiles">The Problem with
+Intermediate Tiles</h2>
+<p>Tiled rendering was designed in an era when GPUs were slower, and
+caching rendered pixels in tiles was the best way to achieve smooth
+scrolling. However, modern hardware has changed the performance
+equation.</p>
+<p>Today, screens have extremely high resolutions (such as 4K and Retina
+displays), and GPUs have vastly more compute power. On high-DPI
+displays, storing dozens of intermediate tile textures consumes a
+massive amount of GPU memory (VRAM). Furthermore, writing pixel data to
+a tile texture and then immediately reading that same data back to draw
+it to the screen consumes a large amount of memory bandwidth. For pages
+with frequent animations or updates, constantly reallocating and
+updating these intermediate textures creates a performance
+bottleneck.</p>
+<h2 id="what-is-the-raw-draw-project">What is the Raw Draw Project?</h2>
+<p>Raw Draw is an initiative within the Chromium project designed to
+eliminate intermediate tile textures entirely for most web content.
+Instead of treating a web page like a collection of pre-rendered images
+(tiles) to be stitched together, Raw Draw treats the web page more like
+a 3D video game, re-rendering the visible viewport directly to the
+screen on every single frame.</p>
+<h2 id="how-raw-draw-bypasses-tile-textures">How Raw Draw Bypasses Tile
+Textures</h2>
+<p>Raw Draw alters the handoff between the rasterization phase and the
+compositing phase. It bypasses intermediate textures through the
+following mechanism:</p>
+<ol type="1">
+<li><strong>Retaining PaintOps:</strong> When the browser process
+determines what needs to be drawn, it generates the
+<code>PaintOps</code> (the instructions for drawing shapes, borders,
+shadows, and text) just as it normally would.</li>
+<li><strong>Skipping Tile Allocation:</strong> Instead of allocating GPU
+memory for tile textures and executing the <code>PaintOps</code> to fill
+those tiles, Chromium packages the <code>PaintOps</code> into a
+lightweight structure called a <code>RenderPass</code>.</li>
+<li><strong>Direct Framebuffer Execution:</strong> The display
+compositor receives these raw drawing commands rather than references to
+pre-rendered tile textures. When it is time to produce a frame, the
+compositor executes the <code>PaintOps</code> directly against the final
+backbuffer (the screen's framebuffer).</li>
+</ol>
+<p>By doing this, the pixel data is only written once—directly to the
+final destination—completely eliminating the memory storage and
+bandwidth overhead of the intermediate step.</p>
+<h2 id="overcoming-the-re-rasterization-challenge">Overcoming the
+Re-Rasterization Challenge</h2>
+<p>The primary risk of bypassing cached tiles is that the GPU must
+re-evaluate the drawing commands on every frame, even during a simple
+scroll. While modern GPUs can recalculate simple geometry like
+rectangles and gradients effortlessly at 60 or 120 frames per second,
+complex vector paths and text glyphs are computationally expensive to
+rasterize from scratch every frame.</p>
+<p>To prevent text rendering from slowing down Raw Draw, Chromium
+utilizes a Skia feature known as "Slugs." A Slug is an intermediate,
+resolution-independent representation of text and complex paths. Instead
+of caching an entire tile of pixels, Chromium caches only the geometric
+math required to draw the specific text glyphs in a small atlas. During
+the Raw Draw phase, the GPU reads the Slug data and rapidly draws the
+text directly into the framebuffer without needing to recalculate the
+font geometry from scratch.</p>
+<h2 id="benefits-and-trade-offs">Benefits and Trade-offs</h2>
+<p>By bypassing intermediate tile textures, Raw Draw provides several
+distinct advantages:</p>
+<ul>
+<li><strong>Reduced GPU Memory Usage:</strong> Without the need to store
+off-screen and on-screen tile textures, VRAM consumption drops
+significantly.</li>
+<li><strong>Lower Memory Bandwidth:</strong> Eliminating the
+"write-to-tile, read-from-tile" cycle saves battery life on mobile
+devices and frees up the GPU bus.</li>
+<li><strong>Reduced Latency:</strong> Because the compositor does not
+have to wait for a batch of tiles to finish rasterizing before drawing
+the frame, visual updates can reach the screen faster.</li>
+</ul>
+<p>The main trade-off is an increase in per-frame GPU compute
+instructions, as the browser is doing raw drawing work every frame
+rather than just moving pre-rendered textures around. However, because
+modern GPUs increase their compute capabilities much faster than their
+memory bandwidth, Raw Draw aligns Chromium's architecture with the
+strengths of current hardware.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-raw-draw-bypassing-intermediate-tile-textures';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

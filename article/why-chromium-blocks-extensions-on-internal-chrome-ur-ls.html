@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Blocks Extensions on Internal Chrome URLs - chromium</title>
+    <meta name="description" content="This article explores the critical security and architectural reasons why the Chromium web browser prevents extensions from executing content scripts on internal chrome:// scheme URLs. By examining the risks of privilege escalation, sensitive data exposur">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-blocks-extensions-on-internal-chrome-ur-ls">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Blocks Extensions on Internal Chrome URLs - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-blocks-extensions-on-internal-chrome-ur-ls" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the critical security and architectural reasons why the Chromium web browser prevents extensions from executing content scripts on internal chrome:// scheme URLs. By examining the risks of privilege escalation, sensitive data exposur" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-blocks-extensions-on-internal-chrome-urls">Why
+Chromium Blocks Extensions on Internal Chrome URLs</h1>
+<p>This article explores the critical security and architectural reasons
+why the Chromium web browser prevents extensions from executing content
+scripts on internal <code>chrome://</code> scheme URLs. By examining the
+risks of privilege escalation, sensitive data exposure, and browser
+instability, this overview explains how restricting extension access on
+internal pages protects users from malicious threats and maintains the
+integrity of the browser's core system.</p>
+<h2 id="the-power-of-internal-chrome-pages">The Power of Internal Chrome
+Pages</h2>
+<p>Internal <code>chrome://</code> URLs—such as
+<code>chrome://settings</code>, <code>chrome://extensions</code>, and
+<code>chrome://flags</code>—are not standard web pages. They are part of
+the browser's user interface, built using web technologies (HTML, CSS,
+and JavaScript) through a system called WebUI.</p>
+<p>Because these pages control the browser itself, they run in a highly
+privileged process. They have direct access to internal Chromium APIs
+and system-level functions that standard websites and extensions are
+strictly forbidden from using.</p>
+<h2 id="preventing-privilege-escalation">Preventing Privilege
+Escalation</h2>
+<p>The primary reason content scripts are blocked on
+<code>chrome://</code> pages is to prevent privilege escalation. Content
+scripts are designed to interact with and modify the Document Object
+Model (DOM) of the pages they are injected into.</p>
+<p>If an extension could inject a content script into an internal page,
+it could manipulate that page to perform unauthorized actions on the
+user's behalf. For example:</p>
+<ul>
+<li><strong>Hijacking <code>chrome://extensions</code>:</strong> A
+malicious extension could silently enable "Developer Mode," grant itself
+additional permissions, disable security extensions, or prevent the user
+from uninstalling it by hiding its own "Remove" button.</li>
+<li><strong>Manipulating <code>chrome://settings</code>:</strong> A
+script could change the user's default search engine, disable Safe
+Browsing protections, or alter proxy settings to route traffic through a
+malicious server.</li>
+<li><strong>Altering <code>chrome://flags</code>:</strong> An extension
+could enable experimental and potentially insecure browser features
+without the user's knowledge.</li>
+</ul>
+<p>By blocking content scripts, Chromium ensures that an extension
+cannot trick a privileged WebUI page into executing high-level browser
+commands.</p>
+<h2 id="protecting-sensitive-user-data">Protecting Sensitive User
+Data</h2>
+<p>Internal browser pages display a vast amount of sensitive personal
+information. Pages like <code>chrome://password-manager</code>,
+<code>chrome://settings/payments</code>, and
+<code>chrome://history</code> render raw, unencrypted data directly into
+the DOM for the user to view and manage.</p>
+<p>If content scripts were allowed to run on these URLs, any extension
+with broad host permissions (such as <code>&lt;all_urls&gt;</code>)
+could easily read the DOM and scrape saved passwords, credit card
+details, and browsing history. Blocking script execution creates a hard
+boundary that keeps this data isolated from third-party code.</p>
+<h2 id="ensuring-browser-stability-and-recovery">Ensuring Browser
+Stability and Recovery</h2>
+<p>The <code>chrome://</code> interface serves as the control center for
+troubleshooting and managing the browser. If a poorly coded or malicious
+extension were allowed to modify the DOM or CSS of these pages, it could
+accidentally or intentionally break the user interface.</p>
+<p>If the settings or extensions page becomes unusable due to a broken
+script, a standard user would have no easy way to disable the offending
+extension or reset their browser settings. Keeping these pages untouched
+by extensions guarantees that users always have a reliable safe haven to
+manage their browser.</p>
+<h2 id="enforcing-the-principle-of-least-privilege">Enforcing the
+Principle of Least Privilege</h2>
+<p>Chromium's extension architecture is built on the principle of least
+privilege, meaning extensions should only have access to the exact
+resources they need to function.</p>
+<p>Instead of allowing extensions to blindly manipulate internal pages
+via content scripts, Chromium provides dedicated, secure APIs (like
+<code>chrome.history</code>, <code>chrome.bookmarks</code>, and
+<code>chrome.management</code>). These APIs are strictly governed by the
+permission system. If an extension wants to manage other extensions or
+read history, it must explicitly ask the user for that specific
+permission upon installation, rather than bypassing the security model
+through DOM manipulation on a <code>chrome://</code> page.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-blocks-extensions-on-internal-chrome-ur-ls';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectural Changes in Chromium&#39;s Manifest V3 Transition - chromium</title>
+    <meta name="description" content="This article provides an overview of the core architectural changes introduced by the Chromium project during the transition of browser extensions from Manifest V2 to Manifest V3. Key updates include the replacement of persistent background pages with eph">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/architectural-changes-in-chromium-s-manifest-v-3-transition">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Architectural Changes in Chromium&#39;s Manifest V3 Transition - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/architectural-changes-in-chromium-s-manifest-v-3-transition" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the core architectural changes introduced by the Chromium project during the transition of browser extensions from Manifest V2 to Manifest V3. Key updates include the replacement of persistent background pages with eph" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="architectural-changes-in-chromiums-manifest-v3-transition">Architectural
+Changes in Chromium's Manifest V3 Transition</h1>
+<p>This article provides an overview of the core architectural changes
+introduced by the Chromium project during the transition of browser
+extensions from Manifest V2 to Manifest V3. Key updates include the
+replacement of persistent background pages with ephemeral service
+workers, the shift from dynamic network request interception to the
+declarativeNetRequest API, strict prohibitions on remotely hosted code,
+and modernized API structures. These fundamental shifts were designed to
+improve browser security, privacy, and performance, requiring developers
+to completely restructure how extensions process data and interact with
+the browser.</p>
+<h2 id="service-workers-replace-background-pages">Service Workers
+Replace Background Pages</h2>
+<p>The most significant architectural shift in Manifest V3 is the
+removal of background pages in favor of extension service workers. In
+Manifest V2, extensions utilized persistent background pages—hidden HTML
+pages that ran continuously in the background, consuming system memory
+even when idle, and maintaining full access to the Document Object Model
+(DOM).</p>
+<p>Manifest V3 replaces these with event-driven service workers. Service
+workers are ephemeral; they spin up only when a specific browser event
+triggers them and terminate immediately once their task is complete.
+Because service workers cannot hold global variables reliably across
+sessions, developers must now use the <code>chrome.storage</code> API to
+persist state. Additionally, service workers operate outside the
+standard document context and lack access to the DOM and the
+<code>window</code> object. To address use cases that strictly require
+DOM access—such as parsing HTML or interacting with the
+clipboard—Chromium introduced the <code>chrome.offscreen</code> API,
+which allows extensions to create minimal, hidden documents for
+specific, justified tasks.</p>
+<h2 id="declarative-network-request-modification">Declarative Network
+Request Modification</h2>
+<p>Manifest V3 fundamentally alters how extensions interact with network
+traffic, a change that heavily impacts ad blockers and privacy
+extensions. Under Manifest V2, extensions used the blocking version of
+the <code>chrome.webRequest</code> API. This allowed the extension to
+intercept a network request in real-time, pause the browser's network
+stack, evaluate the request using custom JavaScript, and then decide
+whether to allow, block, or redirect it. This approach posed a privacy
+risk, as it required extensions to have read access to potentially
+sensitive user network data, and it created a performance
+bottleneck.</p>
+<p>In Manifest V3, the blocking capabilities of <code>webRequest</code>
+are replaced by the <code>chrome.declarativeNetRequest</code> API.
+Instead of the extension intercepting every request, the extension now
+supplies the Chromium browser with a predefined set of rules. The
+browser itself evaluates network traffic against these rules natively
+and performs the blocking or modification. This architecture prevents
+the extension from reading the underlying network data, enhancing user
+privacy, and eliminates the performance overhead of waking up an
+extension script for every network request.</p>
+<h2 id="prohibition-of-remotely-hosted-code">Prohibition of Remotely
+Hosted Code</h2>
+<p>To close a major security vulnerability, Manifest V3 strictly forbids
+the execution of remotely hosted code. In Manifest V2, extensions could
+fetch JavaScript files from external servers at runtime and execute
+them, or use functions like <code>eval()</code> to run dynamically
+generated strings of code. Bad actors frequently exploited this by
+submitting benign extensions to the web store and later serving
+malicious code from an external server after the extension was
+approved.</p>
+<p>Manifest V3 requires all executable code to be bundled directly
+within the extension package at the time of submission. The browser's
+Content Security Policy (CSP) now blocks the execution of external
+scripts and disables <code>eval()</code> and
+<code>new Function()</code>. If an extension needs to update its logic,
+the developer must submit a new version of the entire extension package
+for review. Configuration data and rulesets can still be fetched
+remotely, provided they are processed strictly as data and not
+executable code.</p>
+<h2 id="native-promise-support-and-api-unification">Native Promise
+Support and API Unification</h2>
+<p>Manifest V3 modernizes the Chromium extension codebase by introducing
+native support for JavaScript Promises across most <code>chrome.*</code>
+APIs. In Manifest V2, asynchronous operations relied almost exclusively
+on callback functions, which often led to deeply nested,
+hard-to-maintain code. In Manifest V3, if a callback is not provided to
+an asynchronous API method, it automatically returns a Promise, allowing
+developers to use modern <code>async/await</code> syntax natively
+without third-party wrapper libraries.</p>
+<p>Additionally, Manifest V3 simplifies the extension toolbar interface
+by unifying older APIs. In Manifest V2, developers had to choose between
+<code>browser_action</code> (for toolbar icons active on all pages) and
+<code>page_action</code> (for icons active only on specific pages).
+Manifest V3 merges these into a single <code>chrome.action</code> API,
+streamlining how extensions manage their toolbar presence.</p>
+<h2 id="granular-host-permissions">Granular Host Permissions</h2>
+<p>The structure of the <code>manifest.json</code> file was updated to
+separate host permissions from general API permissions. In Manifest V2,
+both API access (like <code>tabs</code> or <code>storage</code>) and
+website access (like <code>*://*.example.com/*</code>) were grouped
+together under the <code>permissions</code> array.</p>
+<p>Manifest V3 moves website access declarations to a dedicated
+<code>host_permissions</code> array. This structural change supports a
+broader architectural shift toward user-controlled security. Instead of
+granting an extension access to all requested websites permanently upon
+installation, the Manifest V3 architecture allows users to withhold host
+permissions by default and grant the extension access on a per-site or
+per-click basis at runtime.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/architectural-changes-in-chromium-s-manifest-v-3-transition';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

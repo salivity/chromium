@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Triggers Layout Thrashing in the Chromium Browser? - chromium</title>
+    <meta name="description" content="This article provides a comprehensive look at what triggers forced synchronous layouts and layout thrashing within the Chromium web browser. It covers how Chromium&#39;s Blink rendering engine typically processes frames, why reading geometric values after mod">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/what-triggers-layout-thrashing-in-the-chromium-browser">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Triggers Layout Thrashing in the Chromium Browser? - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/what-triggers-layout-thrashing-in-the-chromium-browser" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive look at what triggers forced synchronous layouts and layout thrashing within the Chromium web browser. It covers how Chromium&#39;s Blink rendering engine typically processes frames, why reading geometric values after mod" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-triggers-layout-thrashing-in-the-chromium-browser">What
+Triggers Layout Thrashing in the Chromium Browser?</h1>
+<p>This article provides a comprehensive look at what triggers forced
+synchronous layouts and layout thrashing within the Chromium web
+browser. It covers how Chromium's Blink rendering engine typically
+processes frames, why reading geometric values after modifying the DOM
+interrupts this process, and the exact JavaScript properties and methods
+that force the browser to recalculate layout prematurely. Finally, it
+outlines how developers can structure their code to prevent these
+performance bottlenecks.</p>
+<h2 id="the-standard-chromium-rendering-pipeline">The Standard Chromium
+Rendering Pipeline</h2>
+<p>To understand forced synchronous layouts, you must first understand
+the standard pixel pipeline in Chromium's Blink engine. When generating
+a frame, the browser typically executes steps in the following
+order:</p>
+<ol type="1">
+<li><strong>JavaScript:</strong> Executes code that may result in visual
+changes (e.g., adding DOM elements or changing CSS classes).</li>
+<li><strong>Style:</strong> Calculates which CSS rules apply to which
+elements.</li>
+<li><strong>Layout:</strong> Calculates the geometry (size and position)
+of every element on the screen.</li>
+<li><strong>Paint:</strong> Fills in the pixels for text, colors,
+images, and borders.</li>
+<li><strong>Composite:</strong> Draws the painted layers together in the
+correct order on the screen.</li>
+</ol>
+<p>Normally, Chromium batches all JavaScript DOM modifications together
+and waits until the end of the current frame to perform the Style and
+Layout calculations. This is efficient because it only calculates the
+layout once per frame.</p>
+<h2 id="forced-synchronous-layout-vs-layout-thrashing">Forced
+Synchronous Layout vs. Layout Thrashing</h2>
+<p>A <strong>forced synchronous layout</strong> occurs when JavaScript
+modifies the DOM or styles (invalidating the current layout) and then
+immediately queries the browser for a geometric value (like an element's
+width) before the frame has finished. Because the DOM was just changed,
+the cached layout values are outdated. To give JavaScript the correct,
+up-to-date measurement, Chromium is forced to pause JavaScript execution
+and run the Style and Layout phases immediately (synchronously).</p>
+<p><strong>Layout thrashing</strong> happens when forced synchronous
+layouts occur repeatedly in a short period, typically inside a
+<code>for</code> or <code>while</code> loop. If a script repeatedly
+reads a geometric property and then writes a style change to the DOM,
+Chromium must recalculate the layout on every single iteration of the
+loop, resulting in severe frame drops and stuttering (jank).</p>
+<h2 id="specific-triggers-in-chromium">Specific Triggers in
+Chromium</h2>
+<p>Reading any of the following properties or calling these methods in
+JavaScript will trigger a forced synchronous layout in
+Chromium—<strong>provided the DOM has been mutated since the last layout
+calculation.</strong></p>
+<h3 id="element-box-metrics">Element Box Metrics</h3>
+<p>Querying the physical dimensions or position of an HTML element
+forces Chromium to calculate its exact box model.</p>
+<ul>
+<li><code>elem.offsetLeft</code>, <code>elem.offsetTop</code>,
+<code>elem.offsetWidth</code>, <code>elem.offsetHeight</code>,
+<code>elem.offsetParent</code></li>
+<li><code>elem.clientLeft</code>, <code>elem.clientTop</code>,
+<code>elem.clientWidth</code>, <code>elem.clientHeight</code></li>
+</ul>
+<h3 id="scroll-properties">Scroll Properties</h3>
+<p>Chromium must know the exact size of the container and its children
+to report accurate scroll data.</p>
+<ul>
+<li><code>elem.scrollLeft</code>, <code>elem.scrollTop</code></li>
+<li><code>elem.scrollWidth</code>, <code>elem.scrollHeight</code></li>
+<li><code>window.scrollX</code>, <code>window.scrollY</code></li>
+</ul>
+<h3 id="geometric-methods">Geometric Methods</h3>
+<p>Methods that return layout objects or manipulate the viewport require
+an up-to-date layout tree.</p>
+<ul>
+<li><code>elem.getClientRects()</code></li>
+<li><code>elem.getBoundingClientRect()</code></li>
+<li><code>elem.scrollBy()</code>, <code>elem.scrollTo()</code>,
+<code>elem.scrollIntoView()</code>,
+<code>elem.scrollIntoViewIfNeeded()</code></li>
+<li><code>elem.focus()</code> (Forces layout to determine if the element
+needs to be scrolled into view)</li>
+</ul>
+<h3 id="computed-styles">Computed Styles</h3>
+<p>Calling <code>window.getComputedStyle(elem)</code> will trigger a
+forced synchronous layout if you query properties that rely on layout
+geometry, such as <code>width</code>, <code>height</code>,
+<code>top</code>, <code>left</code>, <code>margin</code>, or
+<code>padding</code>. It will Also trigger layout if the element uses
+percentage-based values or viewport units that require parent geometry
+resolution.</p>
+<h3 id="window-and-document-dimensions">Window and Document
+Dimensions</h3>
+<p>Querying the viewport size after a DOM mutation forces a layout
+check.</p>
+<ul>
+<li><code>window.innerHeight</code>, <code>window.innerWidth</code></li>
+<li><code>document.scrollingElement</code></li>
+</ul>
+<h3 id="text-and-font-metrics">Text and Font Metrics</h3>
+<p>Measuring text or SVG elements requires Chromium to calculate font
+rendering and line wrapping.</p>
+<ul>
+<li><code>inputElem.selectionStart</code>,
+<code>inputElem.selectionEnd</code></li>
+<li><code>range.getClientRects()</code>,
+<code>range.getBoundingClientRect()</code></li>
+<li><code>svgElem.getBBox()</code>,
+<code>svgTextElem.getComputedTextLength()</code></li>
+</ul>
+<h3 id="mouse-event-properties">Mouse Event Properties</h3>
+<p>Reading specific coordinates from a mouse event requires the browser
+to know the exact layout of the target element at that millisecond.</p>
+<ul>
+<li><code>event.layerX</code>, <code>event.layerY</code></li>
+<li><code>event.offsetX</code>, <code>event.offsetY</code></li>
+</ul>
+<h3 id="image-properties">Image Properties</h3>
+<p>Querying the rendered size of an image forces layout resolution.</p>
+<ul>
+<li><code>imgElem.width</code>, <code>imgElem.height</code></li>
+<li><code>imgElem.x</code>, <code>imgElem.y</code></li>
+</ul>
+<h2 id="how-to-prevent-layout-thrashing">How to Prevent Layout
+Thrashing</h2>
+<p>To avoid triggering forced synchronous layouts in Chromium, you must
+separate your DOM "reads" from your DOM "writes."</p>
+<ol type="1">
+<li><strong>Batch Reads, Then Batch Writes:</strong> If you need to
+measure multiple elements and then resize them, read all the
+measurements first and store them in variables. Once all measurements
+are collected, apply all the style changes together.</li>
+<li><strong>Use <code>requestAnimationFrame</code>:</strong> Schedule
+your DOM modifications inside a <code>requestAnimationFrame</code>
+callback. This ensures your writes happen at the very beginning of the
+frame pipeline, aligning your code with Chromium's natural rendering
+lifecycle.</li>
+<li><strong>Use CSS Animations and Transforms:</strong> Whenever
+possible, manipulate <code>transform</code> and <code>opacity</code>
+instead of geometric properties like <code>width</code>,
+<code>height</code>, <code>top</code>, or <code>left</code>. Chromium
+can handle transforms and opacity on the Compositor thread, bypassing
+the Layout and Paint phases entirely.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/what-triggers-layout-thrashing-in-the-chromium-browser';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

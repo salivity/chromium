@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Domato Fuzzes the Chromium Blink Engine - chromium</title>
+    <meta name="description" content="This article provides a technical breakdown of how the Domato fuzzer generates grammar-based HTML, CSS, and JavaScript inputs to stress-test the Blink rendering engine in the Chromium web browser. Developed by Google Project Zero, Domato bypasses early sy">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-domato-fuzzes-the-chromium-blink-engine">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Domato Fuzzes the Chromium Blink Engine - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-domato-fuzzes-the-chromium-blink-engine" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical breakdown of how the Domato fuzzer generates grammar-based HTML, CSS, and JavaScript inputs to stress-test the Blink rendering engine in the Chromium web browser. Developed by Google Project Zero, Domato bypasses early sy" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-domato-fuzzes-the-chromium-blink-engine">How Domato Fuzzes
+the Chromium Blink Engine</h1>
+<p>This article provides a technical breakdown of how the Domato fuzzer
+generates grammar-based HTML, CSS, and JavaScript inputs to stress-test
+the Blink rendering engine in the Chromium web browser. Developed by
+Google Project Zero, Domato bypasses early syntax rejection by using
+structured context-free grammars to create syntactically valid, yet
+semantically extreme, web documents. By combining complex initial
+Document Object Model (DOM) states with rapid, chaotic JavaScript
+mutations, Domato exposes deep memory corruption and logic
+vulnerabilities within Blink.</p>
+<h2 id="the-need-for-grammar-based-generation">The Need for
+Grammar-Based Generation</h2>
+<p>Traditional mutation-based fuzzers operate by flipping random bits in
+existing files. When applied to web browsers, this approach fails
+because the Blink engine's parsers immediately discard syntactically
+invalid HTML or JavaScript before the input ever reaches the core
+rendering logic.</p>
+<p>Domato solves this through generation-based fuzzing driven by
+separate, customizable grammar files for HTML, CSS, and JavaScript.
+These grammars consist of production rules that define the syntax of
+each language. A rule consists of a non-terminal symbol (representing a
+specific type of object or value) and its possible expansions. When
+Domato runs, it recursively resolves these symbols into concrete code,
+ensuring the output passes Blink's initial parsing stage and executes
+deep within the engine.</p>
+<h2 id="constructing-the-initial-dom-state-html-and-css">Constructing
+the Initial DOM State (HTML and CSS)</h2>
+<p>To stress-test Blink, Domato first establishes a complex baseline
+environment using its HTML and CSS grammars.</p>
+<ol type="1">
+<li><strong>HTML Tree Generation:</strong> Domato selects random
+combinations of standard, deprecated, and obscure HTML tags from its
+grammar. It nests these elements deeply and assigns them unique
+<code>id</code> attributes (e.g., <code>id="id_1"</code>,
+<code>id="id_2"</code>). These identifiers are crucial because they
+allow the JavaScript engine to reference and manipulate these specific
+nodes later.</li>
+<li><strong>Attribute Overload:</strong> For each generated HTML tag,
+the fuzzer applies a variety of attributes populated with edge-case
+values, such as massive integers, negative values, unexpected strings,
+or empty parameters.</li>
+<li><strong>CSS Complexity:</strong> Simultaneously, Domato uses its CSS
+grammar to generate intricate styling rules. It combines complex
+selectors with conflicting layout properties—such as mixing flexbox,
+grid, and table layouts, or applying extreme transformation matrices.
+This forces Blink’s style and layout engines to perform complex,
+non-standard calculations before a single line of JavaScript is even
+executed.</li>
+</ol>
+<h2 id="dynamic-mutation-via-javascript">Dynamic Mutation via
+JavaScript</h2>
+<p>Static HTML and CSS rarely trigger severe vulnerabilities on their
+own. The core strength of Domato lies in how it uses JavaScript to
+violently mutate the DOM tree while Blink is actively trying to render
+it.</p>
+<p>Domato’s JavaScript generation relies on stateful grammar
+tracking:</p>
+<ul>
+<li><strong>Variable and Type Tracking:</strong> As Domato generates
+JavaScript, it remembers the types of objects it creates. For example,
+if a grammar rule generates a command that returns an
+<code>HTMLCanvasElement</code>, Domato stores this in a variable and
+records its type. Subsequent grammar rules requiring an
+<code>HTMLCanvasElement</code> will dynamically pull from this pool of
+existing variables.</li>
+<li><strong>DOM Manipulation:</strong> The fuzzer generates thousands of
+lines of JavaScript that grab the HTML elements created earlier (via
+<code>document.getElementById</code>) and subject them to rapid changes.
+It appends, clones, removes, and replaces nodes across the DOM tree,
+breaking parent-child relationships unexpectedly.</li>
+<li><strong>API Fuzzing:</strong> Domato invokes methods and modifies
+properties on DOM nodes, BOM (Browser Object Model) APIs, and Web APIs
+using edge-case arguments defined in the grammar.</li>
+<li><strong>Error Suppression:</strong> Because random combinations of
+valid syntax will still frequently result in runtime exceptions (like
+calling a method on a null object), Domato wraps almost every generated
+JavaScript statement in a <code>try { ... } catch(e) {}</code> block.
+This ensures that a single runtime error does not halt the execution of
+the remaining fuzzing script.</li>
+</ul>
+<h2 id="breaking-the-blink-engine">Breaking the Blink Engine</h2>
+<p>The generated HTML, CSS, and JavaScript are combined into a single
+template file and fed into Chromium. This structured chaos stresses the
+Blink engine in specific ways:</p>
+<ul>
+<li><strong>Layout and Style Recalculation:</strong> By alternating
+between DOM tree modifications and calls that force synchronous layout
+updates (like querying <code>offsetWidth</code> or
+<code>getComputedStyle</code>), Domato forces Blink to constantly tear
+down and rebuild its internal LayoutTree and StyleEngine
+structures.</li>
+<li><strong>Garbage Collection Pressure:</strong> Domato rapidly creates
+and destroys references to DOM nodes. It also intentionally inserts
+garbage collection triggers into the JavaScript. This stresses the
+boundary between V8 (Chromium's JavaScript engine) and Oilpan (Blink's
+C++ garbage collector), frequently uncovering Use-After-Free (UAF)
+vulnerabilities where C++ code attempts to access a DOM node that was
+prematurely freed.</li>
+<li><strong>Event Handler Re-entrancy:</strong> Domato heavily utilizes
+event listeners (such as <code>DOMSubtreeModified</code> or
+<code>onload</code>). When the fuzzer mutates an element, it can trigger
+a synchronous event listener that executes <em>more</em>
+Domato-generated JavaScript in the middle of a C++ rendering operation.
+This violates assumptions made by Blink developers regarding object
+lifecycles and state consistency, leading to memory corruption and
+security crashes.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-domato-fuzzes-the-chromium-blink-engine';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

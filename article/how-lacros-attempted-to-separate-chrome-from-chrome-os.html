@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Lacros Attempted to Separate Chrome from ChromeOS - chromium</title>
+    <meta name="description" content="This article examines the technical architecture of Google&#39;s Lacros project, an initiative designed to decouple the Chromium web browser from the underlying ChromeOS system shell. By breaking down the traditional monolithic structure of ChromeOS, the arti">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-lacros-attempted-to-separate-chrome-from-chrome-os">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Lacros Attempted to Separate Chrome from ChromeOS - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-lacros-attempted-to-separate-chrome-from-chrome-os" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the technical architecture of Google&#39;s Lacros project, an initiative designed to decouple the Chromium web browser from the underlying ChromeOS system shell. By breaking down the traditional monolithic structure of ChromeOS, the arti" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-lacros-attempted-to-separate-chrome-from-chromeos">How
+Lacros Attempted to Separate Chrome from ChromeOS</h1>
+<p>This article examines the technical architecture of Google's Lacros
+project, an initiative designed to decouple the Chromium web browser
+from the underlying ChromeOS system shell. By breaking down the
+traditional monolithic structure of ChromeOS, the article details how
+the project split the operating system into two distinct binaries,
+utilized the Wayland protocol for window management, and implemented a
+specialized inter-process communication layer to allow the browser and
+system user interface to operate and update independently.</p>
+<p>Historically, ChromeOS was engineered as a single, monolithic binary.
+The system user interface, the window manager (known as the Aura Shell,
+or "Ash"), and the Chrome web browser were all compiled together into
+one executable. Because these components were tightly coupled within the
+same runtime, updating the web browser required a full operating system
+update. Consequently, when a Chromebook hardware model reached its
+end-of-life support date, the web browser could no longer receive
+security patches or new features.</p>
+<p>The Lacros project—an acronym for "Linux And ChRome OS"—attempted to
+solve this limitation by splitting the single executable into two
+separate binaries: <code>ash-chrome</code> and
+<code>lacros-chrome</code>.</p>
+<p>Under this architecture, <code>ash-chrome</code> remained the core
+system shell. It handled the login screen, system tray, app launcher,
+settings, and window management, but its web-browsing capabilities were
+deactivated. Conversely, <code>lacros-chrome</code> was essentially the
+standard Linux version of the Chrome browser, compiled as a standalone
+binary with added optimizations for ChromeOS hardware. It handled only
+web rendering, extensions, and browser tabs, completely stripped of any
+operating system management duties.</p>
+<p>Decoupling the browser meant it could no longer draw windows directly
+to the screen using internal system code paths. To solve this, Lacros
+relied on the Wayland display protocol. ChromeOS already featured a
+built-in Wayland compositor called "Exo," which it used to render
+Android apps and Linux development containers. The Lacros project
+configured <code>lacros-chrome</code> to act as a Wayland client. The
+browser sent its graphical output to Exo, allowing
+<code>ash-chrome</code> to render and manage browser windows alongside
+system UI elements with native performance and support for
+ChromeOS-specific windowing features.</p>
+<p>While graphical separation was handled by Wayland, the browser still
+required deep integration with the operating system to function
+properly. The standalone browser needed access to the user's single
+sign-on profile, system notifications, Bluetooth, networking, and
+hardware certificates. Furthermore, because the goal of Lacros was to
+update the browser independently of the OS, a newer
+<code>lacros-chrome</code> binary had to be able to communicate reliably
+with an older <code>ash-chrome</code> binary.</p>
+<p>To bridge this gap, engineers created "Crosapi" (ChromeOS API), a
+communication layer built on top of Chromium’s existing Mojo
+inter-process communication (IPC) system. Crosapi acted as a stable,
+versioned boundary between the two binaries. Whenever the browser needed
+the operating system to perform a task—such as opening a file manager
+dialog or accessing the webcam—it sent a message across Crosapi. Because
+the API was designed for backward compatibility, the browser and the
+system shell could be updated on entirely different schedules without
+breaking system functionality.</p>
+<p>By combining binary separation, Wayland-based rendering via Exo, and
+the versioned Crosapi IPC layer, the Lacros project successfully
+separated the Chromium browser from the ChromeOS shell. Although Google
+ultimately ended the Lacros project in 2024 after finding alternative
+ways to modularize their codebase and extend device support, the project
+proved that a monolithic OS could be re-architected into independent,
+Asynchronous components.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-lacros-attempted-to-separate-chrome-from-chrome-os';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

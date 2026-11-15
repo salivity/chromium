@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How HarfBuzz Handles Complex Ligatures in Chromium - chromium</title>
+    <meta name="description" content="This article provides a technical breakdown of how the HarfBuzz text shaping engine, integrated within the Chromium web browser, processes and renders complex ligatures for Arabic, Indic, and Thai scripts. While simple scripts like Latin generally map one">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-harf-buzz-handles-complex-ligatures-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How HarfBuzz Handles Complex Ligatures in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-harf-buzz-handles-complex-ligatures-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical breakdown of how the HarfBuzz text shaping engine, integrated within the Chromium web browser, processes and renders complex ligatures for Arabic, Indic, and Thai scripts. While simple scripts like Latin generally map one" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-harfbuzz-handles-complex-ligatures-in-chromium">How HarfBuzz
+Handles Complex Ligatures in Chromium</h1>
+<p>This article provides a technical breakdown of how the HarfBuzz text
+shaping engine, integrated within the Chromium web browser, processes
+and renders complex ligatures for Arabic, Indic, and Thai scripts. While
+simple scripts like Latin generally map one Unicode character directly
+to one visual glyph, complex scripts require dynamic character
+reordering, contextual shape shifting, and intricate ligature fusion.
+HarfBuzz achieves this in Chromium by parsing Unicode text strings,
+categorizing character clusters through script-specific state machines,
+and executing rules defined within a font's OpenType tables to output
+precisely positioned glyphs for the browser to draw.</p>
+<h2 id="the-role-of-harfbuzz-in-chromium">The Role of HarfBuzz in
+Chromium</h2>
+<p>Inside Chromium's Blink rendering engine, text layout is handled by
+LayoutNG, which passes runs of Unicode text and font data to HarfBuzz.
+HarfBuzz does not draw text; instead, it converts a sequence of Unicode
+code points into a sequence of glyph indices with exact X and Y
+coordinates.</p>
+<p>To form ligatures and position characters, HarfBuzz relies heavily on
+two OpenType font tables:</p>
+<ul>
+<li><strong>GSUB (Glyph Substitution):</strong> Contains rules for
+replacing one or more glyphs with another glyph (forming ligatures or
+contextual shapes).</li>
+<li><strong>GPOS (Glyph Positioning):</strong> Contains rules for
+fine-tuning the exact placement of glyphs, such as attaching vowel marks
+and tone diacritics to base characters.</li>
+</ul>
+<h2 id="arabic-script-cursive-joining-and-mandatory-ligatures">Arabic
+Script: Cursive Joining and Mandatory Ligatures</h2>
+<p>Arabic is a right-to-left (RTL) cursive script where letters change
+shape depending on their position within a word. It also utilizes
+mandatory ligatures and stacked diacritics (harakat). HarfBuzz handles
+Arabic through the following steps:</p>
+<ol type="1">
+<li><strong>Joining Analysis:</strong> HarfBuzz analyzes the Unicode
+string to determine how each character connects to its neighbors. It
+assigns each character a state: isolated (<code>isol</code>), initial
+(<code>init</code>), medial (<code>medi</code>), or final
+(<code>fina</code>).</li>
+<li><strong>Contextual Substitution:</strong> HarfBuzz queries the
+font's <code>GSUB</code> table using these state tags, swapping the
+default Unicode characters for their positional glyph variants so the
+letters visually connect.</li>
+<li><strong>Ligature Formation:</strong> HarfBuzz applies the
+<code>rlig</code> (Required Ligatures) and <code>liga</code> (Standard
+Ligatures) OpenType features. For example, when the Arabic letter
+<em>Lam</em> is followed by <em>Alef</em>, HarfBuzz uses
+<code>rlig</code> to fuse the two separate characters into the mandatory
+<em>Lam-Alef</em> ligature glyph.</li>
+<li><strong>Diacritic Placement:</strong> Short vowels and pronunciation
+marks are placed using the <code>GPOS</code> table. HarfBuzz uses the
+<code>mark</code> (Mark-to-Base) feature to anchor a diacritic to a base
+letter or ligature, and the <code>mkmk</code> (Mark-to-Mark) feature to
+stack multiple diacritics without collision.</li>
+</ol>
+<h2 id="indic-scripts-syllabification-reordering-and-conjuncts">Indic
+Scripts: Syllabification, Reordering, and Conjuncts</h2>
+<p>Indic scripts (such as Devanagari, Bengali, and Tamil) are abugidas
+where consonants carry an inherent vowel, and consonant clusters merge
+into complex ligatures called conjuncts. Furthermore, the logical order
+in which characters are typed often differs from the visual order in
+which they are displayed. HarfBuzz uses a dedicated Indic shaper state
+machine to manage this:</p>
+<ol type="1">
+<li><strong>Syllable Identification:</strong> HarfBuzz scans the text
+and groups characters into orthographic syllables using
+regular-expression-like state machines based on Unicode Indic
+categories. All shaping happens strictly within the boundaries of these
+syllables.</li>
+<li><strong>Pre-Shaping Reordering:</strong> In many Indic scripts, a
+short 'i' vowel (matra) is typed <em>after</em> a consonant cluster, but
+visually renders <em>before</em> it. HarfBuzz reorders the glyph buffer
+in memory, moving pre-base matras to the front of the syllable.
+Similarly, a <em>Ra</em> followed by a <em>Halant</em> (virama) at the
+start of a cluster is flagged as a <em>Repha</em> and moved to the end
+of the syllable to be drawn above the final ligature.</li>
+<li><strong>Conjunct Ligature Formation:</strong> When consonants are
+joined by a Halant (which suppresses the inherent vowel), HarfBuzz
+executes a strict sequence of <code>GSUB</code> features to form
+ligatures:
+<ul>
+<li><code>half</code>: Converts consonants into their "half-forms"
+before the main base consonant.</li>
+<li><code>akhn</code>: Forms <em>Akhand</em> ligatures, which are
+mandatory, unbreakable consonant fusions (such as <em>Kssa</em> in
+Devanagari).</li>
+<li><code>cjct</code> and <code>pres</code>: Fuses the remaining
+half-forms and base consonants into a single complex conjunct
+glyph.</li>
+</ul></li>
+<li><strong>Matra and Mark Attachment:</strong> Finally, HarfBuzz uses
+<code>GPOS</code> lookups (<code>abvm</code> for above-base marks,
+<code>blwm</code> for below-base marks) to attach vowel signs and
+nasalization marks to the newly formed conjunct ligature.</li>
+</ol>
+<h2 id="thai-script-decomposition-and-vertical-stacking">Thai Script:
+Decomposition and Vertical Stacking</h2>
+<p>Thai does not use spaces between words and features a complex system
+of vowels and tone marks that stack vertically above and below the base
+consonant. While Thai does not fuse consonants into conjuncts like Indic
+scripts, it relies on HarfBuzz for contextual ligature substitution and
+decomposition to prevent visual overlapping.</p>
+<ol type="1">
+<li><strong>Sara Am Decomposition:</strong> The Thai vowel <em>Sara
+Am</em> (ำ) is logically a single Unicode character, but visually
+consists of a circle (<em>Nikhahit</em>) above the consonant and a
+<em>Sara Aa</em> beside it. If a word also has a tone mark, the tone
+mark must sit above the <em>Nikhahit</em>, not the <em>Sara Aa</em>.
+HarfBuzz automatically decomposes the single <em>Sara Am</em> character
+into its two constituent parts, reorders the buffer so the tone mark
+sits right after the <em>Nikhahit</em>, and shapes them correctly.</li>
+<li><strong>Collision Avoidance via Substitution:</strong> Certain Thai
+consonants (like <em>Po Pla</em> ป and <em>Fo Fan</em> ฟ) have tall
+ascenders that collide with upper vowels and tone marks. HarfBuzz
+triggers contextual substitution (<code>ccmp</code> and
+<code>liga</code>) in the <code>GSUB</code> table to replace standard
+tone marks with shorter, shifted variants, or substitutes the consonant
+itself with a short-tailed glyph variant when followed by a below-base
+vowel.</li>
+<li><strong>Vertical Stacking:</strong> HarfBuzz applies
+<code>GPOS</code> <code>mark</code> and <code>mkmk</code> features to
+stack upper vowels and tone marks cleanly above the base consonant,
+dynamically adjusting their height based on the presence of other marks
+in the same syllable cluster.</li>
+</ol>
+<h2 id="final-output-to-chromium">Final Output to Chromium</h2>
+<p>Once HarfBuzz completes the script-specific shaping pipeline, it
+returns a finalized <code>hb_buffer_t</code> data structure to Chromium.
+This buffer contains the final ligature glyph IDs and their exact
+two-dimensional positioning offsets. Chromium then hands this data to
+the Skia graphics library, which rasterizes the complex script
+accurately onto the user's screen.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-harf-buzz-handles-complex-ligatures-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

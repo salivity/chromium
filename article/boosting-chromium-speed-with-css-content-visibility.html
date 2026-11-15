@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boosting Chromium Speed with CSS content-visibility - chromium</title>
+    <meta name="description" content="This article explores how the content-visibility CSS property significantly improves rendering performance in the Chromium web browser. By instructing the browser to skip the layout and painting stages for off-screen elements, content-visibility drastical">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/boosting-chromium-speed-with-css-content-visibility">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Boosting Chromium Speed with CSS content-visibility - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/boosting-chromium-speed-with-css-content-visibility" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the content-visibility CSS property significantly improves rendering performance in the Chromium web browser. By instructing the browser to skip the layout and painting stages for off-screen elements, content-visibility drastical" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="boosting-chromium-speed-with-css-content-visibility">Boosting
+Chromium Speed with CSS content-visibility</h1>
+<p>This article explores how the <code>content-visibility</code> CSS
+property significantly improves rendering performance in the Chromium
+web browser. By instructing the browser to skip the layout and painting
+stages for off-screen elements, <code>content-visibility</code>
+drastically reduces initial page load times and makes on-page
+interactions smoother. Below, we examine the Chromium rendering
+pipeline, how this property leverages CSS containment to defer rendering
+work, and how to prevent layout shifts during implementation.</p>
+<h2 id="the-problem-with-default-rendering">The Problem with Default
+Rendering</h2>
+<p>To display a webpage, Chromium runs through a rendering pipeline
+consisting of several stages: Style, Layout, Paint, and Composite. By
+default, Chromium processes the entire DOM (Document Object Model)
+through all of these stages during the initial load.</p>
+<p>If a webpage has a massive amount of content located far down the
+page (off-screen), Chromium still calculates the styles, dimensions, and
+pixel data for those hidden elements. This wastes CPU and GPU resources,
+blocking the main thread and delaying the time it takes for the user to
+see and interact with the visible part of the page.</p>
+<h2 id="how-content-visibility-alters-the-pipeline">How
+<code>content-visibility</code> Alters the Pipeline</h2>
+<p>The <code>content-visibility</code> property, specifically when set
+to <code>auto</code>, solves this inefficiency by introducing lazy
+rendering to Chromium. When you apply
+<code>content-visibility: auto</code> to a section of your webpage,
+Chromium checks if that element is currently visible in the user's
+viewport.</p>
+<p>If the element is off-screen, Chromium skips the rendering work for
+that element's subtree (all of its child elements). Specifically, it
+bypasses the most resource-heavy phases of the pipeline:</p>
+<ul>
+<li><strong>Style (Partially skipped):</strong> Chromium calculates the
+styles for the parent element itself, but ignores the styles of all its
+descendant elements.</li>
+<li><strong>Layout (Skipped):</strong> Chromium does not calculate the
+geometry, position, or dimensions of the child elements.</li>
+<li><strong>Paint (Skipped):</strong> Chromium does not create paint
+records or rasterize pixels for any of the child elements.</li>
+</ul>
+<p>Because the browser only processes the elements currently in the
+viewport, the initial rendering time drops significantly.</p>
+<h2 id="the-role-of-css-containment">The Role of CSS Containment</h2>
+<p>Under the hood, Chromium achieves this optimization using another CSS
+feature called <strong>Containment</strong>. When
+<code>content-visibility: auto</code> is applied to an element, Chromium
+automatically enforces <code>contain: layout style paint</code> on that
+element.</p>
+<p>This creates a boundary. It guarantees to the Chromium engine that
+nothing inside the element can affect the layout or visuals of anything
+outside of it.</p>
+<p>When the element is off-screen, Chromium temporarily adds
+<code>size</code> containment to the mix. Size containment tells the
+browser to lay out the element as if it has no children, essentially
+treating the internal content size as <code>0px</code> by
+<code>0px</code>. Because Chromium knows the internal content has a size
+of zero and cannot affect the rest of the page, it safely aborts the
+rendering process for everything inside that container.</p>
+<h2 id="just-in-time-rendering-on-scroll">Just-in-Time Rendering on
+Scroll</h2>
+<p>The skipped content is not gone; it is merely deferred. Chromium uses
+an internal intersection observer to monitor the position of elements
+with <code>content-visibility: auto</code>.</p>
+<p>As the user scrolls down the page and an off-screen element
+approaches the viewport, Chromium automatically removes the temporary
+size containment. It then runs the Style, Layout, and Paint stages for
+that specific element just in time for the user to see it. This spreads
+the rendering workload over time rather than forcing it all to happen at
+the initial page load.</p>
+<h2 id="preventing-layout-shifts-with-contain-intrinsic-size">Preventing
+Layout Shifts with <code>contain-intrinsic-size</code></h2>
+<p>Because Chromium treats the unrendered children of an off-screen
+element as having a size of <code>0px</code> by <code>0px</code>, the
+browser initially thinks the webpage is much shorter than it actually
+is. As the user scrolls and elements are rendered, the page suddenly
+expands, causing the scrollbar to jump erratically.</p>
+<p>To fix this in Chromium, developers pair
+<code>content-visibility</code> with the
+<code>contain-intrinsic-size</code> property:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode css"><code class="sourceCode css"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">.card-section</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  content-visibility<span class="ch">:</span> <span class="bu">auto</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">contain-intrinsic-size</span><span class="ch">:</span> <span class="bu">auto</span> <span class="dv">500</span><span class="dt">px</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This property provides Chromium with a placeholder height (in this
+case, <code>500px</code>) for the off-screen element. Chromium uses this
+estimated size to calculate the total page height accurately from the
+very beginning, ensuring the scrollbar remains stable while still
+skipping the rendering of the internal content. Once the element is
+scrolled into view and rendered, the <code>auto</code> keyword tells
+Chromium to remember the element's actual rendered height, preventing
+jumps if the user scrolls back up.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/boosting-chromium-speed-with-css-content-visibility';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

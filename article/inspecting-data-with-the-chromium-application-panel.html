@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspecting Data with the Chromium Application Panel - chromium</title>
+    <meta name="description" content="The Application panel in Chromium-based web browsers provides developers with a comprehensive suite of tools to inspect, modify, and debug modern web application data. This article provides a straightforward guide on how to use the Application panel to ma">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/inspecting-data-with-the-chromium-application-panel">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inspecting Data with the Chromium Application Panel - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/inspecting-data-with-the-chromium-application-panel" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Application panel in Chromium-based web browsers provides developers with a comprehensive suite of tools to inspect, modify, and debug modern web application data. This article provides a straightforward guide on how to use the Application panel to ma" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inspecting-data-with-the-chromium-application-panel">Inspecting
+Data with the Chromium Application Panel</h1>
+<p>The Application panel in Chromium-based web browsers provides
+developers with a comprehensive suite of tools to inspect, modify, and
+debug modern web application data. This article provides a
+straightforward guide on how to use the Application panel to manage
+Service Workers, inspect Cache Storage, and interact with IndexedDB
+databases, enabling efficient debugging of offline capabilities and
+client-side storage.</p>
+<h3 id="accessing-the-application-panel">Accessing the Application
+Panel</h3>
+<p>To begin inspecting these components, open the Chromium Developer
+Tools by pressing <code>F12</code> (or <code>Ctrl+Shift+I</code> on
+Windows/Linux, <code>Cmd+Option+I</code> on macOS). Click on the
+<strong>Application</strong> tab at the top of the Developer Tools
+window. If the tab is not visible, click the <code>&gt;&gt;</code> icon
+to reveal more tabs.</p>
+<h3 id="inspecting-service-workers">Inspecting Service Workers</h3>
+<p>Service Workers act as proxy servers that sit between web
+applications, the browser, and the network. You can find the
+<strong>Service Workers</strong> section in the left-hand sidebar under
+the "Application" group.</p>
+<p>Selecting this section allows you to perform the following
+actions:</p>
+<ul>
+<li><strong>View Status and Source:</strong> See the current status of
+the registered Service Worker (such as Activated and running), the
+source file link, and the time it was last updated.</li>
+<li><strong>Simulate Offline Mode:</strong> Check the
+<strong>Offline</strong> box to disconnect the browser from the network
+and test how the Service Worker handles offline requests.</li>
+<li><strong>Update on Reload:</strong> Check this box to force the
+Service Worker to update and activate a new version every time the page
+reloads.</li>
+<li><strong>Bypass for Network:</strong> Enable this option to force the
+browser to ignore the active Service Worker and fetch resources directly
+from the network.</li>
+<li><strong>Manual Lifecycle Control:</strong> Click
+<strong>Update</strong> to trigger an immediate update check, or click
+<strong>Unregister</strong> to completely remove the Service
+Worker.</li>
+<li><strong>Simulate Events:</strong> Use the text inputs for
+<strong>Push</strong>, <strong>Sync</strong>, and <strong>Periodic
+Sync</strong> to send simulated payloads and test background event
+listeners without needing a live server trigger.</li>
+</ul>
+<h3 id="inspecting-cache-storage">Inspecting Cache Storage</h3>
+<p>Cache Storage is primarily used by Service Workers to store network
+responses for offline use. You can access it in the left-hand sidebar
+under the "Storage" group by expanding the <strong>Cache
+Storage</strong> dropdown.</p>
+<p>When you click on a specific cache instance, the main pane displays
+its contents and offers several tools:</p>
+<ul>
+<li><strong>View Cached Resources:</strong> A table displays the URL,
+response type, content type, content length, and the time the resource
+was cached.</li>
+<li><strong>Filter Resources:</strong> Use the <strong>Filter by
+Path</strong> input box at the top of the pane to quickly find specific
+files within a large cache.</li>
+<li><strong>Inspect Headers and Previews:</strong> Clicking on any row
+in the resource table opens a lower pane. Here, you can view the HTTP
+<strong>Headers</strong> associated with the cached response and a
+<strong>Preview</strong> of the actual content (such as rendered images,
+HTML code, or JSON data).</li>
+<li><strong>Manage Cache Data:</strong> Click the
+<strong>Refresh</strong> icon to update the view if the cache has
+changed programmatically. You can also select a resource and click the
+<strong>DeleteSelected</strong> (<code>X</code>) icon to remove that
+specific file, or right-click the cache name in the sidebar and select
+<strong>Delete</strong> to wipe the entire cache.</li>
+</ul>
+<h3 id="inspecting-indexeddb-databases">Inspecting IndexedDB
+Databases</h3>
+<p>IndexedDB is a low-level API for client-side storage of significant
+amounts of structured data. To inspect it, locate the
+<strong>IndexedDB</strong> dropdown in the left-hand sidebar under the
+"Storage" group.</p>
+<p>Expanding the IndexedDB menu reveals all databases associated with
+the current origin:</p>
+<ul>
+<li><strong>Database Overview:</strong> Clicking directly on the
+database name displays its Security origin, Name, and Version. From this
+screen, you can click <strong>Delete database</strong> or
+<strong>Refresh database</strong>.</li>
+<li><strong>Explore Object Stores:</strong> Expand the database in the
+sidebar to view its Object Stores (similar to tables in SQL). Clicking
+an Object Store reveals a table containing the stored
+<strong>Key</strong>, <strong>Key Path</strong>, and
+<strong>Value</strong>.</li>
+<li><strong>Expand Data Values:</strong> The Value column holds
+JavaScript objects. Click the arrow next to any object to expand its
+tree structure and inspect the nested properties and data types.</li>
+<li><strong>Query and Filter:</strong> If an Object Store has defined
+Indexes, you can expand the Object Store in the sidebar to view data
+sorted by that specific index. You can also use the <strong>Start from
+key</strong> input at the top of the table to filter the displayed
+records.</li>
+<li><strong>Modify Data:</strong> IndexedDB data does not update in
+real-time in the UI. Click the <strong>Refresh</strong> icon at the top
+of the pane to see newly written data. To remove data, select a specific
+row and click the <strong>Delete selected</strong> (<code>X</code>)
+icon, or click the <strong>Clear object store</strong> icon to delete
+all records within that store.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/inspecting-data-with-the-chromium-application-panel';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

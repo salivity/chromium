@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Headless Chromium for Server PDFs and Screenshots - chromium</title>
+    <meta name="description" content="This article explains the concept of Headless Chromium, a version of the open-source Chromium web browser that operates without a graphical user interface. It details how developers deploy and control this tool on servers lacking physical monitors to auto">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/using-headless-chromium-for-server-pd-fs-and-screenshots">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Headless Chromium for Server PDFs and Screenshots - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/using-headless-chromium-for-server-pd-fs-and-screenshots" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the concept of Headless Chromium, a version of the open-source Chromium web browser that operates without a graphical user interface. It details how developers deploy and control this tool on servers lacking physical monitors to auto" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-headless-chromium-for-server-pdfs-and-screenshots">Using
+Headless Chromium for Server PDFs and Screenshots</h1>
+<p>This article explains the concept of Headless Chromium, a version of
+the open-source Chromium web browser that operates without a graphical
+user interface. It details how developers deploy and control this tool
+on servers lacking physical monitors to automate web page rendering,
+specifically focusing on the mechanisms used to capture website
+screenshots and generate dynamic PDF documents.</p>
+<h2 id="what-is-headless-chromium">What is Headless Chromium?</h2>
+<p>Headless Chromium is the standard Chromium web browser configured to
+run without a visible user interface (GUI). While a traditional browser
+renders web pages onto a physical screen for a human to view and
+interact with, a headless browser runs entirely in the background.</p>
+<p>Despite having no visible window, Headless Chromium uses the exact
+same rendering engine (Blink) and JavaScript engine (V8) as the standard
+Google Chrome browser. It downloads HTML, applies CSS styles, executes
+complex JavaScript, and builds the Document Object Model (DOM) entirely
+in the system's memory.</p>
+<h2 id="operating-on-servers-without-monitors">Operating on Servers
+Without Monitors</h2>
+<p>Production servers, such as cloud virtual machines running Linux, do
+not have physical monitors attached and rarely have graphical desktop
+environments installed. They are managed strictly through a Command Line
+Interface (CLI) to save system resources like RAM and CPU.</p>
+<p>Standard browsers crash if launched on these servers because they
+look for a display output that does not exist. Headless Chromium
+bypasses this hardware requirement. By passing a specific flag
+(<code>--headless</code>) when launching the application, the browser is
+instructed to use a virtual display buffer in memory rather than looking
+for a physical monitor.</p>
+<p>Developers interact with Headless Chromium on a server in two primary
+ways:</p>
+<ol type="1">
+<li><strong>Command Line Interface (CLI):</strong> Passing direct
+terminal commands to the Chromium executable for simple, one-off
+tasks.</li>
+<li><strong>Automation Libraries:</strong> Using Node.js libraries like
+Puppeteer or Playwright, which communicate with the browser via the
+Chrome DevTools Protocol (CDP). This allows for complex programmatic
+control, such as logging into a website, clicking buttons, and waiting
+for data to load before taking an action.</li>
+</ol>
+<h2 id="capturing-website-screenshots">Capturing Website
+Screenshots</h2>
+<p>To capture a screenshot on a server, Headless Chromium loads the
+target URL into memory, executes the page's code, defines a virtual
+viewport size (e.g., 1920x1080 pixels), and writes the visual
+representation of that viewport directly to an image file (usually PNG
+or JPEG).</p>
+<p><strong>Using the Command Line:</strong> For a quick capture without
+writing code, a server administrator can run the following command in
+the terminal:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">chromium-browser</span> <span class="at">--headless</span> <span class="at">--screenshot</span><span class="op">=</span><span class="st">&quot;output.png&quot;</span> <span class="at">--window-size</span><span class="op">=</span>1920,1080 https://example.com</span></code></pre></div>
+<p><strong>Using Automation (Puppeteer):</strong> For dynamic websites
+where you must wait for JavaScript elements to load, a script is used.
+The script instructs Headless Chromium to navigate to the page, wait
+until network activity ceases, and then capture either the visible
+viewport or the entire scrollable height of the page. This is widely
+used for automated visual regression testing and generating social media
+preview cards.</p>
+<h2 id="generating-pdfs">Generating PDFs</h2>
+<p>Generating PDFs on a server traditionally required complex backend
+libraries that tried to convert HTML to PDF, often failing to support
+modern CSS (like Flexbox or Grid) and ignoring JavaScript entirely.
+Headless Chromium solves this by utilizing Chrome's native "Print to
+PDF" engine. Because it is a real browser, the resulting PDF looks
+identical to what a user would see if they printed the webpage
+themselves.</p>
+<p>The process works by rendering the webpage in memory, applying any
+specific <code>@media print</code> CSS rules defined by the website,
+paginating the content, and exporting the result as a <code>.pdf</code>
+file.</p>
+<p><strong>Using the Command Line:</strong> You can generate a PDF
+directly from the server terminal using this command:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">chromium-browser</span> <span class="at">--headless</span> <span class="at">--print-to-pdf</span><span class="op">=</span><span class="st">&quot;document.pdf&quot;</span> https://example.com</span></code></pre></div>
+<p><strong>Using Automation:</strong> In a production environment,
+businesses use automation scripts to generate invoices, reports, and
+tickets. A backend server populates an HTML template with user data,
+opens that HTML file in Headless Chromium, and triggers the PDF
+generation function. Through code, developers can precisely control page
+margins, paper format (such as A4 or Letter), background graphics
+rendering, and custom headers and footers.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/using-headless-chromium-for-server-pd-fs-and-screenshots';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

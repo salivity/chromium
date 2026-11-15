@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Component Builds Speed Up Developer Iteration - chromium</title>
+    <meta name="description" content="This article explores the concept of a component build in the Chromium web browser project. It breaks down the fundamental differences between static and component builds, explaining how compiling code into separate shared libraries drastically reduces li">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-component-builds-speed-up-developer-iteration">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Component Builds Speed Up Developer Iteration - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-component-builds-speed-up-developer-iteration" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the concept of a component build in the Chromium web browser project. It breaks down the fundamental differences between static and component builds, explaining how compiling code into separate shared libraries drastically reduces li" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-component-builds-speed-up-developer-iteration">How
+Chromium Component Builds Speed Up Developer Iteration</h1>
+<p>This article explores the concept of a component build in the
+Chromium web browser project. It breaks down the fundamental differences
+between static and component builds, explaining how compiling code into
+separate shared libraries drastically reduces linking time and
+accelerates the local edit-compile-debug cycle for developers.</p>
+<h3 id="what-is-a-component-build">What is a Component Build?</h3>
+<p>A component build is a specific build configuration in Chromium
+designed exclusively for local development and debugging.</p>
+<p>In a standard production build—known as a static or monolithic
+build—nearly all of Chromium's millions of lines of code are compiled
+and linked together into a single, massive executable. In contrast, a
+component build splits the codebase into dozens of smaller, independent
+shared libraries (<code>.dll</code> files on Windows, <code>.so</code>
+files on Linux, and <code>.dylib</code> files on macOS). Developers
+enable this mode by setting <code>is_component_build = true</code> in
+their GN build configuration file.</p>
+<h3 id="the-bottleneck-of-static-linking">The Bottleneck of Static
+Linking</h3>
+<p>To understand why component builds are necessary, you must look at
+the bottleneck of the static linking process.</p>
+<p>When a developer modifies a single C++ source file in a static build,
+the compiler only needs to recompile that one file. However, the linker
+must then take that newly updated object file and combine it with tens
+of thousands of other object files to recreate the final executable.
+Because the Chromium codebase is massive, this final linking step
+requires immense amounts of system memory (RAM) and disk I/O. Even on
+powerful workstations, linking a static build can take several minutes,
+bringing developer productivity to a halt when testing a simple one-line
+code change.</p>
+<h3 id="how-shared-libraries-accelerate-iteration">How Shared Libraries
+Accelerate Iteration</h3>
+<p>Component builds bypass the monolithic linking bottleneck by
+utilizing dynamic linking. Instead of creating one giant binary,
+Chromium's distinct subsystems—such as <code>base</code>,
+<code>net</code>, <code>blink</code>, and <code>v8</code>—are treated as
+separate components and compiled into individual shared libraries.</p>
+<p>Linking shared libraries speeds up local developer iteration in three
+primary ways:</p>
+<ul>
+<li><strong>Isolated Relinking:</strong> When a developer modifies a
+file inside a specific module, such as the <code>net</code> component,
+the build system only recompiles the changed file and relinks the
+<code>net</code> shared library. All other libraries remain untouched.
+Relinking a single, small shared library takes mere seconds rather than
+minutes.</li>
+<li><strong>Reduced Memory Overhead:</strong> Linking a small subset of
+object files requires a fraction of the RAM needed for a full static
+link. This prevents the developer's machine from exhausting its memory
+and using slow disk swap space during the build process.</li>
+<li><strong>Faster Incremental Builds:</strong> If a developer's changes
+affect two or three components, the build system can link those smaller
+shared libraries simultaneously in parallel, utilizing multi-core
+processors much more efficiently than a single monolithic link
+step.</li>
+</ul>
+<h3 id="trade-offs-of-the-component-build">Trade-offs of the Component
+Build</h3>
+<p>While component builds drastically reduce compile times, they do have
+minor drawbacks. Because the operating system must locate and load
+dozens of separate shared libraries into memory every time the browser
+launches, a component build has a noticeably slower application startup
+time compared to a static build. Furthermore, certain compiler
+optimizations that work across the entire codebase (like Link-Time
+Optimization) cannot be fully applied across shared library
+boundaries.</p>
+<p>For these reasons, official releases of Google Chrome and other
+Chromium-based browsers always use static builds for maximum runtime
+performance. The component build remains strictly a local developer
+tool, trading a small amount of runtime startup speed for a massive
+reduction in build wait times.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-component-builds-speed-up-developer-iteration';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

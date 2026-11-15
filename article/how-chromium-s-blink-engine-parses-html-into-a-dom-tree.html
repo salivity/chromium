@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Blink Engine Parses HTML into a DOM Tree - chromium</title>
+    <meta name="description" content="This article explains the exact process Chromium’s Blink rendering engine uses to transform raw HTML bytes received from the network into a fully functional Document Object Model (DOM) tree. By passing data through a multi-stage pipeline—consisting of byt">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-blink-engine-parses-html-into-a-dom-tree">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Blink Engine Parses HTML into a DOM Tree - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-blink-engine-parses-html-into-a-dom-tree" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the exact process Chromium’s Blink rendering engine uses to transform raw HTML bytes received from the network into a fully functional Document Object Model (DOM) tree. By passing data through a multi-stage pipeline—consisting of byt" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-blink-engine-parses-html-into-a-dom-tree">How
+Chromium's Blink Engine Parses HTML into a DOM Tree</h1>
+<p>This article explains the exact process Chromium’s Blink rendering
+engine uses to transform raw HTML bytes received from the network into a
+fully functional Document Object Model (DOM) tree. By passing data
+through a multi-stage pipeline—consisting of byte decoding,
+tokenization, and tree construction—Blink efficiently translates binary
+data into a hierarchical structure of C++ objects that the browser can
+ultimately style, layout, and paint onto the screen.</p>
+<h3 id="1-decoding-bytes-into-characters">1. Decoding Bytes into
+Characters</h3>
+<p>The parsing pipeline begins the moment Chromium’s network stack
+delivers chunks of raw HTML bytes to Blink’s main thread. The
+<code>HTMLDocumentParser</code> is instantiated to manage the
+process.</p>
+<p>Before Blink can understand the HTML, it must convert the raw bytes
+into actual characters. A component called the
+<code>TextResourceDecoder</code> inspects the incoming byte stream to
+determine the file's character encoding (such as UTF-8 or ISO-8859-1).
+It determines this by checking:</p>
+<ul>
+<li>HTTP <code>Content-Type</code> headers sent by the server.</li>
+<li>A Byte Order Mark (BOM) at the very beginning of the file.</li>
+<li><code>&lt;meta charset="..."&gt;</code> tags within the first 1024
+bytes of the HTML.</li>
+</ul>
+<p>Once the encoding is locked in, the decoder translates the raw bytes
+into a stream of Unicode characters (code points). Blink stores these
+characters in a specialized data structure called a
+<code>SegmentedString</code>, which acts as the input stream for the
+next stage.</p>
+<h3 id="2-tokenization-characters-to-tokens">2. Tokenization: Characters
+to Tokens</h3>
+<p>The <code>SegmentedString</code> feeds characters one by one into the
+<code>HTMLTokenizer</code>. The tokenizer's job is to break the
+continuous stream of characters into meaningful chunks called tokens. In
+Blink, these are represented by the <code>HTMLToken</code> class, which
+can take one of several types:</p>
+<ul>
+<li><code>DOCTYPE</code></li>
+<li><code>StartTag</code> (e.g., <code>&lt;div&gt;</code>)</li>
+<li><code>EndTag</code> (e.g., <code>&lt;/div&gt;</code>)</li>
+<li><code>Comment</code></li>
+<li><code>Character</code> (text content inside tags)</li>
+<li><code>EndOfFile</code></li>
+</ul>
+<p>The <code>HTMLTokenizer</code> operates as a strict state machine
+defined by the WHATWG HTML5 specification. It contains over 60
+states.</p>
+<p>For example, the tokenizer begins in the <strong>Data State</strong>.
+When it encounters the <code>&lt;</code> character, it switches to the
+<strong>Tag Open State</strong>. As it reads the next character, such as
+<code>d</code>, it transitions to the <strong>Tag Name State</strong>
+and begins accumulating characters (<code>d</code>, <code>i</code>,
+<code>v</code>) into a <code>StartTag</code> token until it hits the
+<code>&gt;</code> character. Once the <code>&gt;</code> is read, the
+current token is emitted, and the tokenizer returns to the <strong>Data
+State</strong> to await the next character.</p>
+<h3 id="3-tree-construction-tokens-to-dom-nodes">3. Tree Construction:
+Tokens to DOM Nodes</h3>
+<p>As soon as the <code>HTMLTokenizer</code> emits a token, it is
+immediately consumed by the <code>HTMLTreeBuilder</code>. This component
+is responsible for taking the flat list of tokens and organizing them
+into a nested tree structure.</p>
+<p>Like the tokenizer, the <code>HTMLTreeBuilder</code> is a state
+machine. Its states are called "Insertion Modes" (such as
+<code>InitialMode</code>, <code>BeforeHtmlMode</code>,
+<code>InHeadMode</code>, and <code>InBodyMode</code>). The current
+Insertion Mode dictates how an incoming token is processed.</p>
+<p>To keep track of the hierarchy, the tree builder maintains a
+<strong>Stack of Open Elements</strong>. The process works as
+follows:</p>
+<ol type="1">
+<li>When a <code>StartTag</code> token (like <code>&lt;body&gt;</code>)
+arrives, the tree builder delegates the actual creation of the node to a
+helper class called the <code>HTMLConstructionSite</code>.</li>
+<li>The <code>HTMLConstructionSite</code> instantiates the corresponding
+C++ DOM object (in this case, an <code>HTMLBodyElement</code>), attaches
+it to the parent node in the <code>Document</code>, and pushes the new
+element onto the Stack of Open Elements.</li>
+<li>If <code>Character</code> tokens arrive next, they are grouped into
+a <code>Text</code> node and appended as a child to the element
+currently at the top of the stack.</li>
+<li>When a matching <code>EndTag</code> token (like
+<code>&lt;/body&gt;</code>) arrives, the tree builder pops that element
+off the Stack of Open Elements, signaling that no more children can be
+added to it.</li>
+</ol>
+<p>The <code>HTMLTreeBuilder</code> also contains complex error-handling
+logic. Because the HTML5 specification dictates precisely how browsers
+must handle malformed HTML, Blink uses the Stack of Open Elements to
+automatically close unclosed tags or rearrange improperly nested
+elements (like a <code>&lt;div&gt;</code> inside a
+<code>&lt;p&gt;</code>) on the fly.</p>
+<h3 id="4-handling-blocking-scripts-and-the-preload-scanner">4. Handling
+Blocking Scripts and the Preload Scanner</h3>
+<p>The DOM construction process runs synchronously on the main thread,
+meaning it can be paused. When the <code>HTMLTreeBuilder</code>
+encounters a standard <code>&lt;script&gt;</code> tag, it must halt DOM
+construction entirely and execute the JavaScript. This is necessary
+because the script might contain <code>document.write()</code>, which
+injects new HTML directly into the character stream, or it might query
+the DOM as it currently exists.</p>
+<p>Waiting for external scripts to download and execute would severely
+slow down page loads if the parser simply sat idle. To solve this, Blink
+uses an <code>HTMLPreloadScanner</code>.</p>
+<p>When the main parser is blocked by a script, the
+<code>HTMLPreloadScanner</code> spins up. It takes a snapshot of the
+remaining unparsed HTML and runs a lightweight, speculative tokenization
+pass over it. It does not build the DOM; instead, it looks exclusively
+for tags that reference external resources, such as
+<code>&lt;link&gt;</code>, <code>&lt;script&gt;</code>, and
+<code>&lt;img&gt;</code>. When it finds them, it instructs Chromium's
+network stack to start downloading those files in the background. By the
+time the blocking script finishes executing and the main
+<code>HTMLTreeBuilder</code> resumes, the upcoming resources are already
+downloaded or in flight.</p>
+<h3 id="5-parsing-completion">5. Parsing Completion</h3>
+<p>Once the <code>HTMLTokenizer</code> reaches the end of the
+<code>SegmentedString</code> and emits the <code>EndOfFile</code> token,
+the <code>HTMLTreeBuilder</code> pops any remaining elements off the
+Stack of Open Elements. At this point, the <code>Document</code>
+readiness state changes to <code>interactive</code>, the
+<code>DOMContentLoaded</code> event fires, and the fully realized C++
+DOM tree is ready to be combined with the CSS Object Model (CSSOM) to
+build the layout tree for rendering.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-blink-engine-parses-html-into-a-dom-tree';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

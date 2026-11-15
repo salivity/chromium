@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Added Sparkplug Between Ignition and TurboFan - chromium</title>
+    <meta name="description" content="The Chromium web browser introduced the Sparkplug non-optimizing baseline compiler into its V8 JavaScript engine to bridge the significant performance gap between the fast-starting Ignition interpreter and the resource-heavy TurboFan optimizing compiler.">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-added-sparkplug-between-ignition-and-turbo-fan">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Added Sparkplug Between Ignition and TurboFan - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-added-sparkplug-between-ignition-and-turbo-fan" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium web browser introduced the Sparkplug non-optimizing baseline compiler into its V8 JavaScript engine to bridge the significant performance gap between the fast-starting Ignition interpreter and the resource-heavy TurboFan optimizing compiler." />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-added-sparkplug-between-ignition-and-turbofan">Why
+Chromium Added Sparkplug Between Ignition and TurboFan</h1>
+<p>The Chromium web browser introduced the Sparkplug non-optimizing
+baseline compiler into its V8 JavaScript engine to bridge the
+significant performance gap between the fast-starting Ignition
+interpreter and the resource-heavy TurboFan optimizing compiler. By
+rapidly translating existing bytecode directly into machine code without
+waiting for complex profiling data, Sparkplug delivers an immediate
+execution speed boost while reducing CPU overhead. This article explains
+the limitations of the previous two-tier V8 architecture, how Sparkplug
+functions as a middle tier, and why its introduction resulted in a major
+leap forward for real-world web browsing performance.</p>
+<h2 id="the-limitations-of-the-two-tier-architecture">The Limitations of
+the Two-Tier Architecture</h2>
+<p>Before Sparkplug was introduced in 2021, Chromium’s V8 engine relied
+on a two-tier execution pipeline consisting of Ignition and
+TurboFan:</p>
+<ul>
+<li><strong>Ignition (The Interpreter):</strong> Ignition compiles
+JavaScript into concise bytecode. It starts executing code almost
+instantly and uses very little memory. However, because it has to
+interpret bytecode instructions one by one, its execution speed is
+relatively slow.</li>
+<li><strong>TurboFan (The Optimizing Compiler):</strong> As code runs in
+Ignition, V8 collects profiling data (type feedback) on how the code is
+being used. Once a function becomes "hot" (runs frequently), TurboFan
+uses this data to compile the bytecode into highly optimized machine
+code.</li>
+</ul>
+<p>The problem with this two-tier system was the massive trade-off
+between startup speed and peak performance. TurboFan generates
+exceptionally fast code, but the compilation process itself is slow and
+consumes a lot of CPU power.</p>
+<p>During the time it took for Ignition to gather enough type feedback
+and for TurboFan to finish compiling, the browser was forced to keep
+running slow bytecode. Furthermore, if TurboFan made an optimization
+assumption that later proved wrong, it had to "deoptimize" the code and
+fall all the way back to the slow Ignition interpreter, wasting valuable
+CPU cycles.</p>
+<h2 id="enter-sparkplug-the-middle-tier">Enter Sparkplug: The Middle
+Tier</h2>
+<p>To solve this bottleneck, the V8 team introduced Sparkplug to sit
+directly between Ignition and TurboFan. Sparkplug is a non-optimizing
+baseline compiler designed with one primary goal: generate machine code
+as fast as humanly possible.</p>
+<p>Instead of waiting for code to become extremely hot, V8 can now pass
+functions to Sparkplug very early in their lifecycle. Sparkplug quickly
+generates machine code that is much faster than Ignition's bytecode
+interpretation, though not quite as fast as TurboFan's optimized
+code.</p>
+<h2 id="how-sparkplug-achieves-extreme-compilation-speed">How Sparkplug
+Achieves Extreme Compilation Speed</h2>
+<p>Sparkplug is able to compile code almost instantaneously because it
+takes several architectural shortcuts that traditional compilers
+cannot:</p>
+<ul>
+<li><strong>It compiles from bytecode, not source code:</strong>
+Sparkplug does not read raw JavaScript or build an Abstract Syntax Tree
+(AST). Because Ignition has already done the hard work of parsing the
+JavaScript into bytecode, Sparkplug simply reads that bytecode and
+translates it directly into machine code.</li>
+<li><strong>It performs a single linear pass:</strong> Sparkplug does
+not analyze the code for potential optimizations, nor does it generate
+an intermediate representation (IR). It walks through the bytecode from
+start to finish in a single pass, emitting pre-written snippets of
+machine code for each bytecode instruction.</li>
+<li><strong>It shares Ignition’s stack frames:</strong> Sparkplug
+maintains the exact same memory layout (stack frames) as the Ignition
+interpreter. This makes transitioning execution between Ignition,
+Sparkplug, and TurboFan completely seamless and computationally
+cheap.</li>
+</ul>
+<h2 id="the-benefits-to-chromium">The Benefits to Chromium</h2>
+<p>Inserting Sparkplug into the V8 pipeline fundamentally improved how
+Chromium handles modern, JavaScript-heavy websites:</p>
+<ol type="1">
+<li><strong>Faster Execution Earlier:</strong> Web applications no
+longer get stuck running slow bytecode while waiting for the optimizing
+compiler to kick in. Sparkplug provides a massive speed upgrade over
+Ignition with virtually zero wait time.</li>
+<li><strong>Less Pressure on TurboFan:</strong> Because Sparkplug
+executes code at a very respectable speed, V8 does not need to rush code
+into TurboFan. It can wait longer to ensure the profiling data is
+completely stable.</li>
+<li><strong>Fewer Costly Deoptimizations:</strong> Because V8 waits
+longer to invoke TurboFan, the optimizing compiler makes better
+decisions based on more accurate data. Furthermore, if TurboFan does
+have to deoptimize, the code can fall back to fast Sparkplug machine
+code rather than slow Ignition bytecode.</li>
+</ol>
+<p>By filling the gap between interpretation and heavy optimization,
+Sparkplug reduced the CPU time spent compiling code and improved
+Chromium's overall real-world browsing performance by 5% to 15%
+immediately upon its release.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-added-sparkplug-between-ignition-and-turbo-fan';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

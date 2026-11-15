@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Implements PiP with Aura and Views - chromium</title>
+    <meta name="description" content="This article explores the technical implementation of the Picture-in-Picture (PiP) feature within the Chromium web browser, focusing specifically on how it achieves an always-on-top video window. It breaks down the roles of Chromium&#39;s custom UI framework,">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-implements-pi-p-with-aura-and-views">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Implements PiP with Aura and Views - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-implements-pi-p-with-aura-and-views" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the technical implementation of the Picture-in-Picture (PiP) feature within the Chromium web browser, focusing specifically on how it achieves an always-on-top video window. It breaks down the roles of Chromium&#39;s custom UI framework," />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-implements-pip-with-aura-and-views">How Chromium
+Implements PiP with Aura and Views</h1>
+<p>This article explores the technical implementation of the
+Picture-in-Picture (PiP) feature within the Chromium web browser,
+focusing specifically on how it achieves an always-on-top video window.
+It breaks down the roles of Chromium's custom UI framework, Views, and
+its hardware-accelerated window manager, Aura. By examining the journey
+from the browser process to the operating system's native windowing
+system, you will understand the precise mechanisms that keep floating
+video players persistently visible above other applications.</p>
+<h3 id="initiating-the-picture-in-picture-window">Initiating the
+Picture-in-Picture Window</h3>
+<p>When a user triggers Picture-in-Picture on a video element, the Blink
+rendering engine communicates this request to the browser process via
+Inter-Process Communication (IPC). The browser process responds by
+instantiating the <code>VideoPictureInPictureWindowControllerImpl</code>
+class. This controller manages the lifecycle of the PiP session and is
+responsible for spawning the actual floating window that the user sees
+on their screen.</p>
+<h3 id="constructing-the-ui-with-the-views-framework">Constructing the
+UI with the Views Framework</h3>
+<p>Chromium does not use standard operating system UI controls for its
+interface; instead, it uses an internal cross-platform UI framework
+called <strong>Views</strong>. To create the PiP window, the controller
+instantiates <code>VideoOverlayWindowViews</code>, which inherits from
+<code>views::Widget</code>.</p>
+<p>To ensure the PiP window looks like a modern floating player and
+stays on top of other windows, <code>VideoOverlayWindowViews</code>
+configures a <code>views::Widget::InitParams</code> struct during
+initialization:</p>
+<ul>
+<li><strong>Frameless Design:</strong> It sets the widget type to
+<code>TYPE_WINDOW_FRAMELESS</code>, removing the standard OS title bar
+and borders.</li>
+<li><strong>Always-on-Top State:</strong> It sets the
+<code>z_order</code> property to
+<code>ui::ZOrderLevel::kFloatingWindow</code>. In Chromium's Views
+architecture, this specific enumeration is the cross-platform
+instruction that designates a widget as an always-on-top surface.</li>
+<li><strong>Custom Controls:</strong> Views builds a hierarchy of
+<code>views::View</code> objects inside the widget to render custom
+overlay controls, such as the play/pause toggle, the close button, and
+resize handles, which appear only when the user hovers over the
+window.</li>
+</ul>
+<h3 id="bridging-views-to-the-os-via-aura">Bridging Views to the OS via
+Aura</h3>
+<p>On Windows, Linux, and ChromeOS, the Views framework relies on
+<strong>Aura</strong>, Chromium's hardware-accelerated window manager.
+In the Aura architecture, every UI surface is represented as an
+<code>aura::Window</code> instance. However, a standard
+<code>aura::Window</code> only exists <em>inside</em> the main browser
+window. Because a PiP window must float independently on the user's
+desktop, even if the main browser is minimized, it requires a special
+bridge.</p>
+<p>Chromium achieves this by backing the PiP <code>views::Widget</code>
+with a <code>DesktopNativeWidgetAura</code>. This class pairs the
+internal <code>aura::Window</code> with a
+<code>DesktopWindowTreeHost</code>. The
+<code>DesktopWindowTreeHost</code> is the crucial component that
+translates Aura's abstract window properties into native operating
+system windowing calls.</p>
+<h3 id="enforcing-the-always-on-top-property-natively">Enforcing the
+Always-on-Top Property Natively</h3>
+<p>Once the <code>DesktopWindowTreeHost</code> is initialized with the
+<code>ui::ZOrderLevel::kFloatingWindow</code> parameter from Views, it
+instructs the underlying operating system to lock the window to the top
+of the Z-order stack:</p>
+<ul>
+<li><strong>Windows:</strong> <code>DesktopWindowTreeHostWin</code>
+translates the floating window parameter into the Win32 API extended
+window style <code>WS_EX_TOPMOST</code>. It applies this using the
+<code>SetWindowPos</code> function, passing the
+<code>HWND_TOPMOST</code> flag to the Windows Desktop Window Manager
+(DWM).</li>
+<li><strong>Linux (X11/Wayland):</strong> Using Chromium's Ozone
+platform abstraction layer, <code>DesktopWindowTreeHostPlatform</code>
+communicates with the Linux display server. On X11, it sets the
+<code>_NET_WM_STATE_ABOVE</code> window property. On Wayland, it
+utilizes specific compositor protocols (where supported) to request
+top-level floating status.</li>
+<li><strong>ChromeOS:</strong> Because Aura <em>is</em> the native
+window manager on ChromeOS (known as Ash), no OS translation is needed.
+The PiP <code>aura::Window</code> is simply parented directly to a
+dedicated always-on-top container
+(<code>kShellWindowId_PipContainer</code>) within the Ash root window
+hierarchy.</li>
+</ul>
+<h3 id="rendering-the-video-stream">Rendering the Video Stream</h3>
+<p>An always-on-top Aura window is just an empty shell without the video
+content. Every <code>aura::Window</code> is backed by a
+<code>ui::Layer</code> for hardware-accelerated compositing.
+<code>VideoOverlayWindowViews</code> creates a layer tree where a
+dedicated video <code>ui::Layer</code> sits beneath the UI control
+layers.</p>
+<p>Instead of copying video frames from the web page to the PiP window,
+Chromium uses its <strong>Viz</strong> display compositor. The PiP
+window's video layer is assigned a <code>viz::SurfaceId</code>. The
+renderer process decodes the video stream and submits the frames
+directly to the Viz compositor using this SurfaceId. Viz then composites
+the video frames directly into the Aura window's layer, resulting in
+smooth, hardware-accelerated playback that remains decoupled from the
+main browser window's rendering pipeline.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-implements-pi-p-with-aura-and-views';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

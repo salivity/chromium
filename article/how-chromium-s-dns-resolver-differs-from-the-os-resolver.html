@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s DNS Resolver Differs from the OS Resolver - chromium</title>
+    <meta name="description" content="This article provides an overview of the architectural and functional differences between the Chromium web browser&#39;s built-in asynchronous DNS resolver and traditional native operating system (OS) resolvers. While native OS resolvers rely on system-level">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-dns-resolver-differs-from-the-os-resolver">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s DNS Resolver Differs from the OS Resolver - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-dns-resolver-differs-from-the-os-resolver" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the architectural and functional differences between the Chromium web browser&#39;s built-in asynchronous DNS resolver and traditional native operating system (OS) resolvers. While native OS resolvers rely on system-level" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-dns-resolver-differs-from-the-os-resolver">How
+Chromium's DNS Resolver Differs from the OS Resolver</h1>
+<p>This article provides an overview of the architectural and functional
+differences between the Chromium web browser's built-in asynchronous DNS
+resolver and traditional native operating system (OS) resolvers. While
+native OS resolvers rely on system-level APIs that often process domain
+name queries synchronously, Chromium uses its own non-blocking DNS
+client to directly manage network packets. This approach eliminates
+thread bottlenecks, accelerates page load times, enables advanced
+security protocols like DNS-over-HTTPS (DoH), and ensures consistent
+behavior across different operating systems.</p>
+<h2 id="asynchronous-execution-vs-blocking-system-calls">Asynchronous
+Execution vs. Blocking System Calls</h2>
+<p>The most fundamental difference lies in how queries are executed.
+Native operating system resolvers typically rely on standard C library
+functions, such as <code>getaddrinfo()</code>. These functions are
+synchronous and blocking, meaning the thread making the request must
+wait until the DNS lookup finishes before it can do anything else.</p>
+<p>When Chromium falls back to the OS resolver, it must dispatch these
+blocking calls to a dedicated worker thread pool so the main browser
+interface does not freeze. However, because modern web pages often
+require dozens of simultaneous DNS lookups, this thread pool can quickly
+become exhausted, delaying subsequent requests.</p>
+<p>Chromium's built-in resolver is fully asynchronous. Instead of
+relying on OS-level APIs, it constructs raw DNS packets and sends them
+directly over UDP or TCP sockets managed by Chromium's single-threaded
+network event loop. This allows the browser to handle hundreds of
+concurrent DNS queries without allocating additional system threads or
+waiting for previous lookups to finish.</p>
+<h2 id="advanced-protocol-support-doh-and-https-records">Advanced
+Protocol Support (DoH and HTTPS Records)</h2>
+<p>Operating system resolvers are tied to the update cycle of the OS
+itself, meaning older systems often lack support for modern DNS
+standards. By using its own resolver, Chromium can deploy new protocols
+immediately across all supported platforms.</p>
+<ul>
+<li><strong>DNS-over-HTTPS (DoH):</strong> Chromium's built-in resolver
+natively supports DoH, encrypting DNS traffic via HTTPS to prevent
+eavesdropping and manipulation. It can upgrade to DoH automatically if
+the user's configured DNS provider supports it, even if the underlying
+operating system has no native DoH capabilities.</li>
+<li><strong>HTTPS Resource Records (Type 65):</strong> The built-in
+resolver queries for specialized HTTPS DNS records alongside standard
+IPv4 (A) and IPv6 (AAAA) records. These records allow the browser to
+immediately know if a server supports HTTP/3 (QUIC) and provide
+cryptographic keys needed for Encrypted Client Hello (ECH), all before
+establishing a connection. Most native OS resolvers do not natively
+fetch or parse these records for applications.</li>
+</ul>
+<h2 id="improved-connection-racing-happy-eyeballs">Improved Connection
+Racing (Happy Eyeballs)</h2>
+<p>To handle networks that use both IPv4 and IPv6, browsers use an
+algorithm known as "Happy Eyeballs," which races IPv6 and IPv4
+connection attempts to see which responds faster.</p>
+<p>When using the native OS resolver, the <code>getaddrinfo()</code>
+function typically waits until it receives responses for both the A
+(IPv4) and AAAA (IPv6) queries before returning the results to the
+browser. If one of those queries is slow or dropped, the entire
+connection process is delayed.</p>
+<p>Chromium’s built-in resolver sends A and AAAA queries independently
+and processes the responses the millisecond they arrive. If the IPv6
+response arrives first, Chromium immediately begins establishing the
+IPv6 connection without waiting for the IPv4 DNS lookup to complete,
+shaving valuable milliseconds off page load times.</p>
+<h2 id="granular-caching-and-error-handling">Granular Caching and Error
+Handling</h2>
+<p>Native OS resolvers act as a black box. When a lookup fails, the OS
+usually returns a generic error code to the browser, making it difficult
+to know if the failure was caused by a typo in the domain, a local
+network disconnection, or an unresponsive DNS server.</p>
+<p>Because Chromium's resolver reads the raw DNS response packets
+directly, it has access to exact DNS return codes (such as
+<code>NXDOMAIN</code> or <code>SERVFAIL</code>) and precise Time-To-Live
+(TTL) values. This allows Chromium to:</p>
+<ul>
+<li>Maintain an internal host cache that strictly respects record
+TTLs.</li>
+<li>Immediately invalidate its cache if it detects a change in the local
+network (such as switching from Wi-Fi to a mobile hotspot).</li>
+<li>Provide accurate diagnostic error messages to the user when a
+webpage fails to load.</li>
+</ul>
+<h2 id="cross-platform-consistency">Cross-Platform Consistency</h2>
+<p>Every operating system—Windows, macOS, Linux, Android, and
+iOS—implements its native DNS resolver differently. They each have
+unique caching rules, timeout durations, retry logic, and ways of
+handling <code>/etc/hosts</code> files or multi-homed networks (like
+VPNs).</p>
+<p>By bypassing the OS resolver and using its own built-in asynchronous
+client, Chromium standardizes how DNS resolution works. Network
+engineers and web developers get predictable timeout behaviors,
+consistent security policies, and uniform performance optimizations
+regardless of the device or operating system the user is running.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-dns-resolver-differs-from-the-os-resolver';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

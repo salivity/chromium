@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Developed the Dawn Library for WebGPU - chromium</title>
+    <meta name="description" content="The Chromium project developed the Dawn library to serve as a cross-platform, native C++ implementation of the WebGPU standard. This article explores the core reasons behind Dawn&#39;s creation, including the need to bridge fragmented operating system graphic">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-developed-the-dawn-library-for-web-gpu">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Developed the Dawn Library for WebGPU - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-developed-the-dawn-library-for-web-gpu" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chromium project developed the Dawn library to serve as a cross-platform, native C++ implementation of the WebGPU standard. This article explores the core reasons behind Dawn&#39;s creation, including the need to bridge fragmented operating system graphic" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-developed-the-dawn-library-for-webgpu">Why Chromium
+Developed the Dawn Library for WebGPU</h1>
+<p>The Chromium project developed the Dawn library to serve as a
+cross-platform, native C++ implementation of the WebGPU standard. This
+article explores the core reasons behind Dawn's creation, including the
+need to bridge fragmented operating system graphics APIs, enforce strict
+browser security protocols, and provide a modular graphics engine that
+can be reused by both web browsers and standalone native
+applications.</p>
+<h2 id="overcoming-graphics-api-fragmentation">Overcoming Graphics API
+Fragmentation</h2>
+<p>Before WebGPU, modern low-level graphics APIs became split across
+different operating systems. Microsoft developed Direct3D 12 for
+Windows, Apple created Metal for macOS and iOS, and the Khronos Group
+released Vulkan for Linux and Android.</p>
+<p>Chromium needed a single, unified way to communicate with all of
+these incompatible systems. Dawn solves this by acting as a translation
+layer. Developers write code using the WebGPU standard, and Dawn
+automatically translates those commands into Direct3D 12, Metal, or
+Vulkan depending on the user's device.</p>
+<h2 id="enforcing-browser-security-and-stability">Enforcing Browser
+Security and Stability</h2>
+<p>Web browsers execute untrusted code downloaded directly from the
+internet. Allowing web pages to communicate directly with a computer's
+graphics card is a massive security risk, as malformed commands can
+crash the operating system or expose sensitive memory.</p>
+<p>Dawn was built specifically to sanitize and validate every graphics
+command before it reaches the hardware driver. It ensures memory bounds
+are respected and prevents illegal operations. Furthermore, Dawn
+integrates a companion library called Tint, which translates WebGPU's
+shading language (WGSL) into the native shader languages of the host
+system while stripping out potentially malicious instructions.</p>
+<h2 id="modularity-and-the-angle-precedent">Modularity and the ANGLE
+Precedent</h2>
+<p>Chromium engineers previously faced a similar challenge with WebGL,
+the predecessor to WebGPU. They solved it by creating ANGLE, a
+standalone library that translated WebGL content into native APIs.</p>
+<p>ANGLE was a massive success because it was decoupled from the main
+Chromium codebase. Following this blueprint, Google developed Dawn as an
+independent library rather than hardcoding WebGPU directly into the
+browser. This modularity makes Dawn easier to test, update, and maintain
+without having to rebuild the entire Chromium browser for every minor
+graphics fix.</p>
+<h2 id="empowering-native-c-development">Empowering Native C++
+Development</h2>
+<p>Dawn is not just for web browsers; it is an implementation of the
+standardized <code>webgpu.h</code> C header. By building Dawn as a
+standalone C++ library, the Chromium team gave native application
+developers a free, cross-platform graphics engine.</p>
+<p>Game developers and software engineers can write a native C++
+application using Dawn to handle their graphics on Windows, Mac, and
+Linux. Because Dawn uses the exact same WebGPU API as the browser,
+developers can later compile that exact same C++ code into WebAssembly
+and run their application on the web with virtually zero changes to
+their rendering code.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-developed-the-dawn-library-for-web-gpu';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

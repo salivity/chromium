@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Syncs Frame Timing with Display VSync - chromium</title>
+    <meta name="description" content="This article provides a technical overview of the architecture and mechanisms the Chromium web browser uses to synchronize its rendering pipeline with a display monitor&#39;s vertical blanking interval (VSync). It covers how the browser intercepts hardware ti">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-syncs-frame-timing-with-display-v-sync">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Syncs Frame Timing with Display VSync - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-syncs-frame-timing-with-display-v-sync" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of the architecture and mechanisms the Chromium web browser uses to synchronize its rendering pipeline with a display monitor&#39;s vertical blanking interval (VSync). It covers how the browser intercepts hardware ti" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-syncs-frame-timing-with-display-vsync">How Chromium
+Syncs Frame Timing with Display VSync</h1>
+<p>This article provides a technical overview of the architecture and
+mechanisms the Chromium web browser uses to synchronize its rendering
+pipeline with a display monitor's vertical blanking interval (VSync). It
+covers how the browser intercepts hardware timing signals from the
+operating system, distributes these signals across its multi-process
+architecture using the <code>BeginFrame</code> message, and aligns
+JavaScript execution, layout updates, and GPU compositing to deliver
+smooth, tear-free visual frames.</p>
+<h3 id="the-role-of-the-vertical-blanking-interval">The Role of the
+Vertical Blanking Interval</h3>
+<p>The vertical blanking interval is the brief time period between the
+end of drawing the final line of a frame on a display and the beginning
+of drawing the first line of the next frame. Chromium aligns its
+rendering pipeline with this hardware interval—commonly referred to as
+VSync—to prevent screen tearing, which occurs when the display updates
+with a new frame before the previous one has finished scanning out. On a
+standard 60Hz monitor, VSync occurs every 16.67 milliseconds,
+establishing a strict, recurring deadline for Chromium to produce and
+present a new frame.</p>
+<h3 id="capturing-the-hardware-signal">Capturing the Hardware
+Signal</h3>
+<p>Because Chromium runs across multiple platforms, it does not
+communicate directly with the display hardware. Instead, it relies on
+Operating System APIs to detect the VSync signal. Within Chromium's GPU
+process, a subsystem called the <code>Viz</code> (Visuals) service
+listens to platform-specific timing APIs to capture the exact moment the
+vertical blanking interval occurs:</p>
+<ul>
+<li><strong>Windows:</strong> Uses DirectX Graphics Infrastructure
+(DXGI) and Desktop Window Manager (DWM) APIs.</li>
+<li><strong>macOS:</strong> Uses <code>CVDisplayLink</code> or
+<code>CADisplayLink</code> APIs.</li>
+<li><strong>Android:</strong> Hooks into the operating system's
+<code>Choreographer</code> subsystem.</li>
+<li><strong>Linux:</strong> Queries the Direct Rendering Manager (DRM)
+and Kernel Mode Setting (KMS) subsystems.</li>
+</ul>
+<p>If an OS fails to provide a reliable hardware VSync signal, Chromium
+falls back to a synthetic software timer that approximates the refresh
+rate of the monitor.</p>
+<h3 id="the-beginframe-mechanism">The <code>BeginFrame</code>
+Mechanism</h3>
+<p>Once the <code>Viz</code> service captures the OS VSync signal, it
+translates that hardware interrupt into an internal Chromium heartbeat
+called a <code>BeginFrame</code>. This message contains critical timing
+metadata:</p>
+<ul>
+<li>The timestamp of the current VSync.</li>
+<li>The expected timestamp of the next VSync (the deadline).</li>
+<li>The interval duration between frames (e.g., 16.67ms for 60Hz, 8.33ms
+for 120Hz).</li>
+</ul>
+<p>The Display Compositor, which resides in the <code>Viz</code>
+process, acts as the central coordinator. To conserve CPU and GPU power,
+it does not broadcast <code>BeginFrame</code> messages continuously.
+Instead, processes must register as "observers" when they have active
+animations, scrolling, or pending visual updates. Once the updates are
+complete, the Display Compositor stops sending <code>BeginFrame</code>
+signals and allows the system to idle.</p>
+<h3 id="coordinating-the-renderer-process">Coordinating the Renderer
+Process</h3>
+<p>When a webpage requires visual updates, the sandboxed Renderer
+process requests and receives the <code>BeginFrame</code> signal via
+Mojo, Chromium's Inter-Process Communication (IPC) system. The signal
+arrives first at the Renderer's Compositor thread.</p>
+<ol type="1">
+<li><strong>The Compositor Thread:</strong> This thread handles
+high-priority, time-sensitive interactions like scrolling,
+pinch-to-zoom, and CSS animations that only affect transform or opacity
+properties. If the frame update only requires these operations, the
+Compositor thread processes the movement immediately without waking up
+the main thread.</li>
+<li><strong>The Blink Main Thread:</strong> If the webpage requires
+JavaScript execution, DOM manipulation, or complex CSS updates, the
+Compositor thread forwards a <code>BeginMainFrame</code> message to the
+Renderer's Main thread. Receiving this message triggers the execution of
+<code>requestAnimationFrame()</code> callbacks, followed by style
+calculations, layout (reflow), and paint recording.</li>
+</ol>
+<h3 id="frame-submission-and-presentation">Frame Submission and
+Presentation</h3>
+<p>To hit the VSync deadline, the Renderer must finalize its work before
+the current interval expires.</p>
+<p>Once the Main thread finishes its layout and paint steps, it pauses
+and "commits" the updated layer tree to the Compositor thread. The
+Compositor thread then breaks the page into smaller tiles, converts
+those tiles into bitmaps (rasterization) using the GPU, and packages the
+drawing instructions into a data structure called a
+<code>CompositorFrame</code>.</p>
+<p>This <code>CompositorFrame</code> is sent back over IPC to the
+Display Compositor in the <code>Viz</code> process. The Display
+Compositor aggregates the Renderer's frame with frames from other
+sources—such as the browser's own UI (tabs, address bar) and other
+iframes. Finally, <code>Viz</code> issues the low-level graphics API
+calls (via Vulkan, Metal, DirectX, or OpenGL) to draw the final image to
+the back buffer. It then instructs the GPU to swap the back buffer to
+the front buffer precisely during the monitor's vertical blanking
+interval.</p>
+<h3 id="handling-missed-deadlines">Handling Missed Deadlines</h3>
+<p>Websites frequently run heavy JavaScript that takes longer than
+16.67ms to execute, causing the Main thread to miss the VSync deadline.
+Chromium's split-thread architecture is specifically designed to
+mitigate this issue.</p>
+<p>Because the Compositor thread operates independently of the Main
+thread, it does not wait indefinitely for a slow
+<code>BeginMainFrame</code> to finish. If the deadline is approaching
+and the Main thread is still busy, the Compositor thread simply
+generates a <code>CompositorFrame</code> using the data from the
+<em>previous</em> frame, applying any new scroll offsets or
+compositor-driven animations. It submits this frame to <code>Viz</code>
+in time for the VSync interval. As a result, the user experiences smooth
+scrolling and animations even while the main content of the webpage is
+temporarily frozen or lagging behind.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-syncs-frame-timing-with-display-v-sync';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

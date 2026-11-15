@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Enforces HSTS Against Downgrade Attacks - chromium</title>
+    <meta name="description" content="This article explains the mechanisms the Chromium web browser uses to enforce HTTP Strict Transport Security (HSTS) and prevent protocol downgrade attacks. By leveraging dynamic policy caching, a hardcoded preload list, internal URL rewriting, and strict">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-enforces-hsts-against-downgrade-attacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Enforces HSTS Against Downgrade Attacks - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-enforces-hsts-against-downgrade-attacks" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the mechanisms the Chromium web browser uses to enforce HTTP Strict Transport Security (HSTS) and prevent protocol downgrade attacks. By leveraging dynamic policy caching, a hardcoded preload list, internal URL rewriting, and strict" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-enforces-hsts-against-downgrade-attacks">How
+Chromium Enforces HSTS Against Downgrade Attacks</h1>
+<p>This article explains the mechanisms the Chromium web browser uses to
+enforce HTTP Strict Transport Security (HSTS) and prevent protocol
+downgrade attacks. By leveraging dynamic policy caching, a hardcoded
+preload list, internal URL rewriting, and strict certificate validation,
+Chromium ensures that connections to secured websites remain encrypted.
+These defenses effectively neutralize man-in-the-middle (MitM) attempts
+to strip encryption and intercept sensitive user data.</p>
+<h3 id="the-threat-of-protocol-downgrade-attacks">The Threat of Protocol
+Downgrade Attacks</h3>
+<p>In a typical protocol downgrade attack, such as SSL stripping, an
+attacker intercepts a user's initial unencrypted HTTP request before the
+web server can redirect the browser to a secure HTTPS connection. The
+attacker then acts as a proxy, maintaining an encrypted connection with
+the server while communicating with the user's browser over unencrypted
+HTTP. Chromium’s implementation of HSTS stops this by ensuring the
+browser never sends an unencrypted HTTP request to a known secure host
+in the first place.</p>
+<h3 id="dynamic-hsts-policy-caching">Dynamic HSTS Policy Caching</h3>
+<p>Chromium relies on the <code>Strict-Transport-Security</code> HTTP
+response header to dynamically learn which websites require strict
+encryption. When a user connects to a website via HTTPS, Chromium
+inspects the server's response headers. If the HSTS header is present,
+Chromium records the domain in a local security database, provided the
+connection has no TLS/SSL errors.</p>
+<p>Chromium enforces two main directives from this header:</p>
+<ul>
+<li><strong>max-age:</strong> This tells Chromium how long, in seconds,
+to remember that the domain must only be accessed using HTTPS. Each time
+the browser sees the header, it refreshes this expiration timer.</li>
+<li><strong>includeSubDomains:</strong> When this optional flag is
+present, Chromium applies the HSTS policy to the root domain and all of
+its subdomains.</li>
+</ul>
+<p>For security reasons, Chromium completely ignores HSTS headers
+delivered over unencrypted HTTP or over HTTPS connections with invalid
+certificates. This prevents attackers from manipulating HSTS
+policies.</p>
+<h3 id="internal-url-rewriting-307-redirects">Internal URL Rewriting
+(307 Redirects)</h3>
+<p>Once a domain is logged in Chromium's local HSTS database, the
+browser modifies how its network stack handles requests to that host. If
+a user types an <code>http://</code> address into the omnibox, or clicks
+an insecure <code>http://</code> link pointing to an HSTS-enabled
+domain, Chromium intercepts the request.</p>
+<p>Before a single packet is sent over the local network, Chromium
+generates an internal <code>307 Internal Redirect</code>. This operation
+silently rewrites the URL from <code>http://</code> to
+<code>https://</code> inside the browser. Because the unencrypted
+request never leaves the user's device, an attacker on the network
+cannot intercept or downgrade the connection.</p>
+<h3 id="the-hsts-preload-list">The HSTS Preload List</h3>
+<p>Dynamic HSTS caching leaves one major vulnerability: the very first
+time a user visits a website, Chromium does not yet know the site uses
+HSTS. An attacker could exploit this initial HTTP connection before the
+browser receives the HSTS header.</p>
+<p>To solve this "first visit" problem, Chromium maintains the HSTS
+Preload List. Website administrators can submit their domains to this
+project. Chromium hardcodes this massive list of domains directly into
+the browser's source code and updates it with each new browser release.
+For any domain on the preload list, Chromium enforces HTTPS by default,
+even if the user has never visited the website before.</p>
+<h3 id="non-bypassable-certificate-errors">Non-Bypassable Certificate
+Errors</h3>
+<p>Protocol downgrade attacks often go hand-in-hand with active
+interception, where an attacker presents a fraudulent or self-signed TLS
+certificate to the user. On a standard website, Chromium displays a
+warning screen when it detects a certificate error, but it allows the
+user to click "Advanced" and proceed to the unsafe site anyway.</p>
+<p>When HSTS is active for a domain, Chromium strictly revokes the
+user's ability to bypass certificate warnings. If a certificate is
+expired, mismatched, or self-signed, Chromium blocks access to the site
+entirely and removes the option to proceed. This guarantees that users
+cannot accidentally expose themselves to an attacker who is attempting
+to spoof an HSTS-protected website.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-enforces-hsts-against-downgrade-attacks';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Sandboxing: Linux Namespaces and Seccomp-BPF - chromium</title>
+    <meta name="description" content="This article explores how the Chromium web browser utilizes Linux namespaces and seccomp-bpf filters to build a robust security sandbox for its renderer processes. Because renderer processes handle untrusted web content like HTML, CSS, and JavaScript, the">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-sandboxing-linux-namespaces-and-seccomp-bpf">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Sandboxing: Linux Namespaces and Seccomp-BPF - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-sandboxing-linux-namespaces-and-seccomp-bpf" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium web browser utilizes Linux namespaces and seccomp-bpf filters to build a robust security sandbox for its renderer processes. Because renderer processes handle untrusted web content like HTML, CSS, and JavaScript, the" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-sandboxing-linux-namespaces-and-seccomp-bpf">Chromium
+Sandboxing: Linux Namespaces and Seccomp-BPF</h1>
+<p>This article explores how the Chromium web browser utilizes Linux
+namespaces and seccomp-bpf filters to build a robust security sandbox
+for its renderer processes. Because renderer processes handle untrusted
+web content like HTML, CSS, and JavaScript, they are the primary targets
+for malicious exploits. To prevent a compromised renderer from harming
+the underlying operating system, Chromium implements a defense-in-depth
+strategy. It combines resource isolation provided by Linux namespaces
+with strict system call filtering via seccomp-bpf, effectively trapping
+malicious code in an isolated environment with minimal access to the
+Linux kernel.</p>
+<h2 id="the-role-of-the-renderer-process">The Role of the Renderer
+Process</h2>
+<p>In Chromium's multi-process architecture, the browser separates the
+main browser process from multiple renderer processes. Each tab or site
+typically gets its own renderer process. Because the renderer parses
+complex, untrusted code from the internet, Chromium assumes that a
+renderer process will eventually be compromised by an attacker. The goal
+of the sandbox is to ensure that a hijacked renderer cannot read user
+files, access the network directly, or alter the operating system.</p>
+<h2 id="layer-1-resource-isolation-with-linux-namespaces">Layer 1:
+Resource Isolation with Linux Namespaces</h2>
+<p>Linux namespaces act as the first major boundary in the Chromium
+sandbox. Namespaces wrap global system resources in an abstraction that
+makes it appear to the processes within the namespace that they have
+their own isolated instance of the global resource. Chromium uses
+several specific namespaces to strip the renderer of visibility and
+access to the host system:</p>
+<ul>
+<li><strong>User Namespaces:</strong> This allows the renderer to create
+other namespaces without needing root privileges. Inside the user
+namespace, the process has no privileges on the host system, preventing
+it from modifying system-level configurations.</li>
+<li><strong>Network Namespaces:</strong> Chromium places the renderer
+into an empty network namespace without any network interfaces, not even
+a loopback interface. This makes it impossible for the renderer to make
+direct network connections. All network requests must be proxied through
+the higher-privileged browser process via Inter-Process Communication
+(IPC).</li>
+<li><strong>PID (Process ID) Namespaces:</strong> This isolates the
+process ID number space. A sandboxed renderer cannot see or interact
+with other processes running on the host machine, preventing it from
+injecting code into other applications.</li>
+<li><strong>Mount Namespaces:</strong> Combined with
+<code>pivot_root</code> or <code>chroot</code>, mount namespaces give
+the renderer a completely empty or severely restricted view of the
+filesystem. The renderer cannot read or write to the user's hard
+drive.</li>
+</ul>
+<h2 id="layer-2-kernel-protection-with-seccomp-bpf">Layer 2: Kernel
+Protection with Seccomp-BPF</h2>
+<p>While namespaces effectively hide the filesystem, network, and other
+processes, the sandboxed renderer still shares the same Linux kernel as
+the rest of the operating system. The kernel has hundreds of system
+calls (syscalls), which are the programmatic way a process requests
+services from the kernel. If a vulnerability exists in an obscure
+syscall, an attacker could exploit it to escape the namespace sandbox
+and gain full control of the machine.</p>
+<p>To mitigate this risk, Chromium uses seccomp-bpf (Secure Computing
+Mode with Berkeley Packet Filter) as its second layer of defense.
+Seccomp-bpf acts as a firewall between the renderer process and the
+Linux kernel.</p>
+<p>Here is how seccomp-bpf secures the renderer:</p>
+<ul>
+<li><strong>Attack Surface Reduction:</strong> Chromium defines a strict
+policy that blocks the vast majority of Linux syscalls. Since the
+renderer already lacks filesystem and network access, it does not need
+syscalls like <code>open()</code>, <code>execve()</code>, or
+<code>socket()</code>. These are outright blocked.</li>
+<li><strong>Argument Inspection:</strong> Using BPF rules, the filter
+can inspect the arguments passed to a syscall. For example, a renderer
+needs the <code>mmap()</code> syscall to allocate memory, but
+seccomp-bpf can restrict how <code>mmap()</code> is used to ensure the
+process doesn't allocate executable memory arbitrarily.</li>
+<li><strong>Immediate Termination:</strong> If a compromised renderer
+attempts to execute a forbidden syscall, the seccomp-bpf filter
+intercepts the request before it reaches the core kernel logic.
+Chromium’s policy immediately triggers a <code>SIGSYS</code> signal,
+which crashes and terminates the compromised renderer process before any
+damage can occur.</li>
+</ul>
+<h2 id="how-they-work-together">How They Work Together</h2>
+<p>Linux namespaces and seccomp-bpf play complementary roles in
+Chromium's security architecture. Namespaces handle the high-level
+isolation by removing the renderer's ability to see the filesystem, the
+network, and other processes. Once the renderer is placed in this empty
+room, seccomp-bpf locks the doors by revoking the process's ability to
+communicate with the most dangerous parts of the Linux kernel. Together,
+they ensure that even if an attacker achieves remote code execution
+inside a browser tab, they are trapped in a powerless state.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-sandboxing-linux-namespaces-and-seccomp-bpf';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

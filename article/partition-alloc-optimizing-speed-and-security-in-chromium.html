@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PartitionAlloc: Optimizing Speed and Security in Chromium - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of PartitionAlloc, the custom memory allocator built for the Chromium web browser. It examines the fundamental architecture of the allocator, detailing how it maximizes memory allocation speed to improve over">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/partition-alloc-optimizing-speed-and-security-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="PartitionAlloc: Optimizing Speed and Security in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/partition-alloc-optimizing-speed-and-security-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of PartitionAlloc, the custom memory allocator built for the Chromium web browser. It examines the fundamental architecture of the allocator, detailing how it maximizes memory allocation speed to improve over" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="partitionalloc-optimizing-speed-and-security-in-chromium">PartitionAlloc:
+Optimizing Speed and Security in Chromium</h1>
+<p>This article provides a comprehensive overview of PartitionAlloc, the
+custom memory allocator built for the Chromium web browser. It examines
+the fundamental architecture of the allocator, detailing how it
+maximizes memory allocation speed to improve overall browser performance
+while simultaneously implementing strict security mechanisms to prevent
+heap exploitation vulnerabilities, such as buffer overflows and
+use-after-free attacks.</p>
+<h2 id="what-is-partitionalloc">What is PartitionAlloc?</h2>
+<p>PartitionAlloc is the default memory allocator used throughout the
+Chromium project, powering browsers like Google Chrome and Microsoft
+Edge. Originally designed solely for Blink, Chromium’s rendering engine,
+it was later expanded to handle nearly all memory allocations across the
+entire browser under an initiative known as
+"PartitionAlloc-Everywhere."</p>
+<p>In a web browser, millions of objects are created and destroyed every
+second. Standard operating system allocators often struggle to balance
+the extreme speed required for smooth web rendering with the intense
+security needed to process untrusted web content. PartitionAlloc solves
+this by dividing heap memory into entirely separate, isolated spaces
+called "partitions."</p>
+<h2 id="how-partitionalloc-optimizes-allocation-speed">How
+PartitionAlloc Optimizes Allocation Speed</h2>
+<p>PartitionAlloc is engineered to minimize latency and memory
+fragmentation through several key architectural decisions:</p>
+<ul>
+<li><strong>Size Bucketing:</strong> PartitionAlloc divides partitions
+into "buckets" of specific sizes. When Chromium requests memory for an
+object, the allocator rounds the request up to the nearest bucket size.
+Because buckets only hold objects of the exact same size, memory
+fragmentation is greatly reduced, and finding a free slot is
+instantaneous.</li>
+<li><strong>Free Lists:</strong> Each bucket maintains a linked list of
+available memory slots (a "free list"). Allocating memory is often as
+simple as popping the first available slot off the top of this list, and
+freeing memory just pushes the slot back onto the list.</li>
+<li><strong>Thread Caching:</strong> In a multi-threaded browser,
+waiting for locks to access global memory slows down performance.
+PartitionAlloc uses a thread-local cache. Most allocations and
+deallocations happen directly within a specific thread's local cache,
+completely avoiding lock contention with other threads.</li>
+<li><strong>Fast Paths:</strong> The most common allocation operations
+are heavily optimized and written to be "inlined" directly into the
+compiled code. This reduces the overhead of function calls and allows
+the CPU to execute allocations in just a few instructions.</li>
+</ul>
+<h2 id="how-partitionalloc-prevents-heap-exploitation">How
+PartitionAlloc Prevents Heap Exploitation</h2>
+<p>Web browsers are prime targets for attackers, and memory corruption
+bugs in C++ code are the most common attack vector. PartitionAlloc
+enforces strict rules at the memory level to break standard exploitation
+techniques.</p>
+<h3 id="1-strict-type-isolation">1. Strict Type Isolation</h3>
+<p>In traditional allocators, different types of data sit next to each
+other in memory. If an attacker triggers a buffer overflow in a raw data
+array, they can overwrite an adjacent system object and hijack control
+of the browser. PartitionAlloc prevents this by separating objects into
+different partitions based on their type and risk profile. For example,
+raw buffers, JavaScript strings, and Document Object Model (DOM) nodes
+live in completely separate memory spaces. An overflow in one partition
+cannot corrupt objects in another.</p>
+<h3 id="2-out-of-line-metadata">2. Out-of-Line Metadata</h3>
+<p>Many heap exploits work by overflowing a buffer to overwrite the
+allocator's metadata, which is usually stored right next to the
+allocated data. PartitionAlloc stores its metadata in a completely
+separate memory region, away from the user data. Furthermore, this
+metadata region is surrounded by inaccessible guard pages, making it
+impossible to corrupt via a linear overflow.</p>
+<h3 id="3-guard-pages">3. Guard Pages</h3>
+<p>PartitionAlloc organizes memory into 2MB chunks called "SuperPages."
+At the beginning and end of every SuperPage, and around specific
+partitions, the allocator places inaccessible "guard pages." If an
+attacker attempts a linear buffer overflow to read or write past the end
+of a partition, the program immediately hits a guard page and safely
+crashes the process before any malicious code can be executed.</p>
+<h3 id="4-randomization">4. Randomization</h3>
+<p>To exploit a memory bug, an attacker usually needs to know where
+specific objects are located in RAM. PartitionAlloc uses strong Address
+Space Layout Randomization (ASLR), scattering SuperPages randomly across
+the 64-bit address space. This makes guessing the location of target
+data statistically improbable.</p>
+<h3 id="5-use-after-free-uaf-mitigation">5. Use-After-Free (UAF)
+Mitigation</h3>
+<p>Use-After-Free bugs occur when the browser continues to use a pointer
+to an object after its memory has been freed and reassigned to a new,
+potentially malicious object. PartitionAlloc combats this by integrating
+with <strong>MiraclePtr</strong> (BackupRefPtr) and memory
+quarantines.</p>
+<p>When an object is freed, PartitionAlloc does not immediately make
+that memory available for reuse if a MiraclePtr is still pointing to it.
+Instead, it "poisons" the memory (fills it with dummy data) and places
+it into a quarantine. If the browser accidentally tries to use the
+dangling pointer, it only accesses the quarantined, poisoned memory,
+neutralizing the exploit and triggering a safe crash.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/partition-alloc-optimizing-speed-and-security-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

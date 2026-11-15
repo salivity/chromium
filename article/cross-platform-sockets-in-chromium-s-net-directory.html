@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross-Platform Sockets in Chromium&#39;s Net Directory - chromium</title>
+    <meta name="description" content="This article provides a quick overview of how the Chromium web browser structures its net directory to manage cross-platform socket operations. By examining the src/net/socket subdirectory, we will explore the architectural patterns Chromium uses to abstr">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/cross-platform-sockets-in-chromium-s-net-directory">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Cross-Platform Sockets in Chromium&#39;s Net Directory - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/cross-platform-sockets-in-chromium-s-net-directory" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a quick overview of how the Chromium web browser structures its net directory to manage cross-platform socket operations. By examining the src/net/socket subdirectory, we will explore the architectural patterns Chromium uses to abstr" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="cross-platform-sockets-in-chromiums-net-directory">Cross-Platform
+Sockets in Chromium's Net Directory</h1>
+<p>This article provides a quick overview of how the Chromium web
+browser structures its <code>net</code> directory to manage
+cross-platform socket operations. By examining the
+<code>src/net/socket</code> subdirectory, we will explore the
+architectural patterns Chromium uses to abstract low-level operating
+system networking APIs into a unified, asynchronous C++ interface. This
+structure allows higher-level web protocols to function seamlessly
+across Windows, macOS, Linux, Android, and iOS without platform-specific
+logic bleeding into the core networking stack.</p>
+<h2 id="the-netsocket-subdirectory">The <code>net/socket</code>
+Subdirectory</h2>
+<p>The core of Chromium's socket implementation resides in
+<code>src/net/socket/</code>. While the broader <code>src/net/</code>
+directory handles everything from DNS resolution (<code>net/dns</code>)
+to HTTP framing (<code>net/http</code>), the <code>socket</code>
+subdirectory is strictly responsible for data transport and connection
+management. It isolates OS-specific network calls behind abstract C++
+classes, ensuring the rest of the browser only interacts with
+standardized Chromium types.</p>
+<h2 id="core-abstraction-interfaces">Core Abstraction Interfaces</h2>
+<p>To provide a uniform API to the upper layers of the network stack,
+Chromium defines several foundational interfaces:</p>
+<ul>
+<li><strong><code>Socket</code>
+(<code>net/socket/socket.h</code>):</strong> The lowest-level base
+class. It defines the primary data transfer methods:
+<code>Read()</code>, <code>Write()</code>, and buffer size
+configurations.</li>
+<li><strong><code>StreamSocket</code>
+(<code>net/socket/stream_socket.h</code>):</strong> Inherits from
+<code>Socket</code> and adds connection-oriented methods such as
+<code>Connect()</code>, <code>Disconnect()</code>,
+<code>IsConnected()</code>, and <code>GetPeerAddress()</code>. This is
+the foundational interface for TCP and TLS connections.</li>
+<li><strong><code>DatagramSocket</code>
+(<code>net/socket/datagram_socket.h</code>):</strong> The base interface
+for connectionless protocols like UDP, which is heavily utilized by
+Chromium's QUIC (HTTP/3) implementation.</li>
+</ul>
+<h2 id="platform-specific-implementations">Platform-Specific
+Implementations</h2>
+<p>Instead of littering a single codebase with <code>#ifdef</code>
+preprocessor directives to handle different operating systems, Chromium
+separates platform logic into distinct files using a strict naming
+convention. The GN build system then compiles only the files relevant to
+the target OS.</p>
+<p>Socket implementations are split into two main camps within
+<code>src/net/socket/</code>:</p>
+<ul>
+<li><strong>POSIX (<code>_posix.h</code> and
+<code>_posix.cc</code>):</strong> Used for Linux, macOS, Android, and
+iOS. Files like <code>tcp_socket_posix.cc</code> and
+<code>udp_socket_posix.cc</code> interact directly with standard
+Berkeley sockets and non-blocking file descriptors.</li>
+<li><strong>Windows (<code>_win.h</code> and
+<code>_win.cc</code>):</strong> Used exclusively for Windows. Files like
+<code>tcp_socket_win.cc</code> and <code>udp_socket_win.cc</code>
+utilize Winsock2 APIs and Windows Overlapped I/O.</li>
+</ul>
+<p>Chromium unifies these diverging paths using a header file
+(<code>tcp_socket.h</code>) that defines <code>TCPSocket</code> as a
+type alias for either <code>TCPSocketPosix</code> or
+<code>TCPSocketWin</code> at compile time. Next,
+<code>TCPClientSocket</code> wraps <code>TCPSocket</code> and implements
+the <code>StreamSocket</code> interface. Higher-level components simply
+instantiate <code>TCPClientSocket</code> without knowing which OS
+implementation sits underneath.</p>
+<h2 id="asynchronous-io-integration">Asynchronous I/O Integration</h2>
+<p>Chromium's network stack is entirely non-blocking and runs on a
+single thread (the Network Service IO thread). Socket operations are
+never allowed to block this thread while waiting for network
+packets.</p>
+<ol type="1">
+<li><strong>Initiating I/O:</strong> When a consumer calls
+<code>Read()</code>, <code>Write()</code>, or <code>Connect()</code> on
+a socket, they must pass a
+<code>net::CompletionOnceCallback</code>.</li>
+<li><strong>Pending State:</strong> If the OS cannot complete the
+operation immediately, the socket method returns
+<code>net::ERR_IO_PENDING</code>.</li>
+<li><strong>OS Event Loops:</strong> Under the hood, the
+platform-specific socket class registers the pending operation with
+Chromium's <code>MessagePumpForIO</code>. This pump interfaces with the
+native OS event notification system: <code>epoll</code> on Linux and
+Android, <code>kqueue</code> on macOS and iOS, and I/O Completion Ports
+(IOCP) on Windows.</li>
+<li><strong>Execution:</strong> Once the OS kernel signals that the
+socket is ready for reading or writing, the message pump wakes up and
+executes the stored <code>CompletionOnceCallback</code>, passing the
+number of bytes transferred or an error code.</li>
+</ol>
+<h2 id="layered-sockets-tlsssl-and-proxies">Layered Sockets (TLS/SSL and
+Proxies)</h2>
+<p>Because <code>StreamSocket</code> is an abstract interface, Chromium
+uses the Decorator design pattern to layer protocols on top of one
+another.</p>
+<p>For example, <code>SSLClientSocketImpl</code> implements the
+<code>StreamSocket</code> interface, but it also takes an existing,
+already-connected <code>StreamSocket</code> (such as a
+<code>TCPClientSocket</code>) in its constructor. When the HTTP layer
+calls <code>Write()</code> on the SSL socket, the SSL socket encrypts
+the payload using BoringSSL and calls <code>Write()</code> on the
+underlying TCP socket. This architecture completely decouples encryption
+and proxy tunneling from the underlying OS-level socket mechanics.</p>
+<h2 id="socket-pooling-and-connection-management">Socket Pooling and
+Connection Management</h2>
+<p>Creating and destroying OS sockets is resource-intensive. To optimize
+performance, <code>src/net/socket/</code> includes a complex pooling
+system led by <code>ClientSocketPool</code> and
+<code>TransportClientSocketPool</code>.</p>
+<p>Higher-level protocols like HTTP do not create sockets directly.
+Instead, they request a connection from the pool using a
+<code>ClientSocketHandle</code>. The pool architecture handles several
+critical cross-platform tasks:</p>
+<ul>
+<li><strong>Connection Limits:</strong> Enforces rules on how many
+concurrent sockets can be open to a single host (typically six) and
+across the entire browser.</li>
+<li><strong>Connect Jobs:</strong> Uses <code>TransportConnectJob</code>
+to manage the connection lifecycle, including the "Happy Eyeballs"
+algorithm, which races IPv6 and IPv4 <code>TCPClientSocket</code>
+instances against each other to minimize connection latency.</li>
+<li><strong>Socket Reuse:</strong> Holds onto idle sockets after an HTTP
+request finishes, allowing subsequent requests to the same origin to
+immediately reuse the warm socket without repeating the TCP or TLS
+handshakes.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/cross-platform-sockets-in-chromium-s-net-directory';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

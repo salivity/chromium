@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Role of Hunspell in Chromium&#39;s Offline Spellchecker - chromium</title>
+    <meta name="description" content="This article explores how the open-source Hunspell library powers the offline, multi-language spellchecking system inside the Chromium web browser. It covers why Chromium integrates Hunspell, how the library handles complex rules across different language">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/the-role-of-hunspell-in-chromium-s-offline-spellchecker">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Role of Hunspell in Chromium&#39;s Offline Spellchecker - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/the-role-of-hunspell-in-chromium-s-offline-spellchecker" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the open-source Hunspell library powers the offline, multi-language spellchecking system inside the Chromium web browser. It covers why Chromium integrates Hunspell, how the library handles complex rules across different language" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-role-of-hunspell-in-chromiums-offline-spellchecker">The Role
+of Hunspell in Chromium's Offline Spellchecker</h1>
+<p>This article explores how the open-source Hunspell library powers the
+offline, multi-language spellchecking system inside the Chromium web
+browser. It covers why Chromium integrates Hunspell, how the library
+handles complex rules across different languages, the use of optimized
+binary dictionaries to save system memory, and how this local
+architecture protects user privacy.</p>
+<h3 id="what-is-hunspell">What is Hunspell?</h3>
+<p>Hunspell is an open-source spellchecker and morphological analyzer
+originally designed for the Hungarian language, which is known for its
+complex grammar and word structures. Because of its ability to handle
+intricate language rules, it has become the industry standard for
+open-source software. Chromium embeds the C++ Hunspell library directly
+into its codebase to serve as the default engine for local, offline
+spellchecking on Windows, Linux, and ChromeOS (while macOS and Android
+typically rely on their native operating system spellcheckers).</p>
+<h3 id="managing-multiple-languages-through-morphology">Managing
+Multiple Languages Through Morphology</h3>
+<p>A basic spellchecker compares a typed word against a massive list of
+known words. However, this approach fails in languages with rich
+morphology and word compounding, such as German, Turkish, or Finnish,
+where words are constantly combined or modified with prefixes and
+suffixes.</p>
+<p>Hunspell solves this by using two components for every language:</p>
+<ul>
+<li><strong>A Dictionary File (.dic):</strong> Contains only the root
+words of a language.</li>
+<li><strong>An Affix File (.aff):</strong> Contains the grammatical
+rules for how prefixes, suffixes, and compound words can be legally
+attached to those root words.</li>
+</ul>
+<p>By combining root words with affix rules on the fly, Hunspell allows
+Chromium to recognize millions of valid word variations across dozens of
+languages without needing to store every single word variation on the
+user's hard drive.</p>
+<h3 id="chromiums-bdic-optimization">Chromium’s BDIC Optimization</h3>
+<p>While standard Hunspell dictionaries are efficient, loading large
+text files into a web browser can still slow down performance and
+consume excessive RAM. To keep the browser fast, Chromium modifies how
+Hunspell reads data.</p>
+<p>Chromium compiles the standard Hunspell <code>.dic</code> and
+<code>.aff</code> files into a single, custom binary format called
+<code>.bdic</code> (Binary Dictionary). When you select a language in
+your browser settings, Chromium downloads the specific
+<code>.bdic</code> file for that language.</p>
+<p>This binary format is memory-mapped, meaning Chromium does not have
+to load the entire dictionary into the system's RAM. Instead, the
+browser reads the file directly from the disk as needed. Furthermore,
+because Chromium uses a multi-process architecture, memory-mapping
+allows multiple open tabs to share the exact same Hunspell dictionary
+data simultaneously without duplicating memory usage.</p>
+<h3 id="real-time-processing-and-privacy">Real-Time Processing and
+Privacy</h3>
+<p>When you type into a text box on a webpage, Chromium’s renderer
+process isolates each word and passes it to the embedded Hunspell
+engine. Hunspell checks the word against the local <code>.bdic</code>
+file and the user's custom dictionary (words the user has manually
+added).</p>
+<p>If Hunspell flags a word as incorrect, it triggers the browser to
+draw the familiar red squiggly line underneath the text. When the user
+right-clicks the misspelled word, Hunspell uses two algorithms to
+generate the replacement suggestions seen in the context menu:</p>
+<ul>
+<li><strong>N-gram similarity:</strong> Finds words that share similar
+letter sequences, fixing common typos and transposed letters.</li>
+<li><strong>Phonetic algorithms:</strong> Finds words that sound similar
+to the misspelled word, helping users who spell words the way they
+sound.</li>
+</ul>
+<p>Because Hunspell runs entirely within the local Chromium client using
+downloaded <code>.bdic</code> files, the entire spellchecking process
+works completely offline. This architecture ensures that sensitive
+information, such as passwords, private messages, and financial data
+typed into web forms, is spellchecked securely on the device without
+ever being sent to an external server.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/the-role-of-hunspell-in-chromium-s-offline-spellchecker';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

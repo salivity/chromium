@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the PGO Phase Argument in Chromium Builds - chromium</title>
+    <meta name="description" content="This article explains the purpose of the chromepgophase build argument used during the multi-stage production compilation of the Chromium web browser. It covers the fundamentals of Profile-Guided Optimization (PGO), how this specific build argument contro">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-the-pgo-phase-argument-in-chromium-builds">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the PGO Phase Argument in Chromium Builds - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-the-pgo-phase-argument-in-chromium-builds" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the purpose of the chromepgophase build argument used during the multi-stage production compilation of the Chromium web browser. It covers the fundamentals of Profile-Guided Optimization (PGO), how this specific build argument contro" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-the-pgo-phase-argument-in-chromium-builds">Understanding
+the PGO Phase Argument in Chromium Builds</h1>
+<p>This article explains the purpose of the
+<code>chrome_pgo_phase</code> build argument used during the multi-stage
+production compilation of the Chromium web browser. It covers the
+fundamentals of Profile-Guided Optimization (PGO), how this specific
+build argument controls the different stages of the compilation process,
+and why this multi-stage approach is essential for maximizing the final
+performance of the browser.</p>
+<h3 id="what-is-profile-guided-optimization-pgo">What is Profile-Guided
+Optimization (PGO)?</h3>
+<p>Profile-Guided Optimization (PGO) is a compiler technique used to
+increase the runtime performance of software. Normally, a compiler
+optimizes code based on static analysis—guessing how the software will
+run just by looking at the source code. With PGO, the compiler uses data
+recorded from actual executions of the software to make exact,
+data-driven optimization decisions.</p>
+<p>In the Chromium build system (GN), this multi-stage process is
+controlled directly by the <code>chrome_pgo_phase</code> argument.</p>
+<h3 id="the-purpose-of-the-chrome_pgo_phase-argument">The Purpose of the
+<code>chrome_pgo_phase</code> Argument</h3>
+<p>Because PGO requires running the program before the final version can
+be built, Chromium must be compiled twice for a single production
+release. The <code>chrome_pgo_phase</code> argument tells the Clang
+compiler which stage of this process it is currently executing.</p>
+<p>The argument accepts three specific integer values: <code>0</code>,
+<code>1</code>, and <code>2</code>.</p>
+<h4 id="phase-0-pgo-disabled-chrome_pgo_phase--0">Phase 0: PGO Disabled
+(<code>chrome_pgo_phase = 0</code>)</h4>
+<p>Setting the argument to <code>0</code> turns off Profile-Guided
+Optimization entirely. The compiler builds the browser in a single step
+using standard static optimizations. This is used primarily by
+developers for local testing and debugging, where fast compilation times
+are more important than maximum runtime speed.</p>
+<h4 id="phase-1-the-instrumentation-phase-chrome_pgo_phase--1">Phase 1:
+The Instrumentation Phase (<code>chrome_pgo_phase = 1</code>)</h4>
+<p>This is the first stage of a production build. Setting the argument
+to <code>1</code> instructs the compiler to produce an "instrumented"
+version of Chromium.</p>
+<ul>
+<li><strong>What the compiler does:</strong> It injects tracking
+counters into the browser's binary code to monitor execution paths and
+function calls.</li>
+<li><strong>How it is used:</strong> Once this slow, bulky version of
+Chromium is compiled, automated build servers run it through a series of
+benchmarks that simulate real-world user behaviors (like opening tabs,
+rendering complex web pages, and scrolling).</li>
+<li><strong>The output:</strong> As the browser runs these tests, it
+outputs raw performance logs (<code>.profraw</code> files). These logs
+are then merged using LLVM tools into a single profile data file
+(<code>.profdata</code>).</li>
+</ul>
+<h4 id="phase-2-the-optimization-phase-chrome_pgo_phase--2">Phase 2: The
+Optimization Phase (<code>chrome_pgo_phase = 2</code>)</h4>
+<p>This is the final stage of a production build. Setting the argument
+to <code>2</code> tells the compiler to strip out all tracking
+instrumentation and compile the final release binary using the data
+gathered in Phase 1.</p>
+<p>During this phase, the build system also utilizes the
+<code>pgo_data_path</code> argument to point the compiler to the
+<code>.profdata</code> file generated during the instrumentation phase.
+Note that if you are compiling a release build locally, Chromium's build
+tools will automatically download a pre-generated <code>.profdata</code>
+file from Google's servers so you can skip Phase 1 and jump straight to
+Phase 2.</p>
+<h3 id="how-phase-2-optimizes-the-browser">How Phase 2 Optimizes the
+Browser</h3>
+<p>By passing <code>chrome_pgo_phase = 2</code> along with the profile
+data, the compiler can see exactly how the browser behaves in the real
+world. It uses this data to perform several critical optimizations:</p>
+<ul>
+<li><strong>Function Inlining:</strong> Frequently called functions
+("hot" code) are copied directly into the places where they are called,
+eliminating the overhead of jumping to a different part of memory.</li>
+<li><strong>Code Layout and Cache Locality:</strong> Hot code paths are
+grouped closely together in the final binary, while rarely used
+functions ("cold" code, such as error handling) are pushed far away.
+This ensures the CPU's instruction cache is only filled with code that
+is actively needed.</li>
+<li><strong>Branch Prediction:</strong> If the profile data shows an
+<code>if/else</code> statement goes one way 99% of the time, the
+compiler rearranges the assembly code to favor that specific path,
+preventing CPU pipeline stalls.</li>
+<li><strong>Register Allocation:</strong> The compiler assigns the
+fastest CPU registers to the variables that are used most frequently
+during actual browsing sessions.</li>
+</ul>
+<p>Ultimately, the <code>chrome_pgo_phase</code> argument exists to
+orchestrate this two-step compilation dance, regularly resulting in a
+10% or greater increase in browser speed and efficiency compared to
+standard builds.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-the-pgo-phase-argument-in-chromium-builds';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

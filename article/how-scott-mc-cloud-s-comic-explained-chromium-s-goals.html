@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Scott McCloud&#39;s Comic Explained Chromium&#39;s Goals - chromium</title>
+    <meta name="description" content="In September 2008, Google introduced its open-source browser project, Chromium, and its consumer counterpart, Google Chrome, through a 38-page comic book drawn by famed cartoonist and comics theorist Scott McCloud. Rather than relying solely on a dense te">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-scott-mc-cloud-s-comic-explained-chromium-s-goals">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Scott McCloud&#39;s Comic Explained Chromium&#39;s Goals - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-scott-mc-cloud-s-comic-explained-chromium-s-goals" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In September 2008, Google introduced its open-source browser project, Chromium, and its consumer counterpart, Google Chrome, through a 38-page comic book drawn by famed cartoonist and comics theorist Scott McCloud. Rather than relying solely on a dense te" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-scott-mcclouds-comic-explained-chromiums-goals">How Scott
+McCloud's Comic Explained Chromium's Goals</h1>
+<p>In September 2008, Google introduced its open-source browser project,
+Chromium, and its consumer counterpart, Google Chrome, through a 38-page
+comic book drawn by famed cartoonist and comics theorist Scott McCloud.
+Rather than relying solely on a dense technical whitepaper, Google used
+McCloud’s visual storytelling to translate complex software architecture
+into easily digestible concepts. This article explores how the comic
+book clearly explained Chromium’s core engineering goals: stability
+through multi-process architecture, speed via the V8 JavaScript engine,
+security through sandboxing, rigorous automated testing, and a
+minimalist user interface built for modern web applications.</p>
+<h3 id="addressing-a-changed-web">Addressing a Changed Web</h3>
+<p>The comic begins by establishing the fundamental problem with
+existing web browsers of the era. Traditional browsers were engineered
+for an early internet consisting of static text pages and simple images.
+By 2008, however, the web had evolved into a platform for complex,
+dynamic applications like webmail, document editors, and video
+streaming.</p>
+<p>McCloud illustrated the browser engineers' realization that running
+modern web applications inside an outdated, single-process browser was
+like trying to run modern city traffic on a single-lane dirt road. To
+fix this, the Chromium team decided to build a browser that functioned
+less like a static document viewer and more like a modern operating
+system.</p>
+<h3 id="stability-the-multi-process-architecture">Stability: The
+Multi-Process Architecture</h3>
+<p>In older browsers, a single process handled everything—rendering the
+page, running scripts, and managing the user interface. If one poorly
+coded website froze or crashed, the entire browser locked up, destroying
+the user's session across all open tabs.</p>
+<p>McCloud explained Chromium’s solution by depicting each tab as an
+isolated, independent worker with its own dedicated memory and its own
+copy of the rendering engine. This multi-process architecture meant that
+if one web application crashed, it resulted in a localized failure—the
+now-famous "Sad Tab" icon—while the rest of the browser and other tabs
+continued running smoothly.</p>
+<p>Furthermore, McCloud visually demonstrated how this solved "memory
+bloat." In single-process browsers, closing a tab rarely returned all
+the used memory to the system, causing the browser to slow down over
+time. In Chromium, closing a tab completely terminated its dedicated
+process, instantly freeing up 100% of that tab's memory.</p>
+<h3 id="speed-the-v8-javascript-engine">Speed: The V8 JavaScript
+Engine</h3>
+<p>To run complex web applications, Chromium needed to process
+JavaScript much faster than existing browsers. McCloud introduced
+readers to the V8 team in Denmark, who built a brand-new JavaScript
+engine from scratch.</p>
+<p>Through straightforward diagrams, the comic broke down three highly
+technical computer science concepts that made V8 fast:</p>
+<ul>
+<li><strong>Hidden Class Transitions:</strong> JavaScript is dynamically
+typed, making it slow for computers to organize data. V8 secretly
+created hidden classes behind the scenes to group similar objects
+together, speeding up property access.</li>
+<li><strong>Machine Code Generation:</strong> Instead of interpreting
+JavaScript code line-by-line every time it ran, V8 compiled the
+JavaScript directly into native machine code that the computer's
+processor could execute instantly.</li>
+<li><strong>Precise Garbage Collection:</strong> V8 knew exactly where
+objects were stored in memory. When cleaning up unused data (garbage
+collection), it only had to pause execution for a few milliseconds,
+eliminating the frustrating stutters common in other browsers.</li>
+</ul>
+<h3 id="security-the-sandbox">Security: The Sandbox</h3>
+<p>Because each tab was already isolated in its own process for
+stability, the engineering team realized they could use this same
+separation to drastically improve security. McCloud illustrated this
+concept as a literal walled container—the "sandbox."</p>
+<p>The comic explained that the rendering engine inside each tab is the
+part of the browser most exposed to malicious code from the internet. To
+protect the user's computer, Chromium stripped the rendering engine of
+almost all its privileges. Inside the sandbox, a tab could compute data
+and draw pixels on the screen, but it was completely blocked from
+reading files on the hard drive, modifying the operating system, or
+spying on activity in other tabs. If a user downloaded a file, the
+action had to pass through the main browser kernel, which acted as a
+strict security guard overseeing the sandboxed tabs.</p>
+<h3 id="user-interface-driven-by-engineering">User Interface Driven by
+Engineering</h3>
+<p>McCloud also interviewed the user experience team to show how
+Chromium’s interface was a direct reflection of its underlying
+engineering. Because the goal was to support web applications, the
+browser itself needed to get out of the way and maximize screen real
+estate.</p>
+<p>The comic explained the iconic decision to place tabs at the very top
+of the window, above the address bar. In older browsers, tabs were
+placed below the address bar because they were merely different views
+within a single browser process. By putting tabs on top, Chromium
+visually communicated the engineering reality: each tab is an
+independent program with its own controls and address bar (the Omnibox),
+which combined search and navigation into a single streamlined
+input.</p>
+<h3 id="automated-testing-and-open-source">Automated Testing and Open
+Source</h3>
+<p>Finally, McCloud highlighted how the team ensured this complex new
+architecture wouldn't break existing websites. The comic depicted an
+automated testing system—a massive farm of virtual machines—that loaded
+millions of real-world web pages every time an engineer made a change to
+the Chromium codebase. This allowed the team to spot rendering bugs and
+crashes before the browser ever reached the public.</p>
+<p>The comic concluded by explaining the decision to make Chromium
+entirely open-source. By sharing their multi-process architecture, V8
+engine, and sandboxing techniques with the world, the engineers hoped
+other browser makers would adopt their ideas, ultimately making the
+entire web faster, safer, and more stable for everyone.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-scott-mc-cloud-s-comic-explained-chromium-s-goals';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

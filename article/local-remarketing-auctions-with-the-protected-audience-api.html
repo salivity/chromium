@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Remarketing Auctions with the Protected Audience API - chromium</title>
+    <meta name="description" content="This article explains how the Protected Audience API executes remarketing ad auctions directly inside the Chromium web browser. By shifting the auction mechanics from external servers to the user&#39;s local device, the API enables advertisers to re-engage we">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/local-remarketing-auctions-with-the-protected-audience-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Local Remarketing Auctions with the Protected Audience API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/local-remarketing-auctions-with-the-protected-audience-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Protected Audience API executes remarketing ad auctions directly inside the Chromium web browser. By shifting the auction mechanics from external servers to the user&#39;s local device, the API enables advertisers to re-engage we" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="local-remarketing-auctions-with-the-protected-audience-api">Local
+Remarketing Auctions with the Protected Audience API</h1>
+<p>This article explains how the Protected Audience API executes
+remarketing ad auctions directly inside the Chromium web browser. By
+shifting the auction mechanics from external servers to the user's local
+device, the API enables advertisers to re-engage website visitors
+without relying on cross-site tracking or third-party cookies. We will
+cover the complete lifecycle of a local auction, including interest
+group assignment, real-time data fetching, isolated JavaScript execution
+for bidding and scoring, and private ad rendering.</p>
+<h2 id="1-storing-interest-groups-locally">1. Storing Interest Groups
+Locally</h2>
+<p>The remarketing process begins when a user visits an advertiser's
+website. Instead of dropping a third-party cookie, the site—or its
+Demand-Side Platform (DSP)—instructs the Chromium browser to add the
+user to an "interest group" by calling the
+<code>navigator.joinAdInterestGroup()</code> JavaScript function.</p>
+<p>The browser stores this interest group in a local, on-device
+database. The stored data includes:</p>
+<ul>
+<li>The owner of the interest group (the buyer/DSP).</li>
+<li>A list of potential ads creative URLs.</li>
+<li>The URL for the bidding logic script.</li>
+<li>The URL for a trusted server to fetch real-time data later.</li>
+</ul>
+<p>This information remains strictly inside the browser and cannot be
+accessed by other websites. Users are automatically removed from the
+interest group after a maximum of 30 days unless it is renewed.</p>
+<h2 id="2-initiating-the-ad-auction">2. Initiating the Ad Auction</h2>
+<p>When the user later visits a publisher's website that sells ad space,
+the publisher's Supply-Side Platform (SSP) triggers the local auction by
+calling <code>navigator.runAdAuction()</code>.</p>
+<p>The SSP passes an auction configuration object into this function.
+This configuration tells the browser which buyers (DSPs) are allowed to
+participate, provides contextual signals (such as page topic or ad slot
+size), and supplies the URL for the seller's scoring script.</p>
+<h2 id="3-fetching-real-time-signals">3. Fetching Real-Time Signals</h2>
+<p>Before calculating bids, the browser needs current information, such
+as whether an ad campaign still has a budget. Chromium handles this by
+making secure requests to "Trusted Key/Value" servers defined by the
+buyers and the seller.</p>
+<p>These servers cannot log user-level data or correlate requests with
+individual profiles. They simply take a key (like an interest group
+name) and return a static value (like a remaining budget status or a
+system-wide bid multiplier) back to the browser.</p>
+<h2 id="4-executing-bidding-logic-in-isolated-worklets">4. Executing
+Bidding Logic in Isolated Worklets</h2>
+<p>Once the browser has the stored interest groups and real-time
+signals, it calculates the bids. To prevent data leakage, Chromium does
+not run this code in the main webpage environment. Instead, it spins up
+dedicated, sandboxed V8 JavaScript "worklets."</p>
+<p>These worklets have no access to the network, the page's DOM, or
+local storage. They can only process the specific inputs handed to them
+by the browser.</p>
+<p>For each matching interest group stored on the device, the browser
+executes the buyer's <code>generateBid()</code> function inside a
+bidding worklet. The function analyzes the interest group data, the
+contextual signals, and the real-time server signals to output three
+things: a numerical bid, the specific ad creative URL to display, and
+relevant metadata.</p>
+<h2 id="5-scoring-the-bids">5. Scoring the Bids</h2>
+<p>As the bidding worklets finish, Chromium passes the generated bids
+into a separate, isolated worklet controlled by the seller. Here, the
+browser runs the seller's <code>scoreAd()</code> function for each
+submitted bid.</p>
+<p>The <code>scoreAd()</code> function evaluates the financial bid
+alongside the seller's own rules and real-time signals (for example,
+checking if an ad creative meets the publisher's quality standards). The
+function returns a "desirability" score. A score of zero or less
+disqualifies the bid. The ad with the highest desirability score wins
+the auction.</p>
+<h2 id="6-rendering-the-winning-ad-in-a-fenced-frame">6. Rendering the
+Winning Ad in a Fenced Frame</h2>
+<p>To maintain privacy, the publisher's webpage cannot be allowed to see
+which ad won the auction, as that would reveal the user's browsing
+history.</p>
+<p>Instead of returning a raw URL, <code>navigator.runAdAuction()</code>
+returns an opaque object to the publisher's page. The page passes this
+object into a <code>&lt;fencedframe&gt;</code> HTML element. A Fenced
+Frame is a secure browsing context in Chromium that is visually embedded
+in the page but completely isolated from it. The surrounding publisher
+page cannot inspect the frame's URL, its contents, or communicate with
+it via JavaScript. The browser privately resolves the opaque object
+inside the Fenced Frame and renders the winning remarketing ad.</p>
+<h2 id="7-post-auction-reporting">7. Post-Auction Reporting</h2>
+<p>After the ad is rendered, the buyer and seller need to know the
+outcome for billing and analytics. Chromium re-opens the isolated
+worklets to run the seller's <code>reportResult()</code> and the winning
+buyer's <code>reportWin()</code> functions.</p>
+<p>These functions trigger the browser to send network pings
+(<code>sendReportTo()</code>) back to the DSP and SSP servers,
+confirming the transaction price and that the ad was successfully
+displayed. To protect user privacy over the long term, these event-level
+reports are temporary and are being transitioned to use the Private
+Aggregation API, which bundles auction results into noisy, encrypted
+summary reports.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/local-remarketing-auctions-with-the-protected-audience-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

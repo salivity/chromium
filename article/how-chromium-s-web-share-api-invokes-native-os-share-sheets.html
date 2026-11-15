@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Web Share API Invokes Native OS Share Sheets - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Web Share API in the Chromium browser bridges web applications with native operating system share dialogs. It covers the complete lifecycle of a share request, starting from the initial JavaScript invo">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-web-share-api-invokes-native-os-share-sheets">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Web Share API Invokes Native OS Share Sheets - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-web-share-api-invokes-native-os-share-sheets" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Web Share API in the Chromium browser bridges web applications with native operating system share dialogs. It covers the complete lifecycle of a share request, starting from the initial JavaScript invo" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-web-share-api-invokes-native-os-share-sheets">How
+Chromium's Web Share API Invokes Native OS Share Sheets</h1>
+<p>This article provides a technical overview of how the Web Share API
+in the Chromium browser bridges web applications with native operating
+system share dialogs. It covers the complete lifecycle of a share
+request, starting from the initial JavaScript invocation in the Blink
+rendering engine, moving through Chromium’s inter-process communication
+layer, and ending with the execution of platform-specific native APIs on
+Android, iOS, Windows, macOS, and ChromeOS.</p>
+<h3 id="1-the-blink-renderer-process-and-security-checks">1. The Blink
+Renderer Process and Security Checks</h3>
+<p>The process begins when a user interacts with a web page and triggers
+the <code>navigator.share()</code> JavaScript method. Because this
+happens within a web page, it is handled by Chromium's rendering engine,
+Blink, which runs inside a restricted, sandboxed Renderer process.</p>
+<p>Before Chromium attempts to contact the operating system, Blink
+performs strict validation:</p>
+<ul>
+<li><strong>HTTPS Requirement:</strong> The API only functions in secure
+contexts (HTTPS).</li>
+<li><strong>Transient Activation:</strong> Blink verifies that the call
+was triggered by a direct user gesture, such as a mouse click or screen
+tap, to prevent spam.</li>
+<li><strong>Data Validation:</strong> The payload (URL, text, title, or
+files) is checked for validity. If files are included, Blink verifies
+that the file types are on Chromium's allowlist of safe-to-share
+extensions.</li>
+</ul>
+<p>Once validated, Blink creates a JavaScript Promise that waits for the
+native OS to respond, and prepares to send the data out of the
+sandbox.</p>
+<h3 id="2-crossing-the-sandbox-via-mojo-ipc">2. Crossing the Sandbox via
+Mojo IPC</h3>
+<p>Because the Renderer process is sandboxed for security, it cannot
+directly invoke operating system APIs. To bypass this, Chromium uses
+Mojo, its inter-process communication (IPC) system.</p>
+<p>Blink packages the share data into a Mojo message and sends it across
+the IPC boundary to the privileged Browser process. Specifically, it
+communicates with the <code>blink.mojom.ShareService</code> interface.
+The Browser process receives this request via a C++ implementation
+called <code>ShareServiceImpl</code>, which acts as the central router
+for native OS integration.</p>
+<h3 id="3-invoking-mobile-share-sheets">3. Invoking Mobile Share
+Sheets</h3>
+<p>Once the Browser process has the share data, it hands the payload off
+to platform-specific code to trigger the mobile operating system's
+native UI.</p>
+<p><strong>Android</strong> On Android, Chromium's Browser process is
+written in C++, while the Android OS APIs require Java. Chromium bridges
+this gap using the Java Native Interface (JNI).</p>
+<ul>
+<li>The C++ <code>ShareServiceImpl</code> calls into Chromium's Java
+layer (<code>ShareDelegateImpl</code>).</li>
+<li>The Java code constructs a standard Android <code>Intent</code>
+using <code>Intent.ACTION_SEND</code> (or
+<code>Intent.ACTION_SEND_MULTIPLE</code> for multiple files).</li>
+<li>The text, URL, and file URIs are attached as extras to this
+Intent.</li>
+<li>Finally, Chromium calls <code>Intent.createChooser()</code>, which
+instructs the Android OS to display the native bottom-sheet share dialog
+over the browser.</li>
+</ul>
+<p><strong>iOS</strong> Although iOS requires browsers to use WebKit
+rather than Blink, Chromium on iOS still manages the UI layer and native
+bridges using Objective-C++.</p>
+<ul>
+<li>When a share is triggered, the Chromium iOS layer captures the
+payload and instantiates a native <code>UIActivityViewController</code>
+object.</li>
+<li>The shared items (URLs, strings, or file data) are passed into this
+controller's initialization array.</li>
+<li>Chromium then presents the <code>UIActivityViewController</code> on
+the current view controller, invoking the standard iOS share sheet.</li>
+</ul>
+<h3 id="4-invoking-desktop-share-sheets">4. Invoking Desktop Share
+Sheets</h3>
+<p>Desktop operating systems handle sharing differently than mobile
+platforms, requiring Chromium to hook into various modern desktop
+APIs.</p>
+<p><strong>Windows</strong> On Windows 10 and Windows 11, Chromium
+utilizes the Windows Runtime (WinRT) APIs.</p>
+<ul>
+<li>The Browser process accesses the <code>DataTransferManager</code>
+class via its C++/WinRT projection.</li>
+<li>Chromium binds the share operation to the specific browser window
+handle (HWND) using the <code>IDataTransferManagerInterop</code>
+interface.</li>
+<li>It registers an event handler for the <code>DataRequested</code>
+event, populates a <code>DataPackage</code> object with the web payload,
+and calls <code>ShowShareUIForWindow()</code>. This triggers the native
+Windows Share flyout.</li>
+</ul>
+<p><strong>macOS</strong> On macOS, Chromium uses Objective-C++ to
+interact with Apple's AppKit framework.</p>
+<ul>
+<li>The Browser process takes the share payload and converts the items
+into <code>NSString</code> or <code>NSURL</code> objects.</li>
+<li>Chromium instantiates an <code>NSSharingServicePicker</code> object,
+passing the converted data items into it.</li>
+<li>It then calls the
+<code>showRelativeToRect:ofView:preferredEdge:</code> method, which
+anchors and displays the native macOS share menu directly beneath the
+web page's share button or the browser's top toolbar.</li>
+</ul>
+<p><strong>ChromeOS</strong> On ChromeOS, the browser and the operating
+system are tightly integrated.</p>
+<ul>
+<li>When <code>ShareServiceImpl</code> receives the Mojo message, it
+routes the request directly to the Ash window manager's
+<code>SharesheetService</code>.</li>
+<li>ChromeOS builds a unified native share sheet that combines two types
+of targets: Android apps running in the ARC++ container (invoked via
+Android Intents) and installed Progressive Web Apps (PWAs) that have
+registered as Web Share Targets in their web app manifests.</li>
+</ul>
+<h3 id="5-resolving-the-javascript-promise">5. Resolving the JavaScript
+Promise</h3>
+<p>Regardless of the platform, the final step is the same. Once the user
+either selects a share target in the native OS sheet or dismisses the
+dialog, the operating system sends a callback to Chromium's Browser
+process. The Browser process sends a Mojo IPC message back to the Blink
+Renderer process, which then resolves the original JavaScript Promise
+(if the share succeeded) or rejects it with an <code>AbortError</code>
+(if the user canceled the action).</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-web-share-api-invokes-native-os-share-sheets';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Build Chromium&#39;s content_shell for Faster Testing - chromium</title>
+    <meta name="description" content="Compiling the entire Chromium web browser from source requires significant time and hardware resources, which can slow down development workflows. This article provides a straightforward guide on how developers can bypass building the full browser UI and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-to-build-chromium-s-content-shell-for-faster-testing">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Build Chromium&#39;s content_shell for Faster Testing - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-to-build-chromium-s-content-shell-for-faster-testing" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Compiling the entire Chromium web browser from source requires significant time and hardware resources, which can slow down development workflows. This article provides a straightforward guide on how developers can bypass building the full browser UI and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-build-chromiums-content_shell-for-faster-testing">How to
+Build Chromium's content_shell for Faster Testing</h1>
+<p>Compiling the entire Chromium web browser from source requires
+significant time and hardware resources, which can slow down development
+workflows. This article provides a straightforward guide on how
+developers can bypass building the full browser UI and instead compile
+only the <code>content_shell</code> target. By following the
+configuration, compilation, and execution steps outlined below, you can
+rapidly test and iterate on changes made to the Blink rendering engine
+and Chromium's core content module.</p>
+<h3 id="what-is-content_shell">What is content_shell?</h3>
+<p><code>content_shell</code> is a minimal browser interface that wraps
+Chromium’s <code>content</code> module. It includes the Blink rendering
+engine, the V8 JavaScript engine, and the multi-process sandboxed
+architecture, but strips away all full-browser features like extensions,
+sync, bookmarks, and the standard Chrome user interface. Because it
+contains thousands fewer files to compile and link, building
+<code>content_shell</code> is the fastest way to verify HTML, CSS,
+JavaScript, and rendering engine modifications.</p>
+<h3 id="step-1-navigate-to-the-source-directory">Step 1: Navigate to the
+Source Directory</h3>
+<p>Open your terminal and navigate to the <code>src</code> directory of
+your existing Chromium checkout. Ensure that your
+<code>depot_tools</code> are properly installed and exist in your
+system's <code>PATH</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /path/to/chromium/src</span></code></pre></div>
+<h3 id="step-2-configure-the-build-directory">Step 2: Configure the
+Build Directory</h3>
+<p>Before building the target, you need to generate a build directory
+using GN (Generate Ninja). To maximize build speed for local testing,
+configure your build arguments to use a component build with reduced
+debugging symbols.</p>
+<p>Run the following command to open the arguments editor for a build
+directory named <code>Default</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">gn</span> args out/Default</span></code></pre></div>
+<p>In the text editor that opens, add the following lines, then save and
+close the file:</p>
+<pre class="gn"><code>is_component_build = true
+is_debug = true
+symbol_level = 1
+enable_nacl = false
+blink_symbol_level = 0</code></pre>
+<ul>
+<li><code>is_component_build = true</code>: Splits the build into many
+small shared libraries rather than a few massive executables,
+drastically reducing link time after making small code changes.</li>
+<li><code>symbol_level = 1</code>: Provides enough information for stack
+traces without the massive overhead of full debugging symbols.</li>
+<li><code>blink_symbol_level = 0</code>: Removes debug symbols from
+Blink to speed up linking (set this to <code>1</code> or <code>2</code>
+only if you need to step through Blink code in a debugger).</li>
+</ul>
+<h3 id="step-3-build-the-content_shell-target">Step 3: Build the
+content_shell Target</h3>
+<p>Instead of building the <code>chrome</code> target, instruct
+<code>autoninja</code> to compile only <code>content_shell</code>.
+<code>autoninja</code> is a wrapper around Ninja that automatically
+chooses the optimal number of parallel jobs for your CPU.</p>
+<p>Run the following command:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">autoninja</span> <span class="at">-C</span> out/Default content_shell</span></code></pre></div>
+<p>When you modify files inside the rendering engine (such as inside
+<code>third_party/blink/</code>), re-running this exact command will
+only recompile the modified files and relink the necessary components,
+usually finishing in seconds or a few minutes.</p>
+<h3 id="step-4-run-content_shell-to-test-changes">Step 4: Run
+content_shell to Test Changes</h3>
+<p>Once the build completes, you can launch the minimal browser directly
+from the command line to test your rendering changes.</p>
+<p><strong>On Linux:</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./out/Default/content_shell</span></span></code></pre></div>
+<p><strong>On macOS:</strong></p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./out/Default/Content\ Shell.app/Contents/MacOS/Content\ Shell</span></span></code></pre></div>
+<p><strong>On Windows:</strong></p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cmd"><code class="sourceCode dosbat"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>out\Default\content_shell.exe</span></code></pre></div>
+<p>You can also pass a specific URL or a local HTML test file directly
+as an argument to immediately render your test case upon launch:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./out/Default/content_shell</span> /path/to/your/test.html</span></code></pre></div>
+<h3 id="step-5-running-automated-web-tests">Step 5: Running Automated
+Web Tests</h3>
+<p>If your rendering engine changes need to be verified against
+Chromium's automated layout and rendering test suite (Web Tests),
+<code>content_shell</code> is the exact binary used to run them. Once
+<code>content_shell</code> is built, you can run a specific web test
+using the <code>run_web_tests.py</code> script without needing to build
+anything else:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">third_party/blink/tools/run_web_tests.py</span> <span class="at">-t</span> Default fast/css/your-test-file.html</span></code></pre></div>
+<p>The <code>-t Default</code> flag instructs the test runner to use the
+<code>content_shell</code> binary located in your
+<code>out/Default</code> directory.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-to-build-chromium-s-content-shell-for-faster-testing';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

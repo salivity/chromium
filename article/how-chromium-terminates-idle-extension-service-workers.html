@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Terminates Idle Extension Service Workers - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser manages the lifecycle of Manifest V3 extension service workers, focusing specifically on how it terminates workers when asynchronous events remain idle. To optimize memory and CPU usage, Ch">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-terminates-idle-extension-service-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Terminates Idle Extension Service Workers - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-terminates-idle-extension-service-workers" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser manages the lifecycle of Manifest V3 extension service workers, focusing specifically on how it terminates workers when asynchronous events remain idle. To optimize memory and CPU usage, Ch" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-terminates-idle-extension-service-workers">How
+Chromium Terminates Idle Extension Service Workers</h1>
+<p>This article provides an overview of how the Chromium web browser
+manages the lifecycle of Manifest V3 extension service workers, focusing
+specifically on how it terminates workers when asynchronous events
+remain idle. To optimize memory and CPU usage, Chromium enforces strict
+timeout mechanisms—primarily a 30-second inactivity timer and a 5-minute
+single-request limit—that forcefully shut down service workers when
+asynchronous tasks stall or fail to resolve.</p>
+<h2 id="the-core-timeout-mechanisms">The Core Timeout Mechanisms</h2>
+<p>Chromium uses two main timers to govern extension service worker
+lifetimes and handle idle states:</p>
+<ul>
+<li><strong>The 30-Second Inactivity Timer:</strong> After an event is
+dispatched to the service worker, Chromium starts a 30-second countdown.
+If no new events occur and no recognized asynchronous operations are
+pending, the browser considers the worker idle and terminates it.</li>
+<li><strong>The 5-Minute Single-Request Timer:</strong> When an event
+triggers an asynchronous operation, Chromium pauses the 30-second
+termination timer to allow the task to finish. However, if that single
+asynchronous event remains pending (idle) for more than 5 minutes
+without resolving, Chromium assumes the task is stuck and forcefully
+terminates the service worker.</li>
+</ul>
+<h2 id="how-different-asynchronous-events-are-handled">How Different
+Asynchronous Events Are Handled</h2>
+<p>Not all asynchronous operations are treated equally by Chromium's
+lifecycle manager. How the browser handles an idle asynchronous event
+depends on how that event was initiated.</p>
+<h3 id="1-extension-api-calls">1. Extension API Calls</h3>
+<p>since Chromium 110, calling most asynchronous <code>chrome.*</code>
+APIs resets the 30-second inactivity timer. While the API call is
+actively waiting for a response (remaining idle in the background), the
+service worker is kept alive. If the API call hangs and fails to resolve
+within the 5-minute maximum limit, the worker is terminated.</p>
+<h3 id="2-standard-web-apis-and-unattached-promises">2. Standard Web
+APIs and Unattached Promises</h3>
+<p>Standard JavaScript asynchronous operations—such as
+<code>setTimeout</code>, <code>setInterval</code>, or a basic
+<code>Promise</code>—do not automatically keep a service worker alive.
+If a service worker initiates a <code>setTimeout</code> set for 45
+seconds and does nothing else, Chromium sees the worker as idle. The
+30-second inactivity timer will expire, and the worker will be
+terminated before the timeout completes.</p>
+<p>To keep the worker alive during a standard Promise, the Promise must
+be passed to the <code>event.waitUntil()</code> method inside a standard
+Service Worker event (like <code>install</code> or
+<code>activate</code>), which subjects it to the 5-minute limit instead
+of the 30-second limit.</p>
+<h3 id="3-fetch-requests">3. Fetch Requests</h3>
+<p>When a <code>fetch()</code> request is initiated, Chromium keeps the
+service worker alive while waiting for the network response. If the
+server hangs and the connection remains idle without closing, the
+5-minute single-request timer will eventually trigger and kill the
+worker.</p>
+<h3 id="4-long-lived-connections-ports-and-websockets">4. Long-Lived
+Connections (Ports and WebSockets)</h3>
+<p>Asynchronous communication channels like
+<code>chrome.runtime.connect</code> (messaging ports) and
+<code>WebSocket</code> connections have specific idle rules:</p>
+<ul>
+<li><strong>Messaging Ports:</strong> Opening a port keeps the service
+worker alive, provided messages are actively exchanged. In newer
+versions of Chromium, merely holding a port open without traffic will
+allow the 30-second idle timer to terminate the worker unless the port
+is connected to a native messaging host.</li>
+<li><strong>WebSockets:</strong> Active WebSocket connections reset the
+30-second timer whenever a message is sent or received. If the WebSocket
+remains completely idle for 30 seconds, the service worker is
+terminated, which automatically closes the socket.</li>
+</ul>
+<h2 id="consequences-of-termination">Consequences of Termination</h2>
+<p>When Chromium terminates a service worker due to an idle asynchronous
+event, the shutdown is immediate:</p>
+<ul>
+<li><strong>Aborted Operations:</strong> Any unresolved Promises,
+pending <code>fetch</code> requests, or active timers are instantly
+aborted without throwing catchable errors.</li>
+<li><strong>Memory Wipe:</strong> All global variables and in-memory
+states are destroyed.</li>
+<li><strong>Closed Connections:</strong> Any open messaging ports or
+network sockets are severed.</li>
+</ul>
+<p>To prevent data loss from sudden termination, extension developers
+must avoid relying on global variables during asynchronous workflows and
+instead persist state immediately using <code>chrome.storage</code> or
+IndexedDB.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-terminates-idle-extension-service-workers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

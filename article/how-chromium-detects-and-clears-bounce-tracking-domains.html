@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Detects and Clears Bounce Tracking Domains - chromium</title>
+    <meta name="description" content="This article provides a complete overview of how the Chromium web browser combats redirect-based tracking through its Bounce Tracking Mitigation feature. By monitoring navigation paths, verifying user interactions, and analyzing stateful data storage, Chr">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-detects-and-clears-bounce-tracking-domains">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Detects and Clears Bounce Tracking Domains - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-detects-and-clears-bounce-tracking-domains" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a complete overview of how the Chromium web browser combats redirect-based tracking through its Bounce Tracking Mitigation feature. By monitoring navigation paths, verifying user interactions, and analyzing stateful data storage, Chr" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-detects-and-clears-bounce-tracking-domains">How
+Chromium Detects and Clears Bounce Tracking Domains</h1>
+<p>This article provides a complete overview of how the Chromium web
+browser combats redirect-based tracking through its Bounce Tracking
+Mitigation feature. By monitoring navigation paths, verifying user
+interactions, and analyzing stateful data storage, Chromium identifies
+intermediary domains that attempt to bypass third-party cookie
+restrictions. Once these invisible trackers are detected, the browser
+automatically purges their stored data on a scheduled timer to protect
+user privacy without disrupting legitimate services like single sign-on
+authentication.</p>
+<h2 id="understanding-the-bounce-tracking-threat">Understanding the
+Bounce Tracking Threat</h2>
+<p>With the phase-out of third-party cookies, trackers frequently use
+"bounce tracking" as a workaround. When a user clicks a link to travel
+from Site A to Site B, they are momentarily redirected through an
+intermediary domain (Tracker C). Because the browser briefly visits
+Tracker C directly, Tracker C is temporarily treated as a first-party
+site. It quickly writes a tracking ID to the browser's storage and
+redirects the user to Site B within milliseconds.</p>
+<p>To stop this, Chromium implements Bounce Tracking
+Mitigation—internally known as DIPS (Detect Incidental Party
+State)—which isolates and erases data from domains that act purely as
+invisible conduits.</p>
+<h2 id="phase-1-how-chromium-detects-bounce-trackers">Phase 1: How
+Chromium Detects Bounce Trackers</h2>
+<p>Chromium does not rely on predefined blocklists to catch bounce
+trackers. Instead, it uses behavioral heuristics during a user's
+browsing session. A domain is flagged for mitigation if it meets three
+specific criteria during a navigation chain:</p>
+<h3 id="1-redirection-monitoring">1. Redirection Monitoring</h3>
+<p>Chromium tracks the entire lifecycle of a navigation event from the
+initiating site to the final destination. It records any intermediate
+domains that route the user onward via server-side redirects (such as
+HTTP 301 or 302 status codes) or client-side redirects (such as
+JavaScript <code>window.location</code> changes or meta-refresh tags)
+without waiting for user input.</p>
+<h3 id="2-stateful-storage-access">2. Stateful Storage Access</h3>
+<p>Not all redirects are malicious; URL shorteners and routing services
+redirect users harmlessly. Therefore, Chromium specifically looks for
+<em>stateful</em> bounces. During the brief moment the user is on the
+redirecting domain, Chromium monitors whether that domain writes to, or
+reads from, browser storage. This includes:</p>
+<ul>
+<li>HTTP Cookies</li>
+<li><code>localStorage</code> and <code>sessionStorage</code></li>
+<li>IndexedDB</li>
+<li>Service Worker caches</li>
+<li>WebSQL or FileSystem APIs</li>
+</ul>
+<p>If the domain accesses storage during the redirect, it is categorized
+as a stateful bounce.</p>
+<h3 id="3-absence-of-user-interaction">3. Absence of User
+Interaction</h3>
+<p>Legitimate services, such as OAuth login providers (e.g., "Sign in
+with Google") and payment gateways, also use stateful redirects. To
+avoid breaking these critical web functions, Chromium tracks meaningful
+user engagement.</p>
+<p>Whenever a user intentionally interacts with a website—by clicking,
+tapping, or pressing a key—Chromium records a timestamp for that domain.
+If a domain performs a stateful bounce, Chromium checks its interaction
+database. If the user has interacted with the bouncing domain within the
+past 45 days, the domain is deemed legitimate and exempted from
+mitigation. If there is no record of recent interaction, the domain is
+flagged as a bounce tracker.</p>
+<h2 id="phase-2-how-chromium-clears-the-storage">Phase 2: How Chromium
+Clears the Storage</h2>
+<p>Once a domain is flagged as a bounce tracker, Chromium does not
+delete its data instantaneously. Immediate deletion could break the
+ongoing navigation chain or allow the tracker to detect that it is being
+blocked. Instead, Chromium uses a delayed, batch-clearing mechanism.</p>
+<h3 id="the-grace-period-and-timer">The Grace Period and Timer</h3>
+<p>Chromium runs a background timer that fires periodically, typically
+once every hour. This creates a grace period after the bounce occurs.
+This delay ensures that any legitimate, short-term redirect processes
+can finish executing, while preventing the tracker from building a
+persistent, long-term profile of the user.</p>
+<h3 id="complete-site-data-wipe">Complete Site Data Wipe</h3>
+<p>When the periodic timer triggers, Chromium reviews the list of
+domains that performed a stateful bounce and still lack user
+interaction. For every domain on this list, the browser executes a
+comprehensive storage wipe.</p>
+<p>Chromium deletes all first-party data associated with the tracking
+domain, including cookies, local storage, cached files, and registered
+service workers. By completely resetting the domain's state, any unique
+identifiers written during the bounce are destroyed, rendering the
+tracking attempt useless the next time the user is bounced through that
+same domain.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-detects-and-clears-bounce-tracking-domains';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

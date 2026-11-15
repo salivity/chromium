@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Manages System Tray Icons and Background Apps - chromium</title>
+    <meta name="description" content="This article explores the internal mechanisms the Chromium web browser uses to remain active in the background after all visible browser windows are closed. It covers the core architectural components responsible for process persistence, including the Kee">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-manages-system-tray-icons-and-background-apps">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Manages System Tray Icons and Background Apps - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-manages-system-tray-icons-and-background-apps" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the internal mechanisms the Chromium web browser uses to remain active in the background after all visible browser windows are closed. It covers the core architectural components responsible for process persistence, including the Kee" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-manages-system-tray-icons-and-background-apps">How
+Chromium Manages System Tray Icons and Background Apps</h1>
+<p>This article explores the internal mechanisms the Chromium web
+browser uses to remain active in the background after all visible
+browser windows are closed. It covers the core architectural components
+responsible for process persistence, including the
+<code>KeepAlive</code> registry and the
+<code>BackgroundModeManager</code>. Additionally, it explains how web
+extensions trigger this background state and how Chromium interfaces
+with different operating systems to display and manage the system tray
+icon.</p>
+<h3 id="the-keepalive-architecture">The KeepAlive Architecture</h3>
+<p>By default, Chromium is designed to terminate its main browser
+process when the user closes the last open browser window. To override
+this behavior, Chromium relies on an internal system called the
+<code>KeepAliveRegistry</code>.</p>
+<p>The <code>KeepAliveRegistry</code> acts as a reference counter for
+the browser's lifecycle. Various browser subsystems can instantiate a
+<code>ScopedKeepAlive</code> object, which increments this counter. When
+the last browser window is closed, Chromium checks the
+<code>KeepAliveRegistry</code>. If the count is greater than zero, the
+browser halts its shutdown sequence and continues running silently in
+the background.</p>
+<h3 id="the-backgroundmodemanager">The BackgroundModeManager</h3>
+<p>The specific component responsible for keeping the browser alive for
+web apps and extensions is the <code>BackgroundModeManager</code>. This
+manager monitors the lifecycle of all installed extensions and web
+applications across user profiles.</p>
+<p>Background persistence is triggered through the following steps:</p>
+<ol type="1">
+<li>A user installs a Chromium extension or Progressive Web App (PWA)
+that explicitly requests the <code>"background"</code> permission in its
+<code>manifest.json</code> file.</li>
+<li>The <code>BackgroundModeManager</code> detects this permission
+during extension loading or browser startup.</li>
+<li>The manager requests a <code>ScopedKeepAlive</code> from the
+<code>KeepAliveRegistry</code> using the
+<code>KeepAliveOrigin::BACKGROUND_MODE_MANAGER</code> flag.</li>
+<li>Chromium launches a hidden background renderer process for the
+extension, allowing it to listen for events, fetch data, and trigger
+notifications without a visible UI.</li>
+</ol>
+<h3 id="rendering-the-system-tray-icon">Rendering the System Tray
+Icon</h3>
+<p>To ensure the user is aware that Chromium is still consuming system
+resources in the background, the <code>BackgroundModeManager</code>
+creates a system tray icon as soon as background mode is activated.</p>
+<p>Because operating systems handle system tray icons differently,
+Chromium uses an abstraction layer defined by the
+<code>StatusTray</code> and <code>StatusIcon</code> C++ classes. The
+browser translates these generic classes into native OS calls:</p>
+<ul>
+<li><strong>Windows:</strong> Chromium uses <code>StatusIconWin</code>,
+which interacts directly with the Win32 <code>Shell_NotifyIcon</code>
+API to place the Chromium logo in the Windows Notification Area.</li>
+<li><strong>Linux:</strong> Chromium utilizes
+<code>StatusIconLinuxWrapper</code>, which communicates via D-Bus using
+the <code>StatusNotifierItem</code> protocol (and formerly
+libappindicator) to display the icon in desktop environments like KDE
+and GNOME.</li>
+<li><strong>macOS:</strong> Chromium generally bypasses the
+<code>BackgroundModeManager</code> tray icon on macOS. Because macOS
+natively keeps applications running in the Dock after their last window
+is closed, a separate system tray mechanism is redundant.</li>
+</ul>
+<h3 id="context-menus-and-process-termination">Context Menus and Process
+Termination</h3>
+<p>When the system tray icon is initialized, Chromium attaches a
+<code>StatusIconMenuModel</code> to it. When a user clicks or
+right-clicks the tray icon, this model dynamically generates a native OS
+context menu. This menu displays a list of the specific extensions
+currently holding the browser open, a shortcut to the browser's internal
+Task Manager, and an option to toggle background mode off.</p>
+<p>The background process will persist until one of three events
+occurs:</p>
+<ul>
+<li><strong>User Termination:</strong> The user clicks "Exit" from the
+system tray icon's context menu. This forces the
+<code>BackgroundModeManager</code> to release its
+<code>ScopedKeepAlive</code> immediately, triggering a full browser
+shutdown.</li>
+<li><strong>Permission Revocation:</strong> The user uninstalls or
+disables all extensions that use the <code>"background"</code>
+permission. Once the last background extension is removed, the
+<code>BackgroundModeManager</code> removes the system tray icon and
+releases its <code>ScopedKeepAlive</code>.</li>
+<li><strong>Settings Override:</strong> The user navigates to
+<code>chrome://settings/system</code> and disables the "Continue running
+background apps when Chromium is closed" toggle. This writes a boolean
+flag (<code>kBackgroundModeEnabled</code>) to the local state
+preferences file, instructing the <code>BackgroundModeManager</code> to
+ignore <code>"background"</code> permissions entirely and release its
+hold on the browser process.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-manages-system-tray-icons-and-background-apps';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

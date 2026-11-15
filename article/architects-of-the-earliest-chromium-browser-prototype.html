@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architects of the Earliest Chromium Browser Prototype - chromium</title>
+    <meta name="description" content="This article identifies the core software engineers who architected the earliest prototype of the Chromium web browser at Google in 2006. Originally operating in secret to prove the viability of a Google-built browser, a small team of former Mozilla devel">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/architects-of-the-earliest-chromium-browser-prototype">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Architects of the Earliest Chromium Browser Prototype - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/architects-of-the-earliest-chromium-browser-prototype" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article identifies the core software engineers who architected the earliest prototype of the Chromium web browser at Google in 2006. Originally operating in secret to prove the viability of a Google-built browser, a small team of former Mozilla devel" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="architects-of-the-earliest-chromium-browser-prototype">Architects of
+the Earliest Chromium Browser Prototype</h1>
+<p>This article identifies the core software engineers who architected
+the earliest prototype of the Chromium web browser at Google in 2006.
+Originally operating in secret to prove the viability of a Google-built
+browser, a small team of former Mozilla developers and systems experts
+came together to solve the performance, security, and stability issues
+plaguing web browsers of the era. By introducing a multi-process
+architecture, adapting the WebKit rendering engine, and building a
+revolutionary JavaScript engine, engineers like Ben Goodger, Darin
+Fisher, Bret Wilson, and Lars Bak laid the technical foundation for the
+modern web.</p>
+<p><strong>Ben Goodger and Darin Fisher: Core Architecture and
+UI</strong> Hired away from the Mozilla Firefox project, Ben Goodger and
+Darin Fisher were the primary architects of the initial Chromium
+prototype, internally codenamed "Project Chrome."</p>
+<p>Fisher played a critical role in designing the browser's foundational
+multi-process architecture. At the time, browsers ran in a single
+process, meaning one misbehaving webpage could freeze or crash the
+entire application. Fisher engineered the Inter-Process Communication
+(IPC) system that allowed Chromium to isolate individual web tabs into
+separate processes, ensuring stability.</p>
+<p>Goodger led the user interface engineering and overall user
+experience. He architected the minimalist window frame, the draggable
+tab system that functioned independently of the main browser window, and
+the "Omnibox," which unified the URL address bar and the search bar into
+a single component.</p>
+<p><strong>Bret Wilson: Rendering Integration and Storage</strong> Bret
+Wilson was one of the first engineers to write code for the prototype
+alongside Fisher and Goodger. To get a working prototype running
+quickly, the team decided against building a layout engine from scratch,
+opting instead to use Apple's open-source WebKit engine. Wilson was
+heavily involved in porting and integrating WebKit to work seamlessly on
+Windows within Fisher's multi-process framework. Additionally, Wilson
+engineered Chromium’s SQLite-backed history system, which allowed users
+to perform instantaneous full-text searches of their previously visited
+web pages.</p>
+<p><strong>Carlos Pizano and Nicolas Sylvain: The Sandbox</strong> While
+multi-process architecture solved stability, it did not inherently solve
+security. Software engineers Carlos Pizano and Nicolas Sylvain were
+responsible for architecting Chromium's security "sandbox." They
+engineered a restrictive environment for the rendering processes. By
+stripping away OS-level privileges from the tabs, Pizano and Sylvain
+ensured that even if malicious code exploited a vulnerability in the
+WebKit rendering engine, it would remain trapped in the sandbox, unable
+to read or write data to the user's hard drive.</p>
+<p><strong>Lars Bak: The V8 JavaScript Engine</strong> As the Mountain
+View team built the browser shell and rendering pipeline, Google
+realized that existing JavaScript engines were too slow to run complex
+web applications like Gmail. Lars Bak, a veteran virtual machine
+engineer based in Aarhus, Denmark, was tapped to solve this problem.
+Working from his farmhouse in Denmark with a small team, Bak architected
+the V8 JavaScript engine. Instead of interpreting JavaScript
+line-by-line in real-time, Bak designed V8 to compile JavaScript
+directly into native machine code before execution. When Bak’s V8 engine
+was integrated into the early Chromium prototype, it delivered an
+unprecedented leap in web application performance.</p>
+<p><strong>Linus Upson: Technical Vision</strong> While not writing the
+day-to-day prototype code, Engineering Director Linus Upson was the
+driving technical force behind the scenes. He recruited the initial
+engineering talent and established the core architectural philosophy of
+the prototype: that a modern browser should not be built like a simple
+document viewer, but rather architected like a modern operating system,
+complete with task managers, memory isolation, and process
+scheduling.</p>
+<p>Together, this small group of engineers produced the initial working
+prototype that finally convinced Google's reluctant executive leadership
+to fully fund the open-source Chromium project.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/architects-of-the-earliest-chromium-browser-prototype';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

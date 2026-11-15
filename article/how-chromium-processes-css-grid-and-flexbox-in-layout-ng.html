@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Processes CSS Grid and Flexbox in LayoutNG - chromium</title>
+    <meta name="description" content="This article explores how the Chromium web browser calculates and renders CSS Grid and Flexbox layouts using its modern rendering engine, Blink, and its architectural upgrade, LayoutNG. It breaks down the core rendering pipeline, the creation of immutable">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-processes-css-grid-and-flexbox-in-layout-ng">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Processes CSS Grid and Flexbox in LayoutNG - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-processes-css-grid-and-flexbox-in-layout-ng" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Chromium web browser calculates and renders CSS Grid and Flexbox layouts using its modern rendering engine, Blink, and its architectural upgrade, LayoutNG. It breaks down the core rendering pipeline, the creation of immutable" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-processes-css-grid-and-flexbox-in-layoutng">How
+Chromium Processes CSS Grid and Flexbox in LayoutNG</h1>
+<p>This article explores how the Chromium web browser calculates and
+renders CSS Grid and Flexbox layouts using its modern rendering engine,
+Blink, and its architectural upgrade, LayoutNG. It breaks down the core
+rendering pipeline, the creation of immutable fragment trees, and the
+specific mathematical passes required to resolve flexible lengths and
+complex two-dimensional grid tracks efficiently.</p>
+<h3 id="the-layoutng-architecture">The LayoutNG Architecture</h3>
+<p>Chromium's Blink rendering engine relies on a layout architecture
+called LayoutNG (Next Generation Layout). Before calculating Flexbox or
+Grid specifics, Blink converts the Document Object Model (DOM) and
+computed CSS styles into an internal LayoutNG tree.</p>
+<p>LayoutNG operates on a strict functional pipeline:</p>
+<ol type="1">
+<li><strong>Input (<code>NGConstraintSpace</code>):</strong> The parent
+element passes down an immutable set of constraints, such as available
+width, height, and writing mode.</li>
+<li><strong>Execution:</strong> The specific layout algorithm (Flexbox
+or Grid) runs using these constraints.</li>
+<li><strong>Output (<code>NGPhysicalFragment</code>):</strong> The
+algorithm produces an immutable tree of fragments representing the final
+pixel sizes and physical coordinates of the elements.</li>
+</ol>
+<h3 id="the-flexbox-calculation-pipeline">The Flexbox Calculation
+Pipeline</h3>
+<p>When Chromium encounters a <code>display: flex</code> container, it
+invokes the <code>NGFlexLayoutAlgorithm</code>. Because Flexbox is
+one-dimensional, calculations focus on resolving one axis before the
+other in sequential phases.</p>
+<p><strong>1. Line Construction and Base Sizing</strong> The engine
+first determines the main axis (row or column). It iterates through each
+flex item to calculate its "flex base size" (derived from the
+<code>flex-basis</code> property or the item's intrinsic content size).
+It then clamps this value between the item's
+<code>min-width</code>/<code>min-height</code> and
+<code>max-width</code>/<code>max-height</code> to establish the
+"hypothetical main size." If <code>flex-wrap</code> is enabled, Chromium
+groups items into multiple flex lines whenever the cumulative
+hypothetical sizes exceed the container's
+<code>NGConstraintSpace</code>.</p>
+<p><strong>2. Resolving Flexible Lengths</strong> For each flex line,
+Chromium subtracts the sum of the items' hypothetical main sizes from
+the container's available space to find the remaining "free space."</p>
+<ul>
+<li><strong>Positive Free Space:</strong> The engine distributes the
+extra pixels among items based on their <code>flex-grow</code>
+factor.</li>
+<li><strong>Negative Free Space:</strong> If the items overflow the
+container, the engine calculates a "scaled flex shrink factor"
+(multiplying the item's <code>flex-shrink</code> value by its inner flex
+base size) and shrinks the items proportionally so they fit the
+container.</li>
+</ul>
+<p><strong>3. Cross-Axis Sizing</strong> With the main axis dimensions
+locked, Chromium performs a layout pass on the children to determine
+their cross-axis sizes (for example, calculating the height of items in
+a row-based flex container). If an item has
+<code>align-self: stretch</code>, its cross-axis size is forced to match
+the tallest item in that specific flex line.</p>
+<p><strong>4. Alignment and Fragment Generation</strong> Finally, the
+engine resolves alignment properties (<code>justify-content</code>,
+<code>align-items</code>, and <code>align-content</code>). It calculates
+the exact X and Y offsets for each item relative to the flex container
+and outputs the final <code>NGPhysicalFragment</code> for each
+child.</p>
+<h3 id="the-css-grid-calculation-pipeline">The CSS Grid Calculation
+Pipeline</h3>
+<p>CSS Grid (<code>display: grid</code>) is processed by the
+<code>NGGridLayoutAlgorithm</code> (often referred to as GridNG).
+Because Grid is two-dimensional, Chromium must calculate the structure
+of the grid container's tracks (rows and columns) before it can
+determine the final size of the grid items.</p>
+<p><strong>1. Grid Placement</strong> Chromium begins by building an
+internal representation of the grid matrix. It first places items that
+have explicit coordinates (defined via <code>grid-row</code> and
+<code>grid-column</code>). Next, it runs an auto-placement cursor
+through the matrix to slot remaining items into the next available empty
+cells, expanding the implicit grid tracks as necessary.</p>
+<p><strong>2. The Track Sizing Algorithm</strong> Resolving the pixel
+sizes of rows and columns is the most computationally intensive part of
+the Grid engine. Chromium processes columns first, then rows, using a
+four-step sub-algorithm:</p>
+<ul>
+<li><strong>Initialize Track Sizes:</strong> Fixed tracks (pixels,
+percentages) are resolved immediately to definite values. Intrinsic
+tracks (<code>min-content</code>, <code>max-content</code>,
+<code>auto</code>) have their base sizes initialized to zero and their
+growth limits set to infinity.</li>
+<li><strong>Resolve Intrinsic Track Sizes:</strong> Chromium measures
+the actual content of the grid items. It first resolves items that span
+only a single track, updating the track's base size to fit the item.
+Next, it evaluates items spanning multiple tracks, distributing the
+required extra space evenly across the spanned intrinsic tracks.</li>
+<li><strong>Maximize Tracks:</strong> If free space remains in the grid
+container, the engine expands the base sizes of the tracks up to their
+calculated growth limits.</li>
+<li><strong>Expand Flexible (<code>fr</code>) Tracks:</strong> Any
+leftover free space is divided by the sum of all <code>fr</code> units
+in that axis. Each <code>fr</code> track is then multiplied by this
+quotient to receive its final pixel allocation.</li>
+</ul>
+<p><strong>3. Item Layout and Alignment</strong> Once all column and row
+tracks have definite pixel dimensions, Chromium calculates the exact
+bounding box (Grid Area) for each item. The engine constructs a new
+<code>NGConstraintSpace</code> matching the exact dimensions of that
+Grid Area and passes it to the grid item. The item lays itself out
+within those bounds, and Chromium applies <code>justify-self</code> and
+<code>align-self</code> offsets before generating the final physical
+fragments.</p>
+<h3 id="performance-optimization-via-caching">Performance Optimization
+via Caching</h3>
+<p>Both Flexbox and Grid frequently require measuring child elements
+multiple times to figure out their <code>min-content</code> and
+<code>max-content</code> sizes before finalizing the layout. In legacy
+browser engines, nesting Flexbox or Grid containers caused exponential
+layout passes, resulting in severe slowdowns.</p>
+<p>Chromium mitigates this through LayoutNG's immutability. Whenever a
+flex or grid item is measured during an early sizing phase, Blink caches
+the resulting <code>NGLayoutResult</code> alongside the
+<code>NGConstraintSpace</code> that produced it. When the engine reaches
+the final layout pass, if the calculated constraints for that item have
+not changed, Chromium bypasses the layout algorithm for that child
+entirely and reuses the cached fragment. This architecture ensures that
+complex, deeply nested Grid and Flexbox layouts render at high frame
+rates.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-processes-css-grid-and-flexbox-in-layout-ng';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

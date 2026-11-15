@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenges of Rebasing Custom Patches on Chromium - chromium</title>
+    <meta name="description" content="Downstream browser vendors like Brave, Vivaldi, Microsoft Edge, and Opera rely on the open-source Chromium project as their foundation, but maintaining their unique features requires applying massive sets of custom code patches. Because the Chromium proje">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/challenges-of-rebasing-custom-patches-on-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Challenges of Rebasing Custom Patches on Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/challenges-of-rebasing-custom-patches-on-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Downstream browser vendors like Brave, Vivaldi, Microsoft Edge, and Opera rely on the open-source Chromium project as their foundation, but maintaining their unique features requires applying massive sets of custom code patches. Because the Chromium proje" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="challenges-of-rebasing-custom-patches-on-chromium">Challenges of
+Rebasing Custom Patches on Chromium</h1>
+<p>Downstream browser vendors like Brave, Vivaldi, Microsoft Edge, and
+Opera rely on the open-source Chromium project as their foundation, but
+maintaining their unique features requires applying massive sets of
+custom code patches. Because the Chromium project releases a new major
+version every four weeks, these vendors face a relentless cycle of
+rebasing their modifications onto a rapidly shifting codebase. This
+article explores the primary technical, operational, and security
+challenges browser makers confront during this continuous integration
+process, including code churn, architectural refactoring, stripping
+unwanted features, testing bottlenecks, and urgent security
+patching.</p>
+<h2 id="the-relentless-four-week-release-cycle">The Relentless Four-Week
+Release Cycle</h2>
+<p>Chromium operates on an aggressive four-week milestone schedule.
+Thousands of commits are merged into the upstream repository every
+single week by engineers at Google and other contributing organizations.
+For downstream vendors, this means the foundation of their product is
+constantly moving. Engineers do not wait four weeks to start their work;
+they must rebase continuously—often daily—just to keep up. If a vendor
+falls behind by even a single release cycle, the compounding differences
+in the code make catching up exponentially more difficult.</p>
+<h2 id="constant-merge-conflicts-and-code-churn">Constant Merge
+Conflicts and Code Churn</h2>
+<p>Chromium consists of over 30 million lines of code. To differentiate
+their browsers, downstream vendors maintain thousands of patch files or
+millions of lines of custom code that alter everything from the user
+interface to the underlying network stack.</p>
+<p>When upstream developers rename variables, alter function signatures,
+or move files, downstream patches fail to apply cleanly. Engineers must
+manually resolve these merge conflicts. Because the person resolving the
+conflict did not write the upstream change, they have to spend
+significant time reading commit logs to understand the new logic before
+they can safely adapt their custom patch.</p>
+<h2 id="deep-architectural-refactoring">Deep Architectural
+Refactoring</h2>
+<p>Simple merge conflicts are minor compared to large-scale
+architectural changes. Chromium frequently undergoes massive internal
+rewrites to improve performance, security, or maintainability. Examples
+include migrating core components to the Mojo inter-process
+communication (IPC) system, introducing Rust into the codebase, or
+overhauling the extension system with Manifest V3.</p>
+<p>When an upstream subsystem is completely rewritten, downstream
+patches that hooked into the old system become obsolete. Vendors cannot
+simply tweak their existing code; they have to re-architect and rewrite
+their custom features from scratch to fit the new upstream paradigm, all
+while the four-week clock is ticking.</p>
+<h2 id="untangling-and-stripping-google-services">Untangling and
+Stripping Google Services</h2>
+<p>Many Chromium-based browsers focus on privacy, which requires
+disabling or completely removing Google-specific integrations like
+telemetry, account syncing, and promotional services. However, Chromium
+is primarily built to serve Google Chrome, meaning these services are
+not modular plugins—they are deeply woven into the core source code.</p>
+<p>With every release, new Chromium features are built with the
+assumption that these Google services exist. Downstream vendors must
+constantly hunt down new telemetry hooks and API calls, neutralizing
+them without accidentally breaking the core functionality of the
+browser.</p>
+<h2 id="compilation-and-quality-assurance-bottlenecks">Compilation and
+Quality Assurance Bottlenecks</h2>
+<p>Chromium is notorious for requiring immense computational power and
+time to compile. Every time a batch of patches is rebased, the browser
+must be rebuilt and tested across multiple operating systems, including
+Windows, macOS, Linux, Android, and iOS.</p>
+<p>Even if the code compiles without errors, subtle logic bugs—known as
+regressions—frequently slip through. A slight change in how Chromium
+handles memory might cause a downstream vendor’s custom ad-blocker or
+tab-management feature to crash the browser. Identifying, isolating, and
+fixing these regressions requires massive automated testing
+infrastructure and rapid manual quality assurance before the release
+deadline.</p>
+<h2 id="zero-day-security-pressure">Zero-Day Security Pressure</h2>
+<p>The most critical reason downstream vendors must stay current with
+Chromium is security. When a zero-day vulnerability is discovered in the
+wild, upstream Chromium developers patch it quickly. Downstream vendors
+are then in a race against time to deliver that fix to their users.</p>
+<p>If a vendor's codebase is currently broken due to an ongoing, complex
+rebase of a new feature, they cannot delay the security update. They
+must maintain clean, stable branches for the current release while
+simultaneously working on the next milestone, often having to backport
+security fixes to their modified codebases within hours to protect their
+users from active exploits.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/challenges-of-rebasing-custom-patches-on-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

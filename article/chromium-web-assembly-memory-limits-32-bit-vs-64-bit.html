@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium WebAssembly Memory Limits: 32-Bit vs. 64-Bit - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser manages and restricts memory for single WebAssembly (Wasm) instances across 32-bit and 64-bit platforms. Through its V8 engine, Chromium enforces vastly different memory ceilings and alloca">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-web-assembly-memory-limits-32-bit-vs-64-bit">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium WebAssembly Memory Limits: 32-Bit vs. 64-Bit - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-web-assembly-memory-limits-32-bit-vs-64-bit" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser manages and restricts memory for single WebAssembly (Wasm) instances across 32-bit and 64-bit platforms. Through its V8 engine, Chromium enforces vastly different memory ceilings and alloca" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-webassembly-memory-limits-32-bit-vs-64-bit">Chromium
+WebAssembly Memory Limits: 32-Bit vs. 64-Bit</h1>
+<p>This article provides an overview of how the Chromium web browser
+manages and restricts memory for single WebAssembly (Wasm) instances
+across 32-bit and 64-bit platforms. Through its V8 engine, Chromium
+enforces vastly different memory ceilings and allocation strategies
+depending on the host architecture. While 64-bit platforms allow a
+single standard Wasm instance to utilize its full theoretical maximum of
+4GB using virtual memory tricks, 32-bit platforms are heavily
+constrained by address space fragmentation, limiting instances to a
+fraction of that size and requiring software-level memory checks.</p>
+<h2 id="the-role-of-the-v8-engine-and-linear-memory">The Role of the V8
+Engine and Linear Memory</h2>
+<p>Chromium executes WebAssembly using the V8 engine. Standard
+WebAssembly (often referred to as wasm32) relies on a contiguous,
+byte-addressable block of memory known as linear memory. Because it uses
+32-bit memory indexes, the theoretical maximum memory limit defined by
+the WebAssembly specification for a single standard instance is 4GB
+(<span class="math inline">\(2^{32}\)</span> bytes). However, how
+Chromium allocates and caps this memory depends entirely on whether the
+underlying operating system is 64-bit or 32-bit.</p>
+<h2 id="memory-management-on-64-bit-platforms">Memory Management on
+64-Bit Platforms</h2>
+<p>On 64-bit platforms, Chromium allows a single standard WebAssembly
+instance to reach the full 4GB maximum limit.</p>
+<p>Because 64-bit systems have a massive virtual address space
+(typically Terabytes in size), V8 uses an aggressive allocation strategy
+to optimize both security and performance:</p>
+<ul>
+<li><strong>Virtual Memory Reservation:</strong> When a Wasm instance is
+created on a 64-bit system, V8 immediately reserves 8GB of contiguous
+<em>virtual</em> address space, regardless of how much initial memory
+the Wasm module actually requests.</li>
+<li><strong>Guard Pages:</strong> Within this 8GB reservation, the first
+4GB is designated for the usable Wasm linear memory, and the remaining
+4GB acts as an inaccessible "guard region."</li>
+<li><strong>Hardware Bounds Checking:</strong> Because the 8GB space is
+guaranteed to contain any possible 32-bit offset calculation, V8 does
+not need to generate slow software code to check if a memory request is
+out of bounds. If the Wasm module tries to access memory beyond its
+current allocation, it hits the guard pages, triggering a hardware trap
+that V8 catches and handles safely.</li>
+<li><strong>Physical Memory Commitment:</strong> Reserving 8GB of
+virtual space does not use 8GB of physical RAM. Chromium only commits
+actual physical RAM in 64KB chunks (Wasm pages) as the application
+explicitly requests it.</li>
+</ul>
+<p>Additionally, for developers using the newer "Memory64" (wasm64)
+WebAssembly extension, 64-bit Chromium lifts the 4GB cap, currently
+allowing up to 16GB of memory for a single instance.</p>
+<h2 id="memory-management-on-32-bit-platforms">Memory Management on
+32-Bit Platforms</h2>
+<p>On 32-bit platforms, Chromium imposes strict limits, capping the
+maximum memory of a single WebAssembly instance to a hardcoded limit of
+1GB or 2GB depending on the specific OS configuration. In practice,
+however, instances usually fail well below 1GB.</p>
+<p>A 32-bit system only has a total of 4GB of virtual address space
+available for the entire operating system. Depending on the OS, a single
+Chromium renderer process is only given 2GB to 3GB of this space, which
+must be shared by the browser's own code, the JavaScript heap, the DOM,
+and WebAssembly. This creates severe limitations:</p>
+<ul>
+<li><strong>No Guard Pages:</strong> V8 cannot reserve 8GB of virtual
+memory when the entire system only supports 4GB. Therefore, the guard
+page optimization is completely disabled on 32-bit platforms.</li>
+<li><strong>Software Bounds Checking:</strong> Without guard pages, V8
+must insert explicit software bounds checks before every single
+WebAssembly memory read and write operation. This ensures the Wasm
+instance does not overwrite other parts of the browser's memory, though
+it results in slower execution speeds compared to 64-bit systems.</li>
+<li><strong>Exact Allocation:</strong> V8 only reserves the exact amount
+of virtual memory the Wasm module initially requests.</li>
+<li><strong>Fragmentation and Resizing Failures:</strong> Because
+WebAssembly requires its memory to be one single, unbroken (contiguous)
+block, growing memory on a 32-bit system is difficult. As the browser
+runs, the 2GB process space becomes fragmented. Even if a user has
+plenty of free physical RAM, a Wasm instance requesting 500MB of memory
+will crash with an Out-Of-Memory (OOM) error if Chromium cannot find an
+unbroken 500MB gap in the virtual address space.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-web-assembly-memory-limits-32-bit-vs-64-bit';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

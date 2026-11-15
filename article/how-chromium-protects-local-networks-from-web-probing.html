@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Protects Local Networks from Web Probing - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of the privacy and security protections implemented by the Chromium web browser to stop public websites from probing Local Area Network (LAN) IP addresses. By utilizing the Private Network Access (PNA) specif">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-protects-local-networks-from-web-probing">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Protects Local Networks from Web Probing - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-protects-local-networks-from-web-probing" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the privacy and security protections implemented by the Chromium web browser to stop public websites from probing Local Area Network (LAN) IP addresses. By utilizing the Private Network Access (PNA) specif" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-protects-local-networks-from-web-probing">How
+Chromium Protects Local Networks from Web Probing</h1>
+<p>This article provides a comprehensive overview of the privacy and
+security protections implemented by the Chromium web browser to stop
+public websites from probing Local Area Network (LAN) IP addresses. By
+utilizing the Private Network Access (PNA) specification, Chromium
+prevents malicious websites from scanning internal networks,
+fingerprinting local devices, and exploiting vulnerable routers or IoT
+hardware. Below is a direct breakdown of the specific technical
+mechanisms—including IP categorization, Secure Context mandates, and
+preflight headers—that Chromium uses to enforce these boundaries.</p>
+<h2 id="categorization-of-ip-address-spaces">Categorization of IP
+Address Spaces</h2>
+<p>To enforce network boundaries, Chromium categorizes all IP addresses
+into three distinct address spaces:</p>
+<ul>
+<li><strong>Public:</strong> Globally routable IP addresses accessible
+over the open internet.</li>
+<li><strong>Private:</strong> IP addresses reserved for local area
+networks (such as <code>192.168.x.x</code>, <code>10.x.x.x</code>, and
+<code>172.16.x.x</code> as defined in RFC 1918).</li>
+<li><strong>Local:</strong> Loopback addresses that refer to the user's
+own host machine (such as <code>127.0.0.1</code> or
+<code>::1</code>).</li>
+</ul>
+<p>Chromium considers the <code>local</code> space to be more private
+than the <code>private</code> space, and the <code>private</code> space
+to be more private than the <code>public</code> space. Private Network
+Access rules are triggered automatically whenever a website attempts to
+make a network request from a more public address space to a more
+private one.</p>
+<h2 id="mandatory-secure-contexts-https">Mandatory Secure Contexts
+(HTTPS)</h2>
+<p>Chromium requires that any public website attempting to communicate
+with a private network must be served over a Secure Context (HTTPS).</p>
+<p>If an insecure (HTTP) public website attempts to fetch a resource
+from a private LAN IP address, Chromium blocks the request immediately.
+This prevents attackers on the same network from intercepting traffic to
+inject scripts that probe the local network.</p>
+<h2 id="explicit-cors-preflight-handshakes">Explicit CORS Preflight
+Handshakes</h2>
+<p>Historically, websites could use simple HTML tags (like
+<code>&lt;img&gt;</code> or <code>&lt;script&gt;</code>) to blindly send
+requests to local IP addresses and measure response times to map out a
+user's home network. Chromium neutralizes this by enforcing Cross-Origin
+Resource Sharing (CORS) preflight requests for all private network
+requests, regardless of how the request is initiated.</p>
+<p>Before Chromium sends the actual request to the local device, it
+sends an <code>OPTIONS</code> preflight request containing a specific
+header:</p>
+<p><code>Access-Control-Request-Private-Network: true</code></p>
+<p>For the connection to succeed, the target device on the LAN must
+explicitly grant permission by responding with:</p>
+<p><code>Access-Control-Allow-Private-Network: true</code></p>
+<p>If the local device does not return this exact header, Chromium
+aborts the request andwithholds the response data from the public
+website. Because legacy routers and vulnerable IoT devices are not
+programmed to return this header, they are automatically protected from
+unauthorized web probing and Cross-Site Request Forgery (CSRF)
+attacks.</p>
+<h2 id="defense-against-dns-rebinding">Defense Against DNS
+Rebinding</h2>
+<p>Attackers often use DNS rebinding—where a public domain name is
+configured to resolve to a private IP address like
+<code>192.168.1.1</code>—to bypass same-origin policies.</p>
+<p>Chromium defeats this by evaluating the actual resolved IP address of
+the target server rather than trusting the domain name. Even if a
+website requests a resource from what appears to be a public domain,
+Chromium checks the resolved IP address right before establishing the
+connection. If that IP falls within the <code>private</code> or
+<code>local</code> address range, the PNA protections and preflight
+checks are strictly enforced.</p>
+<h2 id="timing-attack-mitigations">Timing Attack Mitigations</h2>
+<p>Websites can sometimes infer the existence of a device on a LAN
+simply by measuring how long it takes for a connection to fail or be
+rejected. Because the PNA preflight check happens at the browser level
+before any payload is sent, and because unauthorized requests are
+uniformally blocked before reaching the JavaScript execution context,
+the initiating website receives a generic network error. This reduces
+the accuracy of side-channel timing attacks used to scan local
+ports.</p>
+<h2 id="user-permission-prompts-for-local-devices">User Permission
+Prompts for Local Devices</h2>
+<p>A major challenge for local network security is that most LAN devices
+(like printers or smart home hubs) do not have valid TLS certificates,
+meaning they can only communicate over plain HTTP. When an HTTPS public
+website tries to connect to an HTTP local device, Chromium's "Mixed
+Content" blocker normally terminates the connection.</p>
+<p>To allow legitimate use cases while maintaining privacy against
+probing, Chromium implements a user-facing permission prompt. If a
+public HTTPS site requests access to an HTTP local device, it can
+explicitly opt into a permission flow.</p>
+<p>During the preflight handshake, the local device must return two
+additional headers to identify itself:</p>
+<ul>
+<li><code>Private-Network-Access-ID</code>: The MAC address or unique
+identifier of the device.</li>
+<li><code>Private-Network-Access-Name</code>: A human-readable name for
+the device.</li>
+</ul>
+<p>Chromium uses this information to display a prompt to the user,
+asking if they want to allow the public website to connect to that
+specific local device. The website cannot probe or interact with the
+local IP unless the user manually clicks "Allow."</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-protects-local-networks-from-web-probing';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

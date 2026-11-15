@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Speedometer Shapes Chromium&#39;s DOM and CSS Engines - chromium</title>
+    <meta name="description" content="The Speedometer benchmark plays a pivotal role in driving performance improvements within the Chromium web browser. By simulating real-world web application workloads using popular JavaScript frameworks, the benchmark exposes critical bottlenecks in the b">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-speedometer-shapes-chromium-s-dom-and-css-engines">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Speedometer Shapes Chromium&#39;s DOM and CSS Engines - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-speedometer-shapes-chromium-s-dom-and-css-engines" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Speedometer benchmark plays a pivotal role in driving performance improvements within the Chromium web browser. By simulating real-world web application workloads using popular JavaScript frameworks, the benchmark exposes critical bottlenecks in the b" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-speedometer-shapes-chromiums-dom-and-css-engines">How
+Speedometer Shapes Chromium's DOM and CSS Engines</h1>
+<p>The Speedometer benchmark plays a pivotal role in driving performance
+improvements within the Chromium web browser. By simulating real-world
+web application workloads using popular JavaScript frameworks, the
+benchmark exposes critical bottlenecks in the browser's Document Object
+Model (DOM) and Cascading Style Sheets (CSS) engines. This article
+explores how Chromium engineers use data from Speedometer to guide
+architectural optimizations in the Blink rendering engine, resulting in
+faster DOM manipulation, smarter CSS style recalculations, and seamless
+memory management between JavaScript and C++.</p>
+<h2 id="the-connection-between-speedometer-and-blink">The Connection
+Between Speedometer and Blink</h2>
+<p>Speedometer measures a browser's responsiveness by automating user
+interactions—such as adding, completing, and deleting items—across
+various implementations of a TodoMVC application. Because modern web
+frameworks like React, Angular, and Vue abstract direct DOM
+manipulation, they often generate massive bursts of DOM updates and CSS
+recalculations for a single user action.</p>
+<p>In Chromium, the Blink rendering engine is responsible for handling
+the DOM and CSS, while the V8 engine handles JavaScript. To score well
+on Speedometer, Chromium engineers cannot just optimize JavaScript
+execution; they must minimize the overhead of crossing the boundary
+between V8 and Blink, and make DOM and CSS operations as lightweight as
+possible.</p>
+<h2 id="architectural-optimizations-in-the-dom-engine">Architectural
+Optimizations in the DOM Engine</h2>
+<p>Speedometer's heavy reliance on dynamic UI updates has led to several
+targeted improvements in how Chromium constructs, modifies, and
+traverses the DOM tree.</p>
+<h3 id="bridging-the-v8-and-blink-boundary">Bridging the V8 and Blink
+Boundary</h3>
+<p>Every time a JavaScript framework modifies the DOM, execution crosses
+from the V8 JavaScript engine into the C++ Blink engine. Historically,
+this binding layer was a major bottleneck. Chromium engineers optimized
+this by introducing fast paths for common DOM APIs. Techniques like V8’s
+Fast API Calls allow simple DOM operations to be executed directly from
+JIT-compiled JavaScript without the heavy overhead of standard C++
+binding setups.</p>
+<h3 id="optimizing-node-creation-and-cloning">Optimizing Node Creation
+and Cloning</h3>
+<p>Frameworks frequently build UI components from templates. Speedometer
+highlighted the cost of repeatedly parsing HTML strings and creating
+individual DOM nodes. In response, Chromium heavily optimized the
+<code>innerHTML</code> parser and the <code>cloneNode()</code> method.
+By caching template structures and streamlining memory allocation for
+new nodes, Blink can rapidly stamp out complex DOM subtrees with minimal
+CPU cycles.</p>
+<h3 id="faster-dom-tree-traversal-and-event-dispatch">Faster DOM Tree
+Traversal and Event Dispatch</h3>
+<p>Many frameworks use event delegation, attaching a single event
+listener to a root element and relying on event bubbling to catch
+interactions deep within the DOM. Speedometer tests this constantly by
+simulating clicks and keystrokes. Chromium optimized the event dispatch
+path by flattening how event targets are resolved and minimizing the
+memory allocations required to propagate an event up the DOM tree.</p>
+<h3 id="unified-garbage-collection-with-oilpan">Unified Garbage
+Collection with Oilpan</h3>
+<p>Creating and deleting hundreds of Todo items in Speedometer generates
+immense garbage collection pressure. Chromium uses a garbage collector
+called Oilpan to manage C++ DOM memory. Engineers tightly integrated
+Oilpan with V8's garbage collector into a unified heap. This allows
+Chromium to trace references between JavaScript objects and DOM nodes
+simultaneously, preventing memory leaks and reducing pause times during
+rapid DOM mutations.</p>
+<h2 id="architectural-optimizations-in-the-css-engine">Architectural
+Optimizations in the CSS Engine</h2>
+<p>When the DOM changes in Speedometer, the browser must figure out how
+those changes affect the visual styling of the page. This has driven
+profound changes in Chromium’s CSS engine.</p>
+<h3 id="granular-style-invalidation">Granular Style Invalidation</h3>
+<p>When a user marks a task as "completed" in Speedometer, a framework
+typically toggles a CSS class on an element. In older browser
+architectures, changing a class on a parent element often forced the
+browser to recalculate styles for the entire document or a massive
+subtree.</p>
+<p>To solve this, Chromium refined its "Invalidation Sets." When a class
+or attribute changes, the CSS engine analyzes the exact selectors
+involved and marks only the specific descendant elements that are
+actually affected. This prevents thousands of unnecessary style
+recalculations during a single benchmark run.</p>
+<h3 id="style-sharing-and-caching">Style Sharing and Caching</h3>
+<p>List-heavy applications like those in Speedometer generate many
+identical sibling elements (e.g., a list of fifty uncompleted to-do
+items). Calculating the exact same CSS rules for each item individually
+is wasteful. Chromium utilizes a Matched Properties Cache and
+style-sharing optimizations. If the engine detects that an element has
+the same classes, attributes, and parent styles as a previously
+calculated sibling, it simply reuses the computed style object in memory
+rather than running the CSS cascade again.</p>
+<h3 id="selector-matching-efficiency">Selector Matching Efficiency</h3>
+<p>Framework-generated CSS often includes complex selectors, such as
+<code>:nth-child</code> or deeply nested combinators. Chromium optimizes
+selector matching by evaluating selectors from right to left and failing
+fast. For Speedometer, engineers introduced specialized fast paths for
+the most common selector types, utilizing bloom filters (Specifically,
+the <code>SelectorFilter</code>) to quickly rule out elements that do
+not match ancestor requirements during tree traversal.</p>
+<h3 id="layout-and-rendering-isolation">Layout and Rendering
+Isolation</h3>
+<p>While CSS calculation is separate from page layout, the two are
+tightly coupled. Speedometer penalizes browsers that perform "layout
+thrashing"—a state where JavaScript repeatedly reads and writes to the
+DOM, forcing the browser to recalculate styles and layouts
+synchronously. Chromium mitigated this by optimizing how dirty layout
+trees are tracked, ensuring that style recalculations are deferred as
+long as possible and batched together just before the screen paints.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-speedometer-shapes-chromium-s-dom-and-css-engines';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

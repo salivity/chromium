@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Implements Forced Colors Mode for Windows - chromium</title>
+    <meta name="description" content="This article explains the technical architecture behind Chromium’s implementation of Forced Colors Mode, a feature designed to seamlessly integrate Windows High Contrast themes into web content. It covers how the browser detects operating system accessibi">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-implements-forced-colors-mode-for-windows">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Implements Forced Colors Mode for Windows - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-implements-forced-colors-mode-for-windows" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the technical architecture behind Chromium’s implementation of Forced Colors Mode, a feature designed to seamlessly integrate Windows High Contrast themes into web content. It covers how the browser detects operating system accessibi" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-implements-forced-colors-mode-for-windows">How
+Chromium Implements Forced Colors Mode for Windows</h1>
+<p>This article explains the technical architecture behind Chromium’s
+implementation of Forced Colors Mode, a feature designed to seamlessly
+integrate Windows High Contrast themes into web content. It covers how
+the browser detects operating system accessibility settings, translates
+native Windows color palettes into standardized CSS system colors, and
+uses the Blink rendering engine to strip and override web author styles.
+Finally, it examines how Chromium maintains text readability over
+complex backgrounds and gives developers control over specific elements
+using modern CSS properties.</p>
+<h3 id="operating-system-detection">Operating System Detection</h3>
+<p>Chromium bridges the gap between the Windows operating system and web
+content through its native theme layer
+(<code>ui::NativeThemeWin</code>). The browser actively monitors Windows
+system events, specifically listening for the
+<code>WM_THEMECHANGED</code> and <code>WM_SYSCOLORCHANGE</code>
+messages.</p>
+<p>Using the Windows API function <code>SystemParametersInfo</code> with
+the <code>SPI_GETHIGHCONTRAST</code> flag, Chromium detects the exact
+moment a user enables a High Contrast theme. Once detected, the browser
+updates its internal state and notifies the Blink rendering engine to
+enable Forced Colors Mode and trigger the
+<code>@media (forced-colors: active)</code> media query.</p>
+<h3 id="mapping-windows-colors-to-css-system-colors">Mapping Windows
+Colors to CSS System Colors</h3>
+<p>When High Contrast is active, Chromium retrieves the specific color
+palette defined by the user in Windows settings using the
+<code>GetSysColor</code> API. To adhere to W3C web standards and
+maintain user privacy, Chromium does not expose raw Windows APIs
+directly to the web. Instead, it maps these OS-level colors to
+standardized CSS System Colors:</p>
+<ul>
+<li><strong>Windows <code>COLOR_WINDOW</code></strong> maps to CSS
+<code>Canvas</code> (backgrounds).</li>
+<li><strong>Windows <code>COLOR_WINDOWTEXT</code></strong> maps to CSS
+<code>CanvasText</code> (body text).</li>
+<li><strong>Windows <code>COLOR_HOTLIGHT</code></strong> maps to CSS
+<code>LinkText</code> (hyperlinks).</li>
+<li><strong>Windows <code>COLOR_GRAYTEXT</code></strong> maps to CSS
+<code>GrayText</code> (disabled elements).</li>
+<li><strong>Windows <code>COLOR_HIGHLIGHT</code> and
+<code>COLOR_HIGHLIGHTTEXT</code></strong> map to CSS
+<code>Highlight</code> and <code>HighlightText</code> (selected
+text).</li>
+<li><strong>Windows <code>COLOR_BTNTEXT</code> and
+<code>COLOR_BTNFACE</code></strong> map to CSS <code>ButtonText</code>
+and <code>ButtonFace</code> (UI controls).</li>
+</ul>
+<p>This mapping ensures that semantic HTML elements automatically
+receive the exact colors the user configured in their operating
+system.</p>
+<h3 id="style-resolution-and-overrides-in-blink">Style Resolution and
+Overrides in Blink</h3>
+<p>Once the color map is established, the Blink rendering engine alters
+how it resolves CSS. Rather than simply injecting a high-specificity
+stylesheet, Blink enforces Forced Colors Mode directly within its
+<code>StyleResolver</code> and <code>ElementRuleCollector</code>
+components during the CSS cascade phase.</p>
+<p>Chromium intercepts specific CSS properties defined by the website
+author and forces them to revert to the user agent's default values,
+which are dynamically bound to the CSS System Colors. The overridden
+properties include:</p>
+<ul>
+<li><code>color</code></li>
+<li><code>background-color</code></li>
+<li><code>border-color</code></li>
+<li><code>outline-color</code></li>
+<li><code>column-rule-color</code></li>
+<li><code>text-decoration-color</code></li>
+<li><code>webkit-tap-highlight-color</code></li>
+<li><code>fill</code> and <code>stroke</code> (in specific User Agent
+contexts)</li>
+</ul>
+<p>Additionally, to eliminate visual clutter that reduces contrast,
+Chromium forces <code>box-shadow</code> and <code>text-shadow</code> to
+<code>none</code>. It also removes author-defined
+<code>background-image</code> properties on certain interactive elements
+(like buttons and links) to ensure their boundaries and text remain
+clearly visible.</p>
+<h3 id="the-text-backplate-mechanism">The Text Backplate Mechanism</h3>
+<p>Because Forced Colors Mode does not strip
+<code>background-image</code> from standard <code>div</code> or
+<code>body</code> containers, text can still end up sitting on top of a
+complex image, making it unreadable.</p>
+<p>To solve this, Chromium implements a "backplate" in its painting
+phase. As the layout tree is painted, Chromium identifies paragraphs and
+clusters of text. It then draws a solid rectangle using the
+<code>Canvas</code> system color directly behind the text nodes, sitting
+on a layer between the text and any underlying images. This guarantees
+strict adherence to the user's contrast requirements without deleting
+informative background images from the webpage.</p>
+<h3 id="handling-developer-opt-outs">Handling Developer Opt-Outs</h3>
+<p>There are scenarios where forcing colors breaks the core
+functionality of the content, such as color swatches on an e-commerce
+site or syntax highlighting in a code editor. Chromium implements the
+<code>forced-color-adjust</code> CSS property to handle these
+exceptions.</p>
+<p>During style calculation, if Blink encounters
+<code>forced-color-adjust: none</code> on an element, it disables the
+Forced Colors cascade overrides for that specific element and its
+descendants, restoring the web author's original CSS. Chromium also
+automatically applies
+<code>forced-color-adjust: preserve-parent-color</code> to SVG elements
+by default. This ensures that vector icons inherit the high-contrast
+text color of their parent element without having their internal paths
+and multi-colored fills completely washed out by global overrides.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-implements-forced-colors-mode-for-windows';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

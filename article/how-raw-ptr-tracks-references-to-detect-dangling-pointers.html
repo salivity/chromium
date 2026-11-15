@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How RawPtr Tracks References to Detect Dangling Pointers - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser uses the RawPtr wrapper within its PartitionAlloc-Everywhere memory allocator to track reference counts and detect dangling pointers. By replacing standard C++ pointers with RawPtr (commonly implemented a">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-raw-ptr-tracks-references-to-detect-dangling-pointers">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How RawPtr Tracks References to Detect Dangling Pointers - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-raw-ptr-tracks-references-to-detect-dangling-pointers" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser uses the RawPtr wrapper within its PartitionAlloc-Everywhere memory allocator to track reference counts and detect dangling pointers. By replacing standard C++ pointers with RawPtr (commonly implemented a" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-rawptr-tracks-references-to-detect-dangling-pointers">How
+RawPtr Tracks References to Detect Dangling Pointers</h1>
+<p>This article explains how the Chromium web browser uses the
+<code>RawPtr</code> wrapper within its PartitionAlloc-Everywhere memory
+allocator to track reference counts and detect dangling pointers. By
+replacing standard C++ pointers with <code>RawPtr</code> (commonly
+implemented as <code>raw_ptr</code> or BackupRefPtr), Chromium embeds
+hidden reference counts into memory allocations. This mechanism allows
+the allocator to identify when freed memory is still being referenced,
+quarantine compromised memory blocks, and actively alert developers to
+Use-After-Free (UAF) bugs.</p>
+<h2
+id="partitionalloc-everywhere-and-the-rawptr-wrapper">PartitionAlloc-Everywhere
+and the RawPtr Wrapper</h2>
+<p>PartitionAlloc-Everywhere is Chromium's unified memory allocator,
+designed to handle all heap allocations across the browser for maximum
+performance and security. Because C++ does not natively prevent dangling
+pointers—pointers that still reference a memory address after the
+underlying object has been destroyed—Chromium introduced the
+<code>RawPtr</code> wrapper.</p>
+<p><code>RawPtr</code> acts as a drop-in replacement for standard C++
+raw pointers (<code>T*</code>). Unlike <code>std::shared_ptr</code>,
+which keeps an object alive until the last reference is gone,
+<code>RawPtr</code> does not manage the lifecycle of the object itself.
+Instead, it communicates with PartitionAlloc to track how many pointers
+are currently looking at a specific chunk of memory.</p>
+<h2 id="how-reference-counting-works-in-memory">How Reference Counting
+Works in Memory</h2>
+<p>PartitionAlloc organizes memory into structured regions called "super
+pages," which are further divided into "slot spans" that hold individual
+memory allocations. To support <code>RawPtr</code>, PartitionAlloc
+allocates a small amount of hidden metadata—specifically, a reference
+count—associated with every allocation slot.</p>
+<p>The tracking process follows strict rules during the lifecycle of a
+<code>RawPtr</code>:</p>
+<ol type="1">
+<li><strong>Construction and Assignment:</strong> Whenever a
+<code>RawPtr</code> is created to point to an object inside
+PartitionAlloc's memory space, or when a <code>RawPtr</code> is copied,
+it locates the metadata for that specific memory slot and increments the
+reference count by one.</li>
+<li><strong>Destruction and Reassignment:</strong> When a
+<code>RawPtr</code> goes out of scope, is destroyed, or is reassigned to
+point to a different address (or <code>nullptr</code>), it decrements
+the reference count for the original memory slot by one.</li>
+</ol>
+<p>Because PartitionAlloc controls the exact layout of the heap,
+<code>RawPtr</code> can calculate the location of the reference count
+using fast bitwise operations on the memory address itself, avoiding the
+need for slow hash table lookups.</p>
+<h2 id="intercepting-the-free-operation">Intercepting the Free
+Operation</h2>
+<p>The core of dangling pointer detection happens when the application
+attempts to delete an object. When <code>free()</code> or
+<code>delete</code> is called on a memory address, PartitionAlloc
+intercepts the request and checks the hidden reference count for that
+allocation slot before returning the memory to the system.</p>
+<h3 id="scenario-1-reference-count-is-zero">Scenario 1: Reference Count
+is Zero</h3>
+<p>If the reference count is zero, no <code>RawPtr</code> instances are
+pointing to the object. PartitionAlloc safely marks the memory slot as
+free, allowing it to be reused immediately for future allocations.</p>
+<h3 id="scenario-2-reference-count-is-greater-than-zero">Scenario 2:
+Reference Count is Greater Than Zero</h3>
+<p>If the reference count is one or more, it means the object is being
+destroyed while at least one <code>RawPtr</code> still points to it.
+That <code>RawPtr</code> has now officially become a dangling
+pointer.</p>
+<h2 id="memory-quarantine-and-poisoning">Memory Quarantine and
+Poisoning</h2>
+<p>In production builds of Chromium, detecting a reference count greater
+than zero during deallocation triggers a defensive mitigation
+process:</p>
+<ul>
+<li><strong>Memory Poisoning:</strong> PartitionAlloc immediately
+overwrites the freed memory slot with a specific pattern of "poison"
+bytes. If the dangling <code>RawPtr</code> attempts to dereference and
+use this memory later, the application will likely crash safely rather
+than allowing an attacker to execute arbitrary code.</li>
+<li><strong>Quarantine:</strong> PartitionAlloc places the memory slot
+into a quarantine state. It refuses to reallocate this memory address to
+any new objects.</li>
+</ul>
+<p>The memory remains in quarantine until the remaining
+<code>RawPtr</code> instances are eventually destroyed or reassigned.
+Once the last <code>RawPtr</code> decrements the reference count to
+zero, PartitionAlloc removes the memory slot from quarantine and makes
+it available for reuse.</p>
+<h2 id="active-detection-with-the-dangling-pointer-detector">Active
+Detection with the Dangling Pointer Detector</h2>
+<p>While quarantining prevents security exploits in production, Chromium
+also uses <code>RawPtr</code> reference counts to actively eradicate
+bugs during development via the Dangling Pointer Detector (DPD).</p>
+<p>In testing builds, PartitionAlloc reserves a specific bit in the
+reference count metadata to track whether the underlying object has been
+freed.</p>
+<ol type="1">
+<li>When an object is freed while its reference count is still greater
+than zero, PartitionAlloc does not immediately crash. Instead, it sets
+the "freed" bit in the metadata and records the stack trace of the
+<code>free()</code> operation.</li>
+<li>The application continues to run until the dangling
+<code>RawPtr</code> is finally destroyed or reset.</li>
+<li>When that <code>RawPtr</code> decrements the reference count, it
+checks the metadata and sees that the "freed" bit was already set.</li>
+<li>This triggers an immediate diagnostic crash, providing the developer
+with two vital pieces of information: the stack trace of where the
+memory was prematurely freed, and the stack trace of where the dangling
+pointer was finally released.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-raw-ptr-tracks-references-to-detect-dangling-pointers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

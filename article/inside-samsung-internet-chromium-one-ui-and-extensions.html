@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inside Samsung Internet: Chromium, One UI, and Extensions - chromium</title>
+    <meta name="description" content="This article explores the architecture of the Samsung Internet browser on Galaxy phones. It examines how Samsung utilizes the open-source Chromium engine for core web rendering while simultaneously integrating its proprietary One UI interface and a custom">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/inside-samsung-internet-chromium-one-ui-and-extensions">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inside Samsung Internet: Chromium, One UI, and Extensions - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/inside-samsung-internet-chromium-one-ui-and-extensions" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the architecture of the Samsung Internet browser on Galaxy phones. It examines how Samsung utilizes the open-source Chromium engine for core web rendering while simultaneously integrating its proprietary One UI interface and a custom" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inside-samsung-internet-chromium-one-ui-and-extensions">Inside
+Samsung Internet: Chromium, One UI, and Extensions</h1>
+<p>This article explores the architecture of the Samsung Internet
+browser on Galaxy phones. It examines how Samsung utilizes the
+open-source Chromium engine for core web rendering while simultaneously
+integrating its proprietary One UI interface and a custom API framework
+that allows third-party content blocker extensions to function
+seamlessly.</p>
+<h2 id="leveraging-the-chromium-engine">Leveraging the Chromium
+Engine</h2>
+<p>Samsung Internet is built on the open-source Chromium project, the
+same foundational code used by Google Chrome and Microsoft Edge. By
+using Chromium, Samsung inherits the Blink rendering engine and the V8
+JavaScript engine. This ensures that web pages load quickly, adhere to
+modern web standards, and receive regular upstream security patches.</p>
+<p>Instead of building and maintaining a web rendering engine from
+scratch, Samsung engineers fork the Chromium source code and optimize it
+specifically for the hardware architectures—such as Snapdragon and
+Exynos processors—found in Galaxy phones. This hardware-level
+optimization allows Samsung Internet to handle multi-threading, GPU
+acceleration, and memory management more efficiently on Galaxy devices
+than generic browsers.</p>
+<h2 id="applying-custom-one-ui-styling">Applying Custom One UI
+Styling</h2>
+<p>While Chromium handles the invisible work of processing HTML, CSS,
+and JavaScript, Samsung completely strips away the default Chromium user
+interface. In its place, Samsung layers its proprietary One UI design
+framework.</p>
+<p>One UI is engineered for one-handed usability on large smartphones.
+Samsung achieves this in the browser by decoupling the UI layer from the
+Chromium core, allowing them to relocate the address bar, tab manager,
+and navigation controls to the bottom of the screen. Furthermore, the
+One UI layer hooks directly into the Chromium rendering pipeline to
+offer custom visual features. For example, when a Galaxy phone is set to
+Dark Mode, Samsung Internet intercepts the webpage's CSS before it is
+displayed, dynamically inverting light backgrounds and adjusting image
+contrast to match the system-wide aesthetic.</p>
+<h2 id="enabling-content-blocker-extensions">Enabling Content Blocker
+Extensions</h2>
+<p>The mobile version of Google Chrome does not support extensions,
+despite being built on Chromium. Samsung overcomes this limitation on
+Galaxy phones by building a custom Content Blocker API directly into its
+modified Chromium network stack.</p>
+<p>Rather than running desktop-style extensions that consume heavy
+system resources and drain the battery, Samsung's implementation relies
+on a filter-list model. Users download approved content blocker
+applications from the Galaxy Store or Google Play Store. These apps do
+not actively monitor traffic themselves; instead, they pass a compiled
+list of blocking rules (such as URLs of known ad servers and tracking
+scripts) to Samsung Internet via the Content Blocker API.</p>
+<p>When a user requests a webpage, Samsung Internet's Chromium engine
+cross-references every network request against these imported filter
+lists. If a request matches a blocked rule, the browser cancels the
+connection before the data is downloaded. This approach keeps the
+browser fast, protects user privacy, and reduces mobile data consumption
+without compromising the stability of the underlying Chromium
+engine.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/inside-samsung-internet-chromium-one-ui-and-extensions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

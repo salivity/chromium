@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Android Chromium Uses Intent URLs to Launch Native Apps - chromium</title>
+    <meta name="description" content="This article explains the mechanics of how the Chromium web browser on Android processes intent:// URLs to transition users from a web page into a native mobile application. It covers the structure of an intent URL, how Chromium intercepts and parses thes">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-android-chromium-uses-intent-ur-ls-to-launch-native-apps">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Android Chromium Uses Intent URLs to Launch Native Apps - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-android-chromium-uses-intent-ur-ls-to-launch-native-apps" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the mechanics of how the Chromium web browser on Android processes intent:// URLs to transition users from a web page into a native mobile application. It covers the structure of an intent URL, how Chromium intercepts and parses thes" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-android-chromium-uses-intent-urls-to-launch-native-apps">How
+Android Chromium Uses Intent URLs to Launch Native Apps</h1>
+<p>This article explains the mechanics of how the Chromium web browser
+on Android processes <code>intent://</code> URLs to transition users
+from a web page into a native mobile application. It covers the
+structure of an intent URL, how Chromium intercepts and parses these
+links, the security policies enforced during navigation, and the
+fallback mechanisms used when a target application is not installed on
+the device.</p>
+<h2 id="the-anatomy-of-an-intent-url">The Anatomy of an Intent URL</h2>
+<p>Traditional custom URL schemes (such as <code>myapp://path</code>)
+fail with a broken page error if the target application is not installed
+on the user's device. To solve this, Chromium on Android supports the
+<code>intent:</code> scheme, which maps a web link directly to an
+Android <code>Intent</code> object.</p>
+<p>A standard Android intent URL follows this structure:</p>
+<pre class="text"><code>intent://host/path#Intent;scheme=custom_scheme;package=com.example.app;S.browser_fallback_url=https%3A%2F%2Fexample.com;end</code></pre>
+<ul>
+<li><strong><code>intent://host/path</code></strong>: The base URI data
+passed to the application.</li>
+<li><strong><code>scheme</code></strong>: The custom scheme the target
+app listens for in its manifest.</li>
+<li><strong><code>package</code></strong>: The exact Android package
+name of the target application.</li>
+<li><strong><code>S.browser_fallback_url</code></strong>: An URL-encoded
+web address to load if the app is missing.</li>
+<li><strong><code>end</code></strong>: Signifies the end of the intent
+parameters.</li>
+</ul>
+<h2 id="link-interception-and-security-checks">Link Interception and
+Security Checks</h2>
+<p>When a user clicks an <code>intent://</code> link, Chromium does not
+make a network request. Instead, the navigation is intercepted by
+Chromium's internal <code>ExternalNavigationHandler</code> class. Before
+handing the request over to the Android operating system, Chromium
+enforces several strict security policies:</p>
+<ul>
+<li><strong>User Gesture Requirement:</strong> The navigation must be
+initiated by a direct user action, such as tapping a link. If a webpage
+attempts to trigger an <code>intent://</code> URL automatically via
+JavaScript on page load, Chromium blocks the navigation to prevent
+malicious redirects.</li>
+<li><strong>Browsable Category Enforcement:</strong> Chromium
+automatically attaches the
+<code>android.intent.category.BROWSABLE</code> category to the intent.
+The target Android application must explicitly declare this category in
+its <code>AndroidManifest.xml</code> file, proving it is safe to be
+launched from a web browser.</li>
+<li><strong>Component Stripping:</strong> To prevent websites from
+accessing private, unexported activities inside an app, Chromium strips
+any explicit component or class names defined in the intent string.</li>
+</ul>
+<h2 id="parsing-and-querying-the-os">Parsing and Querying the OS</h2>
+<p>Once the security checks pass, Chromium converts the raw URL string
+into a native Android <code>Intent</code> object by calling the Android
+system method
+<code>Intent.parseUri(url, Intent.URI_INTENT_SCHEME)</code>.</p>
+<p>Chromium then passes this <code>Intent</code> object to the Android
+<code>PackageManager</code> using <code>queryIntentActivities()</code>.
+This asks the operating system for a list of installed applications
+capable of handling the specific combination of scheme, host, path, and
+package name defined in the link.</p>
+<h2 id="execution-and-fallback-handling">Execution and Fallback
+Handling</h2>
+<p>Based on the response from the Android <code>PackageManager</code>,
+Chromium executes one of three outcomes:</p>
+<ol type="1">
+<li><strong>Launching the App:</strong> If a matching application is
+installed on the device, Chromium calls <code>startActivity()</code>
+with the generated intent. The Android OS pauses the browser and brings
+the native application to the foreground.</li>
+<li><strong>Triggering the Web Fallback:</strong> If no matching app is
+found, Chromium inspects the parsed intent for the
+<code>browser_fallback_url</code> string extra. If the developer
+included this parameter, Chromium cancels the external navigation and
+loads the fallback URL inside the current browser tab.</li>
+<li><strong>Redirecting to the Play Store:</strong> If the app is not
+installed and no fallback URL is provided, Chromium checks if the
+<code>package</code> parameter was defined in the intent. If a package
+name is present, Chromium constructs a
+<code>market://details?id=&lt;package_name&gt;</code> intent and
+redirects the user directly to the Google Play Store to download the
+application. If neither a fallback URL nor a package name is present,
+the navigation silently fails.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-android-chromium-uses-intent-ur-ls-to-launch-native-apps';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

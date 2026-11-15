@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Fenced Frames Isolate Embedded Content - chromium</title>
+    <meta name="description" content="This article provides an overview of fenced frames (&lt;fencedframe&gt;) in the Chromium web browser and explains how they prevent communication between an embedding page and the content embedded within it. Unlike traditional &lt;iframe&gt; elements, which allow data">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-fenced-frames-isolate-embedded-content">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Fenced Frames Isolate Embedded Content - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-fenced-frames-isolate-embedded-content" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of fenced frames (&lt;fencedframe&gt;) in the Chromium web browser and explains how they prevent communication between an embedding page and the content embedded within it. Unlike traditional &lt;iframe&gt; elements, which allow data" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-fenced-frames-isolate-embedded-content">How
+Chromium Fenced Frames Isolate Embedded Content</h1>
+<p>This article provides an overview of fenced frames
+(<code>&lt;fencedframe&gt;</code>) in the Chromium web browser and
+explains how they prevent communication between an embedding page and
+the content embedded within it. Unlike traditional
+<code>&lt;iframe&gt;</code> elements, which allow data sharing through
+various APIs and side channels, fenced frames enforce a strict boundary
+around embedded documents. By exploring the specific mechanisms fenced
+frames use—such as opaque URLs, blocked messaging APIs, and DOM
+restrictions—this guide illustrates how Chromium enables websites to
+display third-party content using cross-site data without allowing the
+host page and the embedded frame to track the user together.</p>
+<h3 id="the-problem-with-traditional-iframes">The Problem with
+Traditional Iframes</h3>
+<p>To understand the role of fenced frames, it is necessary to look at
+the limitations of the standard <code>&lt;iframe&gt;</code>. While
+iframes isolate the Document Object Model (DOM) of cross-origin sites,
+they still permit intentional communication between the parent page and
+the embedded frame.</p>
+<p>Developers can pass data across the iframe boundary using:</p>
+<ul>
+<li>The <code>window.postMessage()</code> method.</li>
+<li>URL parameters passed into the <code>src</code> attribute of the
+iframe.</li>
+<li>Frame dimensions, which can be manipulated to pass binary data.</li>
+<li>Access to the <code>window.parent</code> or <code>window.top</code>
+objects.</li>
+</ul>
+<p>In a privacy-focused web environment, this communication is a risk.
+If an embedded frame has access to sensitive user data (such as browsing
+history for targeted advertising), it could use these communication
+channels to leak that data back to the embedding page, enabling
+cross-site user tracking.</p>
+<h3 id="how-fenced-frames-stop-communication">How Fenced Frames Stop
+Communication</h3>
+<p>Fenced frames were introduced as part of Chromium's Privacy Sandbox
+initiative specifically to display content derived from sensitive
+cross-site data while guaranteeing that this data cannot escape to the
+surrounding page. They achieve this by severing all communication lines
+between the embedding context and the embedded content.</p>
+<h4 id="1-blocking-messaging-apis">1. Blocking Messaging APIs</h4>
+<p>In a fenced frame, the <code>window.postMessage()</code> API is
+completely disabled between the parent page and the embedded frame.
+Neither side can send or receive messages from the other. Furthermore,
+the code inside a fenced frame cannot access <code>window.parent</code>
+or <code>window.top</code>. To the script running inside the fenced
+frame, it appears as though it is the top-level document.</p>
+<h4 id="2-enforcing-opaque-urls">2. Enforcing Opaque URLs</h4>
+<p>With a standard iframe, the embedding page can pass tracking
+identifiers to the embedded content simply by appending them to the URL
+(e.g., <code>https://example.com/ad?user_id=123</code>).</p>
+<p>Fenced frames prevent this by disallowing the embedding page from
+setting a standard URL directly. Instead, a fenced frame can only load
+an "opaque URL" (specifically, a <code>urn:uuid</code> or a
+<code>FencedFrameConfig</code> object) generated by a secure browser
+API, such as the Protected Audience API or Shared Storage. The embedding
+page cannot read the actual destination URL, and it cannot modify it to
+sneak data into the frame.</p>
+<h4 id="3-preventing-size-based-side-channels">3. Preventing Size-Based
+Side Channels</h4>
+<p>Even without messaging APIs, clever scripts could communicate by
+changing the width and height of an iframe to represent data bits, which
+the embedded content could then read by checking its own
+<code>window.innerWidth</code> and <code>window.innerHeight</code>.</p>
+<p>Fenced frames eliminate this side channel. The size of the fenced
+frame is restricted to a pre-determined list of allowed dimensions, or
+it is locked once the content is loaded. If the parent page resizes the
+fenced frame, the browser simply scales the visual output without
+notifying the embedded document that a resize occurred. Conversely, the
+embedded content cannot dictate the size of the frame on the parent
+page.</p>
+<h4 id="4-network-and-storage-isolation">4. Network and Storage
+Isolation</h4>
+<p>Fenced frames have completely partitioned storage (such as cookies
+and localStorage). Any data stored by the fenced frame is isolated to
+that specific instance and clears when the frame is destroyed.
+Additionally, for certain Privacy Sandbox use cases, fenced frames can
+have their network access revoked entirely after loading, ensuring that
+the embedded content cannot communicate with an external server to
+synchronize data with the embedding page.</p>
+<h3 id="practical-application-in-chromium">Practical Application in
+Chromium</h3>
+<p>By combining these restrictions, fenced frames act as a one-way
+mirror. The user can see and interact with the embedded content, and the
+browser can use secure internal data to choose what content goes inside
+the frame. However, the embedding website remains completely blind to
+what was loaded inside the frame, and the frame remains blind to the
+identity of the website hosting it. This isolation is the foundational
+security model that allows Chromium to support personalized content,
+like advertisements, without allowing third-party tracking.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-fenced-frames-isolate-embedded-content';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

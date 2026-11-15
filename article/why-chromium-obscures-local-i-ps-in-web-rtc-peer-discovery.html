@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Obscures Local IPs in WebRTC Peer Discovery - chromium</title>
+    <meta name="description" content="This article explains the privacy and security reasons behind the Chromium web browser&#39;s decision to obscure local network interfaces and host candidates during WebRTC peer discovery. Historically, the WebRTC protocol automatically exposed a user&#39;s privat">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-obscures-local-i-ps-in-web-rtc-peer-discovery">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Obscures Local IPs in WebRTC Peer Discovery - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-obscures-local-i-ps-in-web-rtc-peer-discovery" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the privacy and security reasons behind the Chromium web browser&#39;s decision to obscure local network interfaces and host candidates during WebRTC peer discovery. Historically, the WebRTC protocol automatically exposed a user&#39;s privat" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-obscures-local-ips-in-webrtc-peer-discovery">Why
+Chromium Obscures Local IPs in WebRTC Peer Discovery</h1>
+<p>This article explains the privacy and security reasons behind the
+Chromium web browser's decision to obscure local network interfaces and
+host candidates during WebRTC peer discovery. Historically, the WebRTC
+protocol automatically exposed a user's private, local IP addresses to
+any website utilizing the API, which created severe risks regarding user
+tracking, browser fingerprinting, and internal network mapping. To
+resolve these vulnerabilities without breaking peer-to-peer
+connectivity, Chromium implemented Multicast DNS (mDNS) to mask raw
+local IP addresses with randomized, temporary hostnames.</p>
+<h2 id="the-role-of-host-candidates-in-webrtc">The Role of Host
+Candidates in WebRTC</h2>
+<p>WebRTC (Web Real-Time Communication) enables direct peer-to-peer
+audio, video, and data sharing between browsers. To establish a direct
+connection, browsers use a framework called Interactive Connectivity
+Establishment (ICE).</p>
+<p>During the ICE process, the browser gathers all available network
+addresses—known as "candidates"—that another peer might use to connect
+to it. "Host candidates" are the physical or virtual local IP addresses
+assigned to the user's device on their local area network (LAN), such as
+<code>192.168.1.x</code> or <code>10.0.0.x</code>. While sharing these
+addresses is necessary to connect two devices on the same local network,
+exposing them directly to web applications introduced major privacy
+flaws.</p>
+<h2 id="preventing-browser-fingerprinting-and-tracking">Preventing
+Browser Fingerprinting and Tracking</h2>
+<p>The primary reason Chromium obscures host candidates is to prevent
+silent user tracking. Before this protection was implemented, any
+website could run a invisible background script to initiate a dummy
+WebRTC connection. This process did not require the user's permission,
+such as granting access to a camera or microphone.</p>
+<p>Through this silent request, websites could harvest the local IP
+addresses of all network interfaces on a user's machine. Because local
+IP configurations often remain static on home or corporate networks,
+malicious trackers combined this data with other browser attributes to
+create a persistent "browser fingerprint." This allowed trackers to
+identify and follow users across the web, even if the user cleared their
+cookies or used Incognito mode.</p>
+<h2 id="stopping-internal-network-mapping">Stopping Internal Network
+Mapping</h2>
+<p>Exposing local network interfaces also created a significant security
+risk for corporate and enterprise environments. By analyzing the host
+candidates provided by WebRTC, an external website could deduce the
+internal structure and subnet architecture of a private network.</p>
+<p>If a user had multiple network interfaces—such as a local Wi-Fi
+connection, an Ethernet adapter, and a corporate VPN—WebRTC would expose
+the IP addresses for all of them. Attackers could use this information
+for reconnaissance, helping them map out internal network topologies to
+plan more targeted cyberattacks.</p>
+<h2 id="mitigating-vpn-leaks">Mitigating VPN Leaks</h2>
+<p>Users often rely on Virtual Private Networks (VPNs) to mask their
+network identity. While a VPN hides a user's public IP address, WebRTC
+historically bypassed the VPN tunnel during the peer discovery phase to
+gather the local host candidates of the physical network adapters. This
+phenomenon, widely known as a "WebRTC Leak," revealed the user's local
+network configuration and sometimes their actual public IP, undermining
+the privacy guarantees of the VPN.</p>
+<h2 id="how-chromium-obscures-the-data-using-mdns">How Chromium Obscures
+the Data Using mDNS</h2>
+<p>To fix these issues without breaking local peer-to-peer WebRTC
+functionality, the Chromium team introduced the
+<code>enable-webrtc-hide-local-ips-with-mdns</code> feature.</p>
+<p>Instead of providing the raw local IP address in the ICE host
+candidate, Chromium generates a random, universally unique identifier
+(UUID) and appends <code>.local</code> to it (for example,
+<code>f81d4fae-7dec-11d0-a765-00a0c91e6bf6.local</code>). Chromium then
+uses Multicast DNS (mDNS) to register this hostname on the local
+network.</p>
+<p>When the web application inspects the host candidates, it only sees
+the randomized <code>.local</code> address. The website cannot use this
+address to track the user or map their network because the UUID changes
+regularly and reveals no subnet information. However, if the other peer
+is on the same local network, their operating system can use mDNS to
+resolve that <code>.local</code> address back into the actual local IP
+address, allowing the direct WebRTC connection to succeed.</p>
+<h2 id="exceptions-to-the-rule">Exceptions to the Rule</h2>
+<p>Chromium only obscures local IP addresses when a website has not been
+granted explicit trust by the user. If a user actively grants a website
+permission to access their camera or microphone, Chromium assumes the
+user trusts the application to facilitate a real-time call. In these
+instances, Chromium bypasses the mDNS obfuscation and exposes the raw
+local IP addresses to ensure the fastest and most reliable connection
+possible, particularly on complex networks where mDNS traffic might be
+blocked by router firewalls.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-obscures-local-i-ps-in-web-rtc-peer-discovery';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

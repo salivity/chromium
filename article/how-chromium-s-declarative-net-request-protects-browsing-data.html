@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s declarativeNetRequest Protects Browsing Data - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser&#39;s declarativeNetRequest (DNR) API evaluates network blocking rules while preserving user privacy. By shifting the rule evaluation process from the extension&#39;s background environment directly into the brow">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-declarative-net-request-protects-browsing-data">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s declarativeNetRequest Protects Browsing Data - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-declarative-net-request-protects-browsing-data" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser&#39;s declarativeNetRequest (DNR) API evaluates network blocking rules while preserving user privacy. By shifting the rule evaluation process from the extension&#39;s background environment directly into the brow" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-declarativenetrequest-protects-browsing-data">How
+Chromium's declarativeNetRequest Protects Browsing Data</h1>
+<p>This article explains how the Chromium web browser's
+<code>declarativeNetRequest</code> (DNR) API evaluates network blocking
+rules while preserving user privacy. By shifting the rule evaluation
+process from the extension's background environment directly into the
+browser's native code, Chromium allows extensions to block, redirect,
+and modify network requests without ever exposing the user's browsing
+history or sensitive request data. Below, we examine the core mechanisms
+of this API, including upfront rule registration, native browser
+compilation, and isolated runtime execution.</p>
+<h2 id="the-shift-from-imperative-to-declarative-filtering">The Shift
+from Imperative to Declarative Filtering</h2>
+<p>To understand how the <code>declarativeNetRequest</code> API protects
+privacy, it is necessary to look at how network filtering worked
+previously. Under the older <code>webRequest</code> API, filtering was
+imperative. For every single network request a user made, the browser
+had to pause the request, send the full URL and headers to the
+extension, wait for the extension's JavaScript to analyze the data, and
+then execute the extension's return command. This meant the extension
+had full visibility into every website the user visited.</p>
+<p>The <code>declarativeNetRequest</code> API reverses this model.
+Instead of the browser sending user data to the extension for
+evaluation, the extension sends its rules to the browser in advance. The
+browser then handles all the evaluation internally, acting as a secure
+firewall between the user's network traffic and the extension.</p>
+<h2 id="upfront-rule-registration">Upfront Rule Registration</h2>
+<p>With the DNR API, extensions do not write dynamic code to inspect
+live traffic. Instead, they provide the browser with static or dynamic
+rulesets formatted in JSON. Each rule consists of two main parts:</p>
+<ol type="1">
+<li><strong>Conditions:</strong> Criteria that trigger the rule, such as
+a specific URL pattern, domain name, or resource type (like an image,
+script, or stylesheet).</li>
+<li><strong>Actions:</strong> What the browser should do when the
+conditions are met, such as blocking the request, upgrading the scheme
+to HTTPS, redirecting to a different URL, or modifying request and
+response headers.</li>
+</ol>
+<p>Once the extension hands these JSON files over to Chromium, its
+direct involvement in the filtering process ends.</p>
+<h2 id="browser-side-compilation-and-indexing">Browser-Side Compilation
+and Indexing</h2>
+<p>When an extension is installed, updated, or registers new dynamic
+rules, Chromium ingests the JSON rulesets. Because parsing JSON for
+every single network request would be too slow, the browser compiles
+these rules into a highly optimized, indexed binary format known as
+FlatBuffers.</p>
+<p>This compiled data structure is stored locally within the browser's
+internal memory space. By indexing the rules by domain fragments and URL
+patterns, Chromium prepares them for near-instantaneous lookup using its
+native C++ code.</p>
+<h2 id="native-network-stack-evaluation">Native Network Stack
+Evaluation</h2>
+<p>When a user navigates to a webpage, the browser's network stack
+generates dozens of requests to fetch HTML, scripts, and media. Here is
+how Chromium evaluates these requests privately:</p>
+<ul>
+<li><strong>In-Process Interception:</strong> As a request is initiated,
+the Chromium network process intercepts it before it leaves the
+device.</li>
+<li><strong>Native Matching:</strong> The browser checks the request's
+URL, initiator domain, and resource type directly against the compiled
+FlatBuffers index. This happens entirely within Chromium's native C++
+engine.</li>
+<li><strong>Action Execution:</strong> If a match is found, the browser
+immediately applies the specified action (e.g., dropping the connection
+for a <code>block</code> rule). If multiple extensions have matching
+rules, the browser resolves the conflict based on a strict priority
+system—for example, <code>block</code> rules always override
+<code>redirect</code> rules.</li>
+</ul>
+<p>Throughout this entire lifecycle, the extension's background service
+worker remains completely dormant. No data is passed to the extension's
+JavaScript runtime, making it impossible for the extension to log, read,
+or exfiltrate the URLs the user is visiting.</p>
+<h2 id="strict-permission-isolation">Strict Permission Isolation</h2>
+<p>A critical feature of the DNR architecture is that extensions do not
+need broad host permissions (the ability to read and change data on all
+websites) to perform basic network blocking or HTTPS upgrades.</p>
+<p>If an extension wants to know if its rules are working, it cannot ask
+the browser for a list of blocked URLs. By default, the browser only
+allows the extension to display an aggregate count of matched rules on
+its toolbar badge—a process also handled natively by the browser so the
+extension doesn't even know <em>when</em> a rule was triggered. The
+extension is completely blind to the user's activity, ensuring that
+network filtering is both high-performance and private by design.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-declarative-net-request-protects-browsing-data';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

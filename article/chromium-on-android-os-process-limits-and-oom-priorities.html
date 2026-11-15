@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium on Android: OS Process Limits and OOM Priorities - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium browser on Android navigates the operating system&#39;s strict memory management rules and background process limits. Unlike desktop environments, Android aggressively terminates background tasks to preser">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-on-android-os-process-limits-and-oom-priorities">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium on Android: OS Process Limits and OOM Priorities - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-on-android-os-process-limits-and-oom-priorities" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium browser on Android navigates the operating system&#39;s strict memory management rules and background process limits. Unlike desktop environments, Android aggressively terminates background tasks to preser" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-on-android-os-process-limits-and-oom-priorities">Chromium
+on Android: OS Process Limits and OOM Priorities</h1>
+<p>This article provides an overview of how the Chromium browser on
+Android navigates the operating system's strict memory management rules
+and background process limits. Unlike desktop environments, Android
+aggressively terminates background tasks to preserve system resources
+for foreground applications. To maintain its secure multi-process
+architecture without crashing the entire browser, Chromium uses
+pre-declared Android services, dynamic service binding flags, and system
+memory pressure listeners to actively align with the Android
+Out-Of-Memory (OOM) killer priorities.</p>
+<h3 id="pre-declared-services-instead-of-forking">Pre-Declared Services
+Instead of Forking</h3>
+<p>On desktop platforms, Chromium creates new processes for tabs
+(renderer processes), extensions, and the GPU by directly asking the OS
+kernel to fork a process. Android restricts standard applications from
+doing this arbitrarily. Instead, Chromium must declare its child
+processes as distinct <code>&lt;service&gt;</code> entries in its
+<code>AndroidManifest.xml</code> file, typically named
+<code>SandboxedProcessService0</code> through
+<code>SandboxedProcessService39</code>.</p>
+<p>Because these services are statically declared in the manifest,
+Chromium has a hard ceiling on how many isolated renderer processes it
+can run simultaneously (usually 40). Furthermore, these services use the
+<code>android:isolatedProcess="true"</code> flag, which runs them under
+a unique, unprivileged user ID with no permissions of their own,
+satisfying Chromium's strict sandboxing requirements while playing by
+Android's application framework rules.</p>
+<h3 id="controlling-oom-priorities-via-service-bindings">Controlling OOM
+Priorities via Service Bindings</h3>
+<p>Android uses a Low Memory Killer Daemon (<code>lmkd</code>) to
+terminate processes when system RAM runs low. Every process is assigned
+an adjustment score (<code>oom_score_adj</code>); higher scores mean the
+process is more likely to be killed. Android apps cannot manually write
+to this score. Instead, the Android system calculates it based on the
+state of the application's components.</p>
+<p>Chromium's main browser process manipulates the OOM scores of its
+child renderer processes by holding different types of Android service
+bindings (<code>bindService()</code>) to them. Chromium manages four
+primary binding levels for each child process:</p>
+<ol type="1">
+<li><strong>Strong Binding
+(<code>Context.BIND_IMPORTANT</code>):</strong> Gives the renderer
+process the same high priority as the main foreground browser process.
+Chromium applies this to the currently visible, active tab. The OS will
+almost never kill this process unless the entire system is critically
+out of memory.</li>
+<li><strong>Visible/Moderate Binding
+(<code>Context.BIND_NOT_FOREGROUND</code>):</strong> Tells Android the
+process is doing work perceptible to the user, such as a background tab
+playing audio or a visible subframe. It sits below the active app in
+priority, but above standard cached background apps.</li>
+<li><strong>Perceptible Binding
+(<code>Context.BIND_NOT_PERCEPTIBLE</code>):</strong> Used on newer
+Android versions to finely tune processes that are doing background work
+the user might care about, giving them slightly better protection than
+pure cached processes.</li>
+<li><strong>Waived Binding
+(<code>Context.BIND_WAIVE_PRIORITY</code>):</strong> Every child process
+has a waived binding just to keep the communication channel open. When a
+tab is moved to the background and is no longer active, Chromium drops
+the Strong and Moderate bindings, leaving only the Waived binding. This
+drops the renderer process into Android's "cached" LRU (Least Recently
+Used) list, giving it a high <code>oom_score_adj</code> and signaling to
+the OS that it is completely safe to kill.</li>
+</ol>
+<h3 id="managing-strict-background-process-limits">Managing Strict
+Background Process Limits</h3>
+<p>Android enforces strict limits on how many cached processes can exist
+across the entire system at once. If Chromium kept strong bindings to
+all open tabs, Android would be unable to reclaim memory, eventually
+forcing the OS to kill the main Chromium browser process
+itself—resulting in a full browser crash.</p>
+<p>To prevent this, Chromium's internal <code>BindingManager</code> and
+<code>ChildProcessLauncher</code> constantly monitor tab visibility:</p>
+<ul>
+<li><strong>Immediate Downgrading:</strong> The moment a user switches
+from Tab A to Tab B, Chromium applies a Strong binding to Tab B's
+renderer and removes the Strong binding from Tab A's renderer (often
+after a brief delay of a few seconds to prevent thrashing during quick
+tab switching).</li>
+<li><strong>Responding to <code>onTrimMemory</code>:</strong> Chromium
+registers <code>ComponentCallbacks2</code> listeners to receive OS
+memory pressure signals. When Android sends a
+<code>TRIM_MEMORY_RUNNING_LOW</code> or
+<code>TRIM_MEMORY_BACKGROUND</code> signal, Chromium immediately purges
+internal caches and strips any lingering moderate bindings from
+background renderers, offering them up to <code>lmkd</code> for
+immediate termination.</li>
+<li><strong>Process Sharing:</strong> If a user opens so many tabs that
+Chromium reaches its manifest limit of 40 sandboxed services, or if the
+OS rejects new service creation due to system-wide process limits,
+Chromium falls back to sharing existing renderer processes among
+multiple tabs from the same site (Site Isolation permitting).</li>
+</ul>
+<h3 id="graceful-recovery-from-oom-termination">Graceful Recovery from
+OOM Termination</h3>
+<p>When <code>lmkd</code> kills a background renderer process that only
+held a Waived binding, the main Chromium browser process remains
+completely unaffected.</p>
+<p>The main browser process detects the termination because the Android
+Binder IPC channel (<code>onServiceDisconnected</code>) closes
+unexpectedly. Because Chromium already knew the tab was in the
+background, it does not show an error to the user. It simply keeps the
+tab's title, URL, and scroll state in a lightweight metadata object in
+the main browser process. When the user eventually taps on that
+background tab again, Chromium spawns a new
+<code>SandboxedProcessService</code>, applies a Strong binding to it,
+and seamlessly reloads the webpage's state.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-on-android-os-process-limits-and-oom-priorities';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

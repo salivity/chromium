@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Private State Tokens API Fights Fraud - chromium</title>
+    <meta name="description" content="This article provides a technical breakdown of how the Private State Tokens API operates within the Chromium web browser&#39;s network layer to prevent online fraud. It covers the transition of trust signals from the browser&#39;s rendering engine to the isolated">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-private-state-tokens-api-fights-fraud">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Private State Tokens API Fights Fraud - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-private-state-tokens-api-fights-fraud" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical breakdown of how the Private State Tokens API operates within the Chromium web browser&#39;s network layer to prevent online fraud. It covers the transition of trust signals from the browser&#39;s rendering engine to the isolated" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-private-state-tokens-api-fights-fraud">How
+Chromium's Private State Tokens API Fights Fraud</h1>
+<p>This article provides a technical breakdown of how the Private State
+Tokens API operates within the Chromium web browser's network layer to
+prevent online fraud. It covers the transition of trust signals from the
+browser's rendering engine to the isolated network service, the
+cryptographic blinding process used during token issuance, the mechanics
+of token redemption via dedicated HTTP headers, and how the browser
+enforces strict rate limits and process isolation to stop bots without
+compromising user privacy.</p>
+<h3 id="the-chromium-network-service-architecture">The Chromium Network
+Service Architecture</h3>
+<p>To combat fraud without relying on third-party cookies or invasive
+fingerprinting, Chromium implements the Private State Tokens API
+(formerly known as Trust Tokens) directly within its privileged Network
+Service.</p>
+<p>In Chromium's multi-process architecture, untrusted web page code
+runs in a sandboxed Blink renderer process. When a website invokes the
+Private State Tokens API via JavaScript (using the <code>fetch()</code>
+API or <code>XMLHttpRequest</code>), the renderer does not handle the
+cryptographic tokens itself. Instead, it packages the request parameters
+into a Mojo inter-process communication (IPC) struct and sends it to the
+Chromium Network Service.</p>
+<p>By handling token operations strictly at the network layer, Chromium
+ensures that potentially malicious JavaScript in the renderer process
+cannot inspect, steal, or manipulate the raw cryptographic tokens.
+Within the Network Service, the <code>URLRequestHttpJob</code>
+intercepts the outgoing network request and delegates the
+fraud-prevention logic to specialized classes known as
+<code>TrustTokenRequestHelper</code> instances.</p>
+<h3 id="phase-1-cryptographic-blinding-and-token-issuance">Phase 1:
+Cryptographic Blinding and Token Issuance</h3>
+<p>Fraud prevention begins when a user proves they are human to an
+"issuer" website—for example, by solving a CAPTCHA or logging into a
+trusted account. The issuer then grants the user's browser cryptographic
+tokens.</p>
+<p>At the Chromium network layer, the issuance process works as
+follows:</p>
+<ol type="1">
+<li><strong>Nonce Generation and Blinding:</strong> Before the network
+request leaves the browser, Chromium's
+<code>TrustTokenRequestIssuanceHelper</code> uses BoringSSL to implement
+the Privacy Pass protocol, which relies on Verifiable Oblivious
+Pseudorandom Functions (VOPRFs). The browser generates random values
+(nonces) and cryptographically "blinds" them.</li>
+<li><strong>Header Injection:</strong> The network layer attaches these
+blinded nonces to the outgoing HTTP request by injecting the
+<code>Sec-Private-State-Token</code> header. It also includes the
+<code>Sec-Private-State-Token-Crypto-Version</code> header to negotiate
+the cryptographic cipher suite with the server.</li>
+<li><strong>Server Signing:</strong> The issuer server verifies the user
+is not a bot, signs the blinded tokens using its private key, and
+returns them to the browser via the <code>Sec-Private-State-Token</code>
+HTTP response header.</li>
+<li><strong>Unblinding and Storage:</strong> Chromium's network layer
+intercepts the response before it reaches the renderer. It verifies the
+server's cryptographic proof, "unblinds" the tokens to reveal usable,
+signed tokens, and stores them in an isolated SQLite database managed by
+the Network Service.</li>
+</ol>
+<p>Because the tokens were blinded before signing, the issuer server
+cannot link the tokens it signed to the unblinded tokens the browser
+eventually spends. This stops fraud while making cross-site tracking
+mathematically impossible.</p>
+<h3 id="phase-2-token-redemption">Phase 2: Token Redemption</h3>
+<p>When the user navigates to a different website (the "redeemer") that
+wants to verify the user is not a fraudulent bot, the redeemer requests
+a token from the original issuer through the browser.</p>
+<p>Chromium's <code>TrustTokenRequestRedemptionHelper</code> executes
+this phase at the network layer:</p>
+<ol type="1">
+<li><strong>Token Retrieval:</strong> The network service checks its
+local database for an available, unspent token associated with the
+specified issuer.</li>
+<li><strong>Redemption Request:</strong> If a token exists, Chromium
+strips it from storage (ensuring it can only be spent once) and attaches
+it to an outgoing request to the issuer using the
+<code>Sec-Private-State-Token</code> HTTP header.</li>
+<li><strong>Verification:</strong> The issuer server receives the
+unblinded token, verifies its own cryptographic signature, and confirms
+the token is valid. Because the token was previously blinded, the issuer
+only knows that it granted this token to <em>some</em> valid user in the
+past, not <em>which</em> specific user it was.</li>
+<li><strong>Redemption Record Creation:</strong> The issuer responds
+with a Redemption Record (RR) inside the
+<code>Sec-Private-State-Token</code> response header. Chromium's network
+layer intercepts this record and caches it in the browser's local
+storage, keeping it isolated from the web page's JavaScript.</li>
+</ol>
+<h3 id="phase-3-forwarding-the-trust-signal">Phase 3: Forwarding the
+Trust Signal</h3>
+<p>Once the browser has cached a Redemption Record, the redeemer website
+can attach this proof of humanity to subsequent network requests, such
+as clicking an advertisement or submitting a payment form.</p>
+<p>During this phase, Chromium's
+<code>TrustTokenRequestSigningHelper</code> intercepts the outgoing
+network request and attaches the cached Redemption Record using the
+<code>Sec-Redemption-Record</code> HTTP header. The receiving server
+inspects this header, verifies the issuer's signature on the record, and
+confirms the request originates from a trusted browser environment
+rather than a headless bot farm.</p>
+<h3 id="network-level-fraud-protections">Network-Level Fraud
+Protections</h3>
+<p>Executing this workflow at the Chromium network layer provides three
+distinct anti-fraud advantages that cannot be achieved in standard web
+page JavaScript:</p>
+<ul>
+<li><strong>Single-Use Enforcement:</strong> When a token is redeemed,
+the Chromium network stack immediately deletes it from local storage.
+Malicious scripts cannot clone tokens to simulate multiple legitimate
+users.</li>
+<li><strong>Issuer Rate Limiting:</strong> Chromium strictly limits the
+number of issuers a single site can interact with (capped at two issuers
+per top-level page load). This prevents fraudsters from pooling tokens
+from dozens of shady issuers to bypass security checks, and it stops
+trackers from combining multiple issuer signals to build a user
+fingerprint.</li>
+<li><strong>Platform Key Binding:</strong> During redemption, Chromium
+can optionally generate a local cryptographic key pair and bind the
+public key to the Redemption Record. For subsequent requests, the
+network layer signs the outgoing request data using the private key.
+This guarantees to the server that the Redemption Record was not
+intercepted and replayed by a man-in-the-middle attacker or exported to
+an external botnet.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-private-state-tokens-api-fights-fraud';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

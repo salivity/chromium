@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Memory Saver Mode Frees Up System RAM - chromium</title>
+    <meta name="description" content="This article explains the technical mechanics behind the Memory Saver mode in Chromium-based web browsers. It covers why Chromium consumes significant memory, how the browser identifies inactive background tabs, the exact process of discarding those tabs">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-memory-saver-mode-frees-up-system-ram">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Memory Saver Mode Frees Up System RAM - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-memory-saver-mode-frees-up-system-ram" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the technical mechanics behind the Memory Saver mode in Chromium-based web browsers. It covers why Chromium consumes significant memory, how the browser identifies inactive background tabs, the exact process of discarding those tabs" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-memory-saver-mode-frees-up-system-ram">How
+Chromium's Memory Saver Mode Frees Up System RAM</h1>
+<p>This article explains the technical mechanics behind the Memory Saver
+mode in Chromium-based web browsers. It covers why Chromium consumes
+significant memory, how the browser identifies inactive background tabs,
+the exact process of discarding those tabs to free up system RAM for
+active applications, the exceptions that prevent data loss, and how tabs
+are restored upon user return.</p>
+<h2 id="why-chromium-needs-a-memory-saver">Why Chromium Needs a Memory
+Saver</h2>
+<p>Chromium uses a multi-process architecture. To ensure security and
+stability, the browser isolates different websites and tabs into their
+own dedicated "renderer processes." If one tab crashes, it does not
+crash the entire browser. However, this isolation means every open tab
+duplicates certain baseline memory overheads. When dozens of tabs are
+open, these renderer processes quickly consume gigabytes of system RAM,
+starving active applications of resources. Memory Saver directly
+addresses this by managing the lifecycle of these processes.</p>
+<h2 id="identifying-inactive-tabs">Identifying Inactive Tabs</h2>
+<p>Chromium relies on an internal component called the Performance
+Manager to monitor the state of all open tabs. When Memory Saver is
+enabled, the browser tracks a tab's visibility and user interaction.</p>
+<p>Once a tab is moved to the background (meaning it is no longer the
+active tab in the window), an internal timer starts. If the user does
+not interact with the tab for a predetermined period, the Performance
+Manager flags the tab as "inactive" and makes it a candidate for
+discarding.</p>
+<h2 id="the-tab-discarding-process">The Tab Discarding Process</h2>
+<p>When an inactive tab is selected for memory reclamation, Chromium
+executes a process called "tab discarding." It does not close the tab;
+instead, it strips the tab of its heavy system resource allocations
+through the following steps:</p>
+<ol type="1">
+<li><strong>State Preservation:</strong> Before shutting the tab down,
+Chromium records the tab's basic session state, including the current
+URL, navigation history (for the back and forward buttons), and
+sometimes the scroll position.</li>
+<li><strong>Process Termination:</strong> Chromium completely terminates
+the underlying renderer process associated with that background tab (or
+detaches the tab from a shared process).</li>
+<li><strong>Memory Reclamation:</strong> By killing the renderer
+process, all the RAM allocated to rendering the webpage's HTML, CSS, DOM
+trees, images, and executing JavaScript is immediately released back to
+the operating system. This freed RAM becomes instantly available for the
+currently active browser tab or other heavy software running on the
+computer.</li>
+<li><strong>UI Retention:</strong> The tab remains visible in the
+browser's tab strip, retaining its title and favicon so the user knows
+it is still there.</li>
+</ol>
+<h2 id="exceptions-when-tabs-are-not-discarded">Exceptions: When Tabs
+Are Not Discarded</h2>
+<p>To prevent frustrating the user or causing data loss, Chromium's
+Performance Manager actively checks for specific conditions before
+discarding a tab. A background tab will be bypassed by Memory Saver if
+it is doing any of the following:</p>
+<ul>
+<li>Playing audio or video.</li>
+<li>Participating in an active WebRTC session (such as a video call or
+screen sharing).</li>
+<li>Holding partially filled-out user forms or unsaved text inputs.</li>
+<li>Actively downloading a file.</li>
+<li>Interacting with connected hardware devices via WebUSB,
+WebBluetooth, or WebHID.</li>
+<li>Displaying notifications or utilizing specific background service
+workers.</li>
+<li>Listed on the user's manual "Always keep these sites active"
+exception list.</li>
+</ul>
+<h2 id="restoring-a-discarded-tab">Restoring a Discarded Tab</h2>
+<p>Because the tab's renderer process was terminated to save RAM, the
+webpage no longer exists in the system's active memory. When the user
+clicks on a discarded tab to bring it back to the foreground, Chromium
+creates a brand-new renderer process. It then uses the saved session
+state to automatically reload the webpage from the internet or the local
+disk cache, placing the user back where they left off.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-memory-saver-mode-frees-up-system-ram';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

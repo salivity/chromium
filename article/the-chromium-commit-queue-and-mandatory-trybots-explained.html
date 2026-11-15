@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Chromium Commit Queue and Mandatory Trybots Explained - chromium</title>
+    <meta name="description" content="This article provides a comprehensive overview of the Chromium Commit Queue (CQ) and the automated testing infrastructure that guards the Chromium codebase. It explains how the CQ automates the process of verifying and merging code changes, and details th">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/the-chromium-commit-queue-and-mandatory-trybots-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Chromium Commit Queue and Mandatory Trybots Explained - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/the-chromium-commit-queue-and-mandatory-trybots-explained" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the Chromium Commit Queue (CQ) and the automated testing infrastructure that guards the Chromium codebase. It explains how the CQ automates the process of verifying and merging code changes, and details th" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-chromium-commit-queue-and-mandatory-trybots-explained">The
+Chromium Commit Queue and Mandatory Trybots Explained</h1>
+<p>This article provides a comprehensive overview of the Chromium Commit
+Queue (CQ) and the automated testing infrastructure that guards the
+Chromium codebase. It explains how the CQ automates the process of
+verifying and merging code changes, and details the specific mandatory
+trybots—across Linux, Windows, macOS, Android, iOS, and ChromeOS—that
+must successfully build and pass tests before any patch is allowed to
+land in the main repository.</p>
+<h2 id="what-is-the-chromium-commit-queue">What is the Chromium Commit
+Queue?</h2>
+<p>The Commit Queue (CQ) is an automated system within the Chromium
+project's Layered Universal Continuous Integration (LUCI)
+infrastructure. Its primary purpose is to protect the stability of the
+main Chromium source tree by ensuring that incoming code changes—known
+as Changelists (CLs)—compile correctly and pass a rigorous suite of
+automated tests before they are merged.</p>
+<p>Developers interact with the CQ through Gerrit, Chromium’s code
+review tool. The workflow operates in two main modes:</p>
+<ul>
+<li><strong>CQ Dry Run (Commit-Queue +1):</strong> Triggers the
+automated tests on a CL without merging the code. Developers use this to
+verify their changes before or during a code review.</li>
+<li><strong>Submit to CQ (Commit-Queue +2):</strong> Used after a CL has
+received approval (<code>Code-Review +1</code>) from the necessary code
+owners. The CQ runs all required tests, and if every test passes, it
+automatically rebases the patch and merges it into the <code>main</code>
+Git branch. If any test fails, the CQ rejects the patch and notifies the
+developer.</li>
+</ul>
+<h2 id="which-trybots-must-pass-before-code-lands">Which Trybots Must
+Pass Before Code Lands?</h2>
+<p>Trybots are the individual automated builders and test runners
+orchestrated by the CQ. When a developer submits a CL to the Commit
+Queue, it dispatches the code to a specific set of trybots in
+parallel.</p>
+<p>For a typical C++ or core code change in Chromium, the following core
+trybots are mandatory and must pass completely:</p>
+<h3 id="1-presubmit-and-static-analysis">1. Presubmit and Static
+Analysis</h3>
+<ul>
+<li><strong><code>chromium_presubmit</code>:</strong> This is the
+fastest and most fundamental bot. It does not compile the browser;
+instead, it runs scripts to check code formatting, verify license
+headers, enforce banned C++ functions, and ensure that the developer has
+approval from the correct directory <code>OWNERS</code>.</li>
+<li><strong><code>tricium-metrics-analysis</code> / Clang Tidy:</strong>
+Analyzes the code for common programming errors, style violations, and
+metric configuration issues.</li>
+</ul>
+<h3 id="2-desktop-platforms">2. Desktop Platforms</h3>
+<ul>
+<li><strong><code>linux-rel</code>:</strong> Compiles a release build
+(with assertions enabled) for Linux and runs unit tests, browser tests,
+and web platform tests.</li>
+<li><strong><code>win-rel</code>:</strong> Compiles a 64-bit release
+build for Windows and executes the standard Windows test suites.</li>
+<li><strong><code>mac-rel</code>:</strong> Compiles a release build for
+macOS and runs tests across both Intel and Apple Silicon
+architectures.</li>
+<li><strong><code>linux-chromeos-rel</code>:</strong> Compiles the
+ChromeOS version of the browser running on a Linux environment and
+executes ChromeOS-specific test suites.</li>
+</ul>
+<h3 id="3-mobile-platforms">3. Mobile Platforms</h3>
+<ul>
+<li><strong><code>android-arm64-rel</code>:</strong> Compiles the
+Android browser for 64-bit ARM architecture and runs tests on physical
+Nexus/Pixel devices or emulators hosted in the swarming
+infrastructure.</li>
+<li><strong><code>android-binary-size</code>:</strong> A specialized bot
+that ensures the CL does not inadvertently bloat the final download size
+of the Chrome APK on Android beyond a strict threshold.</li>
+<li><strong><code>ios-simulator</code>:</strong> Compiles Chromium for
+iOS and runs unit and integration tests inside the Xcode iOS
+Simulator.</li>
+</ul>
+<h3 id="4-emerging-platforms">4. Emerging Platforms</h3>
+<ul>
+<li><strong><code>fuchsia-x64-cast-receiver-rel</code> (and related
+Fuchsia bots):</strong> Compiles and tests Chromium components designed
+to run on the Fuchsia operating system.</li>
+</ul>
+<h2 id="conditional-and-path-specific-trybots">Conditional and
+Path-Specific Trybots</h2>
+<p>The Chromium repository is massive, so running every test in
+existence for every CL is computationally impossible. To optimize
+resources, the CQ uses a dynamic configuration file
+(<code>commit-queue.cfg</code>) to determine which trybots are necessary
+based on the specific files modified in the CL:</p>
+<ul>
+<li><strong>Documentation Changes:</strong> If a CL only modifies
+Markdown (<code>.md</code>) files, the CQ will bypass all compilation
+trybots and only run <code>chromium_presubmit</code>.</li>
+<li><strong>Platform-Specific Code:</strong> If a CL only modifies files
+strictly isolated to macOS (such as <code>.mm</code> Objective-C++ files
+in a Mac-only directory), the CQ may skip the Windows and Android
+trybots.</li>
+<li><strong>Specialized Subsystems:</strong> Modifying specific
+directories triggers additional mandatory trybots. For example, changing
+code in the <code>//gpu</code> directory will automatically add
+hardware-accelerated GPU trybots (like
+<code>linux-swangle-try-x64</code> or specific Mac/Windows GPU bots) to
+the required queue. Similarly, modifying WebXR or V8 JavaScript engine
+interfaces will pull in dedicated bots for those subsystems.</li>
+</ul>
+<h2 id="handling-flaky-tests">Handling Flaky Tests</h2>
+<p>Because the CQ runs thousands of tests across multiple operating
+systems, network or timing issues can occasionally cause a test to fail
+even if the developer's code is fine (known as a "flaky" test).</p>
+<p>Before rejecting a CL, a trybot will automatically retry failed tests
+inside the same build. If the test passes on the retry, the trybot marks
+the build as successful (often noted as "passed with flakes"), allowing
+the code to land without forcing the developer to restart the entire
+Commit Queue process.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/the-chromium-commit-queue-and-mandatory-trybots-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Native HTTP Compression Algorithms in Chromium - chromium</title>
+    <meta name="description" content="This article provides a concise breakdown of the compression algorithms natively supported within the HTTP content decoding pipeline of the Chromium web browser. It covers legacy standards like Gzip and Deflate alongside modern, high-performance algorithm">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/native-http-compression-algorithms-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Native HTTP Compression Algorithms in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/native-http-compression-algorithms-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a concise breakdown of the compression algorithms natively supported within the HTTP content decoding pipeline of the Chromium web browser. It covers legacy standards like Gzip and Deflate alongside modern, high-performance algorithm" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="native-http-compression-algorithms-in-chromium">Native HTTP
+Compression Algorithms in Chromium</h1>
+<p>This article provides a concise breakdown of the compression
+algorithms natively supported within the HTTP content decoding pipeline
+of the Chromium web browser. It covers legacy standards like Gzip and
+Deflate alongside modern, high-performance algorithms such as Brotli and
+Zstandard, explaining how Chromium utilizes each to reduce bandwidth
+consumption and accelerate web page loading.</p>
+<p>When Chromium requests a resource from a web server, it advertises
+its supported decompression capabilities using the
+<code>Accept-Encoding</code> HTTP header. The server then compresses the
+response using one of the mutually supported methods and declares the
+chosen algorithm in the <code>Content-Encoding</code> header. Chromium’s
+network stack processes this incoming data stream through its internal
+decoding pipeline before passing the decompressed bytes to the
+renderer.</p>
+<p>Currently, Chromium natively supports four primary compression
+algorithms in its HTTP pipeline.</p>
+<h3 id="1-gzip-gzip-and-x-gzip">1. Gzip (<code>gzip</code> and
+<code>x-gzip</code>)</h3>
+<p>Gzip is the most widely adopted compression algorithm on the web and
+serves as the universal baseline in Chromium.</p>
+<ul>
+<li><strong>Mechanism:</strong> It is based on the DEFLATE algorithm,
+which uses a combination of LZ77 (Lempel-Ziv 1977) dictionary coding and
+Huffman coding.</li>
+<li><strong>Implementation:</strong> Chromium uses an optimized fork of
+the <code>zlib</code> library to decode Gzip streams. It recognizes both
+the standard <code>gzip</code> token and the legacy <code>x-gzip</code>
+token in the <code>Content-Encoding</code> header.</li>
+<li><strong>Availability:</strong> Supported across both HTTP and HTTPS
+connections.</li>
+</ul>
+<h3 id="2-deflate-deflate">2. Deflate (<code>deflate</code>)</h3>
+<p>Deflate is an older standard that uses the same underlying
+compression mechanics as Gzip but differs in how the data is
+wrapped.</p>
+<ul>
+<li><strong>Mechanism:</strong> Technically, the HTTP
+<code>deflate</code> encoding refers to the <code>zlib</code> data
+format (RFC 1950) encapsulating compressed DEFLATE data (RFC 1951).</li>
+<li><strong>Implementation:</strong> Historically, many web servers
+misconfigured <code>deflate</code> by sending raw, unwrapped DEFLATE
+streams without the <code>zlib</code> header. To maintain compatibility,
+Chromium’s decoding pipeline automatically detects whether a
+<code>zlib</code> header is present and seamlessly falls back to raw
+DEFLATE decoding if it is missing.</li>
+<li><strong>Availability:</strong> Supported across both HTTP and HTTPS
+connections.</li>
+</ul>
+<h3 id="3-brotli-br">3. Brotli (<code>br</code>)</h3>
+<p>Developed by Google, Brotli is a modern compression algorithm
+designed specifically for the web, offering significantly better
+compression ratios than Gzip for text-based assets like HTML, CSS, and
+JavaScript.</p>
+<ul>
+<li><strong>Mechanism:</strong> Brotli uses a combination of a modern
+variant of the LZ77 algorithm, Huffman coding, and second-order context
+modeling. Crucially, it utilizes a predefined static dictionary of
+common words, phrases, and HTML/JS tokens.</li>
+<li><strong>Implementation:</strong> Chromium integrates the native C
+Brotli decoder directly into its network stack.</li>
+<li><strong>Availability:</strong> Chromium only advertises and supports
+Brotli over secure contexts (HTTPS/TLS). This restriction exists because
+legacy intermediary proxies over unencrypted HTTP often fail to
+recognize the <code>br</code> token and corrupt the payload.</li>
+</ul>
+<h3 id="4-zstandard-zstd">4. Zstandard (<code>zstd</code>)</h3>
+<p>Developed by Meta, Zstandard is a real-time compression algorithm
+that was enabled by default starting in Chromium 123. It is designed to
+offer compression ratios comparable to Brotli but with significantly
+faster decompression speeds.</p>
+<ul>
+<li><strong>Mechanism:</strong> Zstandard combines a dictionary-matching
+stage (LZ77) with a large search window and an entropy-coding stage that
+uses Finite State Entropy (tANS) and Huffman coding.</li>
+<li><strong>Implementation:</strong> Chromium uses the official
+<code>zstd</code> reference library within its network service to decode
+streams in real time, reducing CPU overhead on the client device during
+page loads.</li>
+<li><strong>Availability:</strong> Like Brotli, Chromium restricts
+Zstandard support to secure contexts (HTTPS) to prevent interference
+from outdated network middleboxes.</li>
+</ul>
+<h3 id="summary-of-the-decoding-pipeline">Summary of the Decoding
+Pipeline</h3>
+<p>On a standard, secure connection, Chromium sends the following header
+to initiate the pipeline:
+<code>Accept-Encoding: gzip, deflate, br, zstd</code></p>
+<p>If the connection is insecure (HTTP), Chromium downgrades the header
+to prevent proxy corruption:
+<code>Accept-Encoding: gzip, deflate</code></p>
+<p>Additionally, Chromium supports the <code>identity</code> token,
+which indicates that no compression has been applied to the payload,
+bypassing the decoding filters entirely.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/native-http-compression-algorithms-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

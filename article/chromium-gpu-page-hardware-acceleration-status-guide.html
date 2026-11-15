@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium GPU Page: Hardware Acceleration Status Guide - chromium</title>
+    <meta name="description" content="This article provides a comprehensive breakdown of the information displayed on the Chromium GPU diagnostic page regarding hardware acceleration. By navigating to chrome://gpu in any Chromium-based browser, users can view the current status of graphics fe">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-gpu-page-hardware-acceleration-status-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium GPU Page: Hardware Acceleration Status Guide - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-gpu-page-hardware-acceleration-status-guide" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive breakdown of the information displayed on the Chromium GPU diagnostic page regarding hardware acceleration. By navigating to chrome://gpu in any Chromium-based browser, users can view the current status of graphics fe" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-gpu-page-hardware-acceleration-status-guide">Chromium
+GPU Page: Hardware Acceleration Status Guide</h1>
+<p>This article provides a comprehensive breakdown of the information
+displayed on the Chromium GPU diagnostic page regarding hardware
+acceleration. By navigating to <code>chrome://gpu</code> in any
+Chromium-based browser, users can view the current status of graphics
+features, identify detected hardware problems, review active driver
+workarounds, and inspect detailed system specifications. Understanding
+this diagnostic data allows users and developers to troubleshoot
+rendering issues and verify if the browser is effectively utilizing the
+system's graphics processing unit (GPU) instead of the CPU.</p>
+<h3 id="graphics-feature-status">Graphics Feature Status</h3>
+<p>Located at the very top of the <code>chrome://gpu</code> page, the
+"Graphics Feature Status" section is the primary indicator of hardware
+acceleration. It breaks down specific browser rendering tasks and
+displays their current state.</p>
+<p>The most common features listed include:</p>
+<ul>
+<li><strong>Canvas:</strong> Hardware acceleration for 2D graphics
+rendering.</li>
+<li><strong>Compositing:</strong> The process of combining visual
+elements on a webpage.</li>
+<li><strong>Multiple Raster Threads:</strong> Using multiple CPU threads
+to turn vector graphics into pixels.</li>
+<li><strong>OpenGL / Vulkan / Direct3D:</strong> The underlying graphics
+APIs used by the browser.</li>
+<li><strong>Rasterization:</strong> Converting webpage data into pixels
+directly on the GPU.</li>
+<li><strong>Video Decode and Encode:</strong> Using the GPU to play
+(decode) and process (encode) video streams, which saves battery and
+reduces CPU load.</li>
+<li><strong>WebGL and WebGPU:</strong> Acceleration for complex 2D and
+3D web graphics.</li>
+</ul>
+<p>Each feature is assigned a color-coded status:</p>
+<ul>
+<li><strong>Hardware accelerated (Green):</strong> The GPU is actively
+handling this task.</li>
+<li><strong>Software only, hardware acceleration unavailable
+(Yellow):</strong> The CPU is handling the task because the GPU does not
+support it, or a minor issue blocked GPU usage.</li>
+<li><strong>Unavailable / Disabled (Red):</strong> The feature is turned
+off entirely, either by user settings, system limitations, or critical
+driver flaws.</li>
+</ul>
+<h3 id="problems-detected">Problems Detected</h3>
+<p>If any feature in the "Graphics Feature Status" section is not fully
+hardware accelerated, the "Problems Detected" section explains why.
+Chromium maintains an internal blocklist of hardware and driver
+configurations known to cause crashes, visual glitches, or security
+vulnerabilities.</p>
+<p>This section lists the specific issue found on your system and
+follows it with the exact features that were disabled as a result. For
+example, it might state that hardware video decoding is disabled because
+a specific graphics driver version is known to cause system
+instability.</p>
+<h3 id="driver-bug-workarounds">Driver Bug Workarounds</h3>
+<p>Graphics drivers frequently contain bugs that browser developers
+cannot fix directly. The "Driver Bug Workarounds" section lists the
+specific adjustments Chromium has automatically applied to bypass these
+flaws. These workarounds ensure that hardware acceleration remains as
+functional and stable as possible without crashing the browser. Users do
+not need to manage these, as they are applied dynamically based on the
+detected GPU and driver version.</p>
+<h3 id="version-and-driver-information">Version and Driver
+Information</h3>
+<p>To verify that the browser is detecting the correct hardware, the
+"Version Information" and "Driver Information" sections provide raw
+system data. This is particularly useful for laptops with both
+integrated and dedicated GPUs.</p>
+<p>Key data points include:</p>
+<ul>
+<li><strong>GPU0 / GPU1:</strong> Lists the primary (and secondary, if
+applicable) graphics cards by Vendor ID and Device ID. An
+<code>*ACTIVE*</code> tag indicates which GPU the browser is currently
+using for hardware acceleration.</li>
+<li><strong>Driver Vendor and Version:</strong> Confirms the currently
+installed GPU driver. Outdated drivers are the most common reason
+hardware acceleration fails.</li>
+<li><strong>GL_RENDERER:</strong> Shows the translation layer being
+used, such as ANGLE, which translates OpenGL calls into DirectX on
+Windows systems.</li>
+<li><strong>Display Type:</strong> Indicates the backend rendering
+system in use (e.g., D3D11, Vulkan, Metal).</li>
+</ul>
+<h3 id="video-acceleration-information">Video Acceleration
+Information</h3>
+<p>Further down the page, the "Video Acceleration Information" section
+provides a granular look at media performance. Even if "Video Decode" is
+marked as hardware accelerated at the top of the page, it does not mean
+every video format is supported by the GPU.</p>
+<p>This section lists the exact video codecs (such as H.264, HEVC, VP9,
+and AV1) that the GPU can decode or encode natively, along with the
+supported resolution ranges and frame rates. If a website plays a video
+using a codec not listed here, the browser will fall back to CPU-based
+software decoding for that specific video.</p>
+<h3 id="compositor-and-gpumemorybuffers-status">Compositor and
+GpuMemoryBuffers Status</h3>
+<p>These sections detail how the browser manages memory and draws frames
+onto the screen:</p>
+<ul>
+<li><strong>Compositor Information:</strong> Shows the "Tile Update
+Mode" and whether "Zero-copy" is enabled. Zero-copy means the GPU can
+read data directly from system memory without copying it first, which
+maximizes hardware acceleration efficiency.</li>
+<li><strong>GpuMemoryBuffers Status:</strong> Displays how different
+pixel formats are handled. A status of "Native" indicates that the GPU
+hardware is managing the memory buffers directly, whereas "Software
+only" means the CPU is managing them.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-gpu-page-hardware-acceleration-status-guide';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Lighthouse Calculates Core Web Vitals in Chromium - chromium</title>
+    <meta name="description" content="This article explains how the Lighthouse auditing tool, built directly into Chromium-based browsers, measures and calculates Core Web Vitals and overall performance scores. It covers the simulated testing environment, the specific metrics tracked—includin">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-lighthouse-calculates-core-web-vitals-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Lighthouse Calculates Core Web Vitals in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-lighthouse-calculates-core-web-vitals-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Lighthouse auditing tool, built directly into Chromium-based browsers, measures and calculates Core Web Vitals and overall performance scores. It covers the simulated testing environment, the specific metrics tracked—includin" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-lighthouse-calculates-core-web-vitals-in-chromium">How
+Lighthouse Calculates Core Web Vitals in Chromium</h1>
+<p>This article explains how the Lighthouse auditing tool, built
+directly into Chromium-based browsers, measures and calculates Core Web
+Vitals and overall performance scores. It covers the simulated testing
+environment, the specific metrics tracked—including how lab proxies
+replace real-world interaction metrics—the statistical curves used to
+grade raw data, and the weighting system that generates the final 0 to
+100 score.</p>
+<h3 id="lab-data-vs-field-data">Lab Data vs. Field Data</h3>
+<p>To understand Lighthouse calculations, you must first understand that
+Lighthouse is a "lab" tool. Real-world Core Web Vitals are measured
+using "field" data from actual users. Because Lighthouse runs in a
+controlled, automated environment without a real human clicking or
+scrolling, it must adapt how it measures the three Core Web Vitals:</p>
+<ul>
+<li><strong>Largest Contentful Paint (LCP):</strong> Measured normally.
+It tracks the time it takes for the largest text block or image to
+become visible.</li>
+<li><strong>Cumulative Layout Shift (CLS):</strong> Measured during the
+initial page load only, calculating unexpected movement of visible
+elements.</li>
+<li><strong>Interaction to Next Paint (INP):</strong> Lighthouse cannot
+measure INP directly because it requires real user interactions.
+Instead, Lighthouse measures <strong>Total Blocking Time (TBT)</strong>
+as a proxy. TBT measures the total amount of time the main browser
+thread is blocked long enough to prevent input responsiveness.</li>
+</ul>
+<h3 id="step-1-gathering-raw-metrics-via-simulation">Step 1: Gathering
+Raw Metrics via Simulation</h3>
+<p>When you initiate a Lighthouse audit in Chromium DevTools, the
+browser does not just time the page load on your current hardware and
+internet speed. By default, it uses an engine called Lantern to simulate
+a mid-tier mobile device on a slow 4G network.</p>
+<p>Lighthouse loads the page, records a trace of the browser's
+execution, and applies CPU and network throttling to the recorded trace.
+This produces the "raw" metric values: LCP and TBT are recorded in
+milliseconds, while CLS is recorded as a unitless fraction.</p>
+<h3 id="step-2-mapping-raw-values-to-a-0100-score">Step 2: Mapping Raw
+Values to a 0–100 Score</h3>
+<p>Once Lighthouse has the raw values (e.g., an LCP of 2,100
+milliseconds), it converts them into a score between 0 and 100. It does
+not use a linear scale; instead, it maps the raw numbers onto a
+<strong>log-normal distribution curve</strong>.</p>
+<p>This curve is derived from real-world website performance data
+collected by the HTTP Archive. For each metric, Lighthouse sets two
+control points on the curve based on historical data:</p>
+<ol type="1">
+<li><strong>The Median (50th percentile):</strong> If a raw metric
+matches the median performance of websites globally, it receives a score
+of <strong>50</strong>.</li>
+<li><strong>The 10th Percentile:</strong> If a raw metric is in the top
+10% of websites globally, it receives a score of
+<strong>90</strong>.</li>
+</ol>
+<p>The log-normal curve accounts for diminishing returns. Improving an
+LCP from 6 seconds to 5 seconds yields a massive score increase because
+the page is moving toward the steep middle of the curve. Improving an
+LCP from 1.5 seconds to 0.5 seconds yields a very small score increase
+because the metric is already at the flat top of the curve.</p>
+<h3 id="step-3-applying-metric-weights">Step 3: Applying Metric
+Weights</h3>
+<p>Lighthouse calculates an individual 0–100 score for each Core Web
+Vital, and then combines them with two additional loading metrics—First
+Contentful Paint (FCP) and Speed Index (SI)—to generate the overall
+Performance score.</p>
+<p>In the current version of Lighthouse, the Core Web Vitals (using TBT
+as the INP proxy) account for 80% of the total score. The exact weights
+are:</p>
+<ul>
+<li><strong>Total Blocking Time (TBT):</strong> 30%</li>
+<li><strong>Largest Contentful Paint (LCP):</strong> 25%</li>
+<li><strong>Cumulative Layout Shift (CLS):</strong> 25%</li>
+<li><strong>First Contentful Paint (FCP):</strong> 10%</li>
+<li><strong>Speed Index (SI):</strong> 10%</li>
+</ul>
+<p>Lighthouse multiplies each metric's 0–100 score by its designated
+weight and adds them together. For example, if a page scores 80 in TBT,
+90 in LCP, 100 in CLS, 90 in FCP, and 80 in SI, the calculation is:</p>
+<p><em>(80 × 0.30) + (90 × 0.25) + (100 × 0.25) + (90 × 0.10) + (80 ×
+0.10) = 88.5 (rounded to 89)</em></p>
+<h3 id="step-4-color-coding-thresholds">Step 4: Color-Coding
+Thresholds</h3>
+<p>Finally, both the individual Core Web Vitals scores and the overall
+weighted score are categorized into three color-coded buckets to
+indicate pass or fail statuses:</p>
+<ul>
+<li><strong>0 to 49 (Red):</strong> Poor.</li>
+<li><strong>50 to 89 (Orange):</strong> Needs Improvement.</li>
+<li><strong>90 to 100 (Green):</strong> Good.</li>
+</ul>
+<p>To officially "pass" a Core Web Vitals assessment in Lighthouse, a
+webpage must achieve a green score (90 or above) in LCP, TBT, and CLS
+individually, not just in the overall weighted average.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-lighthouse-calculates-core-web-vitals-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

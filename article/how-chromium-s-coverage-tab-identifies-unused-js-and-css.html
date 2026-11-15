@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium&#39;s Coverage Tab Identifies Unused JS and CSS - chromium</title>
+    <meta name="description" content="This article explains the underlying mechanisms of the Chromium Coverage tab, detailing how it detects unused JavaScript and CSS bytes. By leveraging the V8 JavaScript engine&#39;s built-in profiler and the Blink rendering engine&#39;s style tracker, Chromium mon">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-s-coverage-tab-identifies-unused-js-and-css">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium&#39;s Coverage Tab Identifies Unused JS and CSS - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-s-coverage-tab-identifies-unused-js-and-css" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the underlying mechanisms of the Chromium Coverage tab, detailing how it detects unused JavaScript and CSS bytes. By leveraging the V8 JavaScript engine&#39;s built-in profiler and the Blink rendering engine&#39;s style tracker, Chromium mon" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromiums-coverage-tab-identifies-unused-js-and-css">How
+Chromium's Coverage Tab Identifies Unused JS and CSS</h1>
+<p>This article explains the underlying mechanisms of the Chromium
+Coverage tab, detailing how it detects unused JavaScript and CSS bytes.
+By leveraging the V8 JavaScript engine's built-in profiler and the Blink
+rendering engine's style tracker, Chromium monitors code execution and
+CSS rule application in real time. This runtime data is then mapped back
+to the original source file byte ranges via the Chrome DevTools Protocol
+to calculate and highlight dead code.</p>
+<h2 id="the-chrome-devtools-protocol-cdp-foundation">The Chrome DevTools
+Protocol (CDP) Foundation</h2>
+<p>The Coverage tab does not parse or analyze code on its own. Instead,
+it acts as a visual interface for data gathered by Chromium’s internal
+engines. When you start recording in the Coverage tab, DevTools sends
+commands through the Chrome DevTools Protocol (CDP) to two specific
+browser components: the V8 engine (for JavaScript) and the Blink
+rendering engine (for CSS).</p>
+<p>Specifically, it triggers the
+<code>Profiler.startPreciseCoverage</code> method for JavaScript and the
+<code>CSS.startRuleUsageTracking</code> method for CSS.</p>
+<h2 id="identifying-unused-javascript-via-v8">Identifying Unused
+JavaScript via V8</h2>
+<p>JavaScript coverage is handled entirely by V8, Chromium's JavaScript
+engine. Before executing JavaScript, V8 parses the downloaded text into
+an Abstract Syntax Tree (AST) and compiles it into bytecode.</p>
+<p>When coverage tracking is enabled, V8 uses a technique called
+<strong>block-level instrumentation</strong>:</p>
+<ol type="1">
+<li><strong>Bytecode Instrumentation:</strong> V8 inserts specialized
+counters into the generated bytecode. These counters are placed at the
+boundaries of functions and control-flow branches (such as
+<code>if/else</code> statements, loops, and <code>switch</code>
+cases).</li>
+<li><strong>Execution Tracking:</strong> As you interact with the web
+page, V8 executes the bytecode. Every time a specific block of code is
+run, its corresponding counter increments.</li>
+<li><strong>Source Mapping:</strong> V8 maintains a mapping table that
+links every bytecode instruction back to the exact character offsets
+(start and end bytes) in the original JavaScript source file.</li>
+<li><strong>Data Collection:</strong> When the coverage recording stops,
+V8 checks the counters. Any block with a counter of zero was never
+executed. V8 reports the byte ranges of the executed blocks back to the
+Coverage tab.</li>
+</ol>
+<p>Comments and whitespace outside of executed functions are typically
+ignored or grouped with the surrounding scope, while uncalled functions
+and untaken conditional branches are flagged as unused bytes.</p>
+<h2 id="identifying-unused-css-via-blink">Identifying Unused CSS via
+Blink</h2>
+<p>CSS is declarative, meaning it is not "executed" like JavaScript.
+Therefore, Chromium's Blink rendering engine tracks CSS coverage by
+monitoring the browser's rendering lifecycle, specifically the
+<strong>Style Calculation</strong> phase.</p>
+<p>When CSS coverage is active, Blink performs the following steps:</p>
+<ol type="1">
+<li><strong>CSSOM Parsing:</strong> Blink parses the downloaded CSS text
+into the CSS Object Model (CSSOM). During this phase, the engine records
+the exact start and end byte offsets for every style rule in the
+original stylesheet.</li>
+<li><strong>Rule Matching:</strong> As the browser constructs the DOM
+and calculates the visual styles for elements, it iterates through the
+CSSOM to see which selectors match actual nodes in the DOM tree.</li>
+<li><strong>Flagging Used Rules:</strong> If a CSS selector matches at
+least one DOM element currently on the page, Blink marks that specific
+rule as "used."</li>
+<li><strong>Handling Special Rules:</strong> At-rules like
+<code>@media</code> are evaluated based on the current viewport state.
+If the media query condition is met, the rules inside are evaluated
+against the DOM. Keyframes (<code>@keyframes</code>) and font faces
+(<code>@font-face</code>) are marked as used only if an element on the
+page actively references them.</li>
+</ol>
+<h2 id="calculating-the-dead-bytes">Calculating the Dead Bytes</h2>
+<p>Once the recording ends, the Coverage tab aggregates the data
+received from V8 and Blink to calculate the final unused byte
+metrics:</p>
+<ol type="1">
+<li><strong>Total Bytes:</strong> DevTools knows the exact byte size of
+each downloaded JavaScript and CSS file from the network layer.</li>
+<li><strong>Range Subtraction:</strong> The engines provide arrays of
+used byte ranges (e.g., bytes 0 to 150 were used, bytes 300 to 450 were
+used).</li>
+<li><strong>Visualizing the Diff:</strong> The Coverage tab subtracts
+the used byte ranges from the total byte length of the file. The
+remaining gaps represent the dead bytes—code that was downloaded over
+the network and parsed into memory, but never executed by V8 or applied
+to the DOM by Blink.</li>
+</ol>
+<p>In the DevTools source view, used byte ranges are highlighted in
+green (or blue), while the unreferenced byte ranges are highlighted in
+red, providing an exact line-by-line breakdown of dead code.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-s-coverage-tab-identifies-unused-js-and-css';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

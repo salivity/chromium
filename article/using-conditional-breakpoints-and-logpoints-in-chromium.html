@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Conditional Breakpoints and Logpoints in Chromium - chromium</title>
+    <meta name="description" content="This article provides a straightforward guide on how web developers can optimize their debugging workflow using conditional breakpoints and logpoints within the Sources panel of Chromium-based browsers. It covers how to access the Sources panel, set up co">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/using-conditional-breakpoints-and-logpoints-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Conditional Breakpoints and Logpoints in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/using-conditional-breakpoints-and-logpoints-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a straightforward guide on how web developers can optimize their debugging workflow using conditional breakpoints and logpoints within the Sources panel of Chromium-based browsers. It covers how to access the Sources panel, set up co" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-conditional-breakpoints-and-logpoints-in-chromium">Using
+Conditional Breakpoints and Logpoints in Chromium</h1>
+<p>This article provides a straightforward guide on how web developers
+can optimize their debugging workflow using conditional breakpoints and
+logpoints within the Sources panel of Chromium-based browsers. It covers
+how to access the Sources panel, set up conditional breakpoints that
+only pause execution when specific criteria are met, and utilize
+logpoints to output messages to the console without cluttering the
+actual codebase with temporary logging statements.</p>
+<h3 id="accessing-the-sources-panel">Accessing the Sources Panel</h3>
+<p>Before setting any breakpoints, you must locate the file you want to
+debug in the Chromium Developer Tools.</p>
+<ol type="1">
+<li>Open the Chromium browser and navigate to your web application.</li>
+<li>Open Developer Tools by pressing <code>F12</code>, or
+<code>Ctrl+Shift+I</code> on Windows/Linux, or <code>Cmd+Option+I</code>
+on macOS.</li>
+<li>Click on the <strong>Sources</strong> tab at the top of the
+Developer Tools window.</li>
+<li>Use the <strong>Page</strong> pane on the left side to navigate the
+file tree and select the JavaScript file you need to debug.
+(Alternatively, press <code>Ctrl+P</code> or <code>Cmd+P</code> to
+quickly search for and open a file by name).</li>
+</ol>
+<h3 id="how-to-use-conditional-breakpoints">How to Use Conditional
+Breakpoints</h3>
+<p>A standard breakpoint pauses code execution every time a specific
+line is reached. A conditional breakpoint only pauses execution when a
+custom JavaScript expression you provide evaluates to <code>true</code>.
+This is ideal for debugging loops or frequently called functions.</p>
+<p><strong>To set a conditional breakpoint:</strong></p>
+<ol type="1">
+<li>In the code editor pane of the Sources panel, find the line of code
+where you want to pause execution.</li>
+<li>Right-click on the line number in the left-hand gutter (the column
+showing the line numbers).</li>
+<li>Select <strong>Add conditional breakpoint...</strong> from the
+context menu.</li>
+<li>An inline text box will appear below the line of code.</li>
+<li>Type your condition into the box. This must be a valid JavaScript
+expression that uses variables in the current scope (for example,
+<code>i === 50</code> or
+<code>user.isAuthenticated === false</code>).</li>
+<li>Press <code>Enter</code> to save and activate the breakpoint.</li>
+</ol>
+<p>An orange icon with a question mark will appear over the line number.
+Now, when your application runs, the debugger will ignore this line
+unless your specified condition is met.</p>
+<h3 id="how-to-use-logpoints">How to Use Logpoints</h3>
+<p>Developers often add <code>console.log()</code> statements directly
+into their source code to inspect variables, which requires saving the
+file, reloading the page, and remembering to delete the logs later.
+Logpoints solve this by allowing you to inject console logs directly
+through the browser without modifying your code or pausing
+execution.</p>
+<p><strong>To set a logpoint:</strong></p>
+<ol type="1">
+<li>Locate the line of code where you want to log information.</li>
+<li>Right-click the line number in the gutter.</li>
+<li>Select <strong>Add logpoint...</strong> from the context menu.</li>
+<li>An inline text box will appear, similar to the conditional
+breakpoint input.</li>
+<li>Enter the expression you want to log. You do not need to type
+<code>console.log()</code>. Simply type the exact arguments you would
+pass into a console log. You can combine strings and variables separated
+by commas (for example,
+<code>'Current user ID:', user.id, 'Status:', status</code>).</li>
+<li>Press <code>Enter</code> to save and activate the logpoint.</li>
+</ol>
+<p>A pink icon with two dots will appear over the line number. Every
+time the browser executes that line of code, it will output your
+specified message to the <strong>Console</strong> panel without
+interrupting the application's execution flow.</p>
+<h3 id="managing-breakpoints-and-logpoints">Managing Breakpoints and
+Logpoints</h3>
+<p>Once you have set conditional breakpoints and logpoints, you can
+manage them using the <strong>Breakpoints</strong> pane, located on the
+right-hand side of the Sources panel (or at the bottom, depending on
+your layout).</p>
+<ul>
+<li><strong>Edit:</strong> Right-click the icon in the line number
+gutter and select <strong>Edit condition...</strong> or <strong>Edit
+logpoint...</strong> to change the expression.</li>
+<li><strong>Disable temporarily:</strong> Uncheck the box next to the
+specific breakpoint or logpoint in the <strong>Breakpoints</strong>
+pane, or hold <code>Shift</code> and click the icon in the gutter.</li>
+<li><strong>Delete:</strong> Left-click the icon in the gutter, or
+right-click it and select <strong>Remove breakpoint</strong>. You can
+also right-click inside the <strong>Breakpoints</strong> pane and select
+<strong>Remove all breakpoints</strong> to clear everything at
+once.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/using-conditional-breakpoints-and-logpoints-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Mozilla and Apple Avoid WebUSB and WebSerial APIs - chromium</title>
+    <meta name="description" content="This article explores why browser vendors Mozilla and Apple have refused to implement advanced hardware integration features like WebUSB and WebSerial, despite their availability in Google&#39;s Chromium-based browsers. While Google champions these APIs to br">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-mozilla-and-apple-avoid-web-usb-and-web-serial-ap-is">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Mozilla and Apple Avoid WebUSB and WebSerial APIs - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-mozilla-and-apple-avoid-web-usb-and-web-serial-ap-is" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores why browser vendors Mozilla and Apple have refused to implement advanced hardware integration features like WebUSB and WebSerial, despite their availability in Google&#39;s Chromium-based browsers. While Google champions these APIs to br" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-mozilla-and-apple-avoid-webusb-and-webserial-apis">Why
+Mozilla and Apple Avoid WebUSB and WebSerial APIs</h1>
+<p>This article explores why browser vendors Mozilla and Apple have
+refused to implement advanced hardware integration features like WebUSB
+and WebSerial, despite their availability in Google's Chromium-based
+browsers. While Google champions these APIs to bridge the gap between
+web applications and native software, the makers of Firefox and Safari
+argue that giving websites direct access to peripheral devices
+introduces severe security vulnerabilities, privacy risks, and user
+consent challenges that cannot be safely mitigated.</p>
+<h2 id="the-goal-of-hardware-web-apis">The Goal of Hardware Web
+APIs</h2>
+<p>Google introduced APIs like WebUSB, WebSerial, and WebHID as part of
+"Project Fugu," an initiative aimed at giving web applications the same
+capabilities as native desktop software. These APIs allow websites to
+communicate directly with connected hardware—such as 3D printers,
+microcontrollers, industrial equipment, and medical devices—without
+requiring the user to install specialized local drivers or native
+software.</p>
+<p>While this functionality is convenient for developers and useful for
+browser-based operating systems like ChromeOS, Mozilla (Firefox) and
+Apple (Safari/WebKit) have formally categorized these APIs as harmful or
+worth avoiding. Their opposition comes down to four main areas of
+concern: device security, user consent, privacy, and the breakdown of
+the web's core security model.</p>
+<h2 id="1-peripherals-are-not-built-for-the-web">1. Peripherals Are Not
+Built for the Web</h2>
+<p>The primary argument from Apple and Mozilla is that USB and serial
+devices were never designed to defend themselves against untrusted,
+potentially malicious code from the internet. When a device is plugged
+into a computer, it implicitly trusts the host system.</p>
+<p>By exposing these devices directly to the browser, any website that
+gains access can send raw commands to the hardware. This creates several
+critical risks:</p>
+<ul>
+<li><strong>Firmware Corruption:</strong> Many USB devices allow their
+internal software (firmware) to be updated over a USB connection without
+cryptographic verification. A malicious website could silently overwrite
+a device's firmware, permanently breaking it or turning it into a
+"BadUSB" device that attacks the host computer by emulating a
+keyboard.</li>
+<li><strong>Data Extraction:</strong> Devices often store sensitive
+information without internal access controls. A website granted access
+to a connected smartphone, camera, or flash drive could bypass standard
+file-selection prompts and read or delete everything on the device.</li>
+</ul>
+<h2 id="2-the-flaw-of-permission-prompts">2. The Flaw of Permission
+Prompts</h2>
+<p>Chromium browsers attempt to secure WebUSB and WebSerial by requiring
+the user to explicitly grant permission via a pop-up prompt before a
+website can access a device. However, Mozilla and Apple argue that
+permission prompts are not an effective security boundary for complex
+hardware.</p>
+<p>When a browser asks for permission to use a webcam or microphone, the
+average user understands the implications. Conversely, the implications
+of granting raw USB or serial access are nearly impossible for a
+layperson to grasp. Users cannot easily tell if granting access will
+simply allow a website to read a sensor, or if it will allow the site to
+completely reprogram the device. Through social engineering, malicious
+websites can easily trick users into clicking "Allow," thereby bypassing
+the only layer of protection the browser offers.</p>
+<h2 id="3-privacy-and-device-fingerprinting">3. Privacy and Device
+Fingerprinting</h2>
+<p>Both Apple and Mozilla heavily prioritize anti-tracking features in
+their browsers. Hardware APIs present a massive loophole for browser
+fingerprinting—a technique used to track users across the web based on
+their unique system configurations.</p>
+<p>Connected hardware often broadcasts globally unique identifiers, such
+as factory serial numbers, MAC addresses, and specific vendor IDs.
+Unlike cookies, which a user can delete, hardware serial numbers are
+permanent. If a user grants a website access to a device, that site can
+record the hardware's unique identifier to track the user indefinitely,
+even across different browser profiles or in private browsing modes.</p>
+<h2 id="4-breaking-the-same-origin-policy">4. Breaking the Same-Origin
+Policy</h2>
+<p>The fundamental security model of the web is the "Same-Origin
+Policy," which dictates that data and permissions from one website are
+strictly isolated from another website.</p>
+<p>Physical hardware does not understand or respect web origins. If a
+user connects a device to Website A, and later connects the same device
+to Website B, the device retains its state. A malicious Website A could
+leave malicious data on the device or alter its configuration in a way
+that exploits Website B, or even compromises the user's local operating
+system the next time a native application interacts with that
+hardware.</p>
+<h2 id="the-philosophical-divide">The Philosophical Divide</h2>
+<p>Ultimately, the disagreement over WebUSB and WebSerial highlights a
+philosophical divide in how the web should evolve. Google views the
+browser as an operating system that should eventually replace native
+apps entirely, which requires deep hardware access. Mozilla and Apple
+view the browser as a secure sandbox designed to protect the user from
+an untrusted internet, concluding that some hardware interactions are
+simply too dangerous to be exposed to the web.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-mozilla-and-apple-avoid-web-usb-and-web-serial-ap-is';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

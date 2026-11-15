@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Google Uses ClusterFuzz to Secure Chromium - chromium</title>
+    <meta name="description" content="This article explores ClusterFuzz, Google’s massive, distributed fuzzing infrastructure designed to automatically find security vulnerabilities in software. You will learn what ClusterFuzz is, how Google orchestrates thousands of virtual machines to conti">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-google-uses-cluster-fuzz-to-secure-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Google Uses ClusterFuzz to Secure Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-google-uses-cluster-fuzz-to-secure-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores ClusterFuzz, Google’s massive, distributed fuzzing infrastructure designed to automatically find security vulnerabilities in software. You will learn what ClusterFuzz is, how Google orchestrates thousands of virtual machines to conti" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-google-uses-clusterfuzz-to-secure-chromium">How Google Uses
+ClusterFuzz to Secure Chromium</h1>
+<p>This article explores ClusterFuzz, Google’s massive, distributed
+fuzzing infrastructure designed to automatically find security
+vulnerabilities in software. You will learn what ClusterFuzz is, how
+Google orchestrates thousands of virtual machines to continuously test
+the Chromium web browser, and the automated workflow that turns raw
+software crashes into actionable bug reports for developers.</p>
+<h2 id="what-is-clusterfuzz">What is ClusterFuzz?</h2>
+<p>ClusterFuzz is an open-source, scalable fuzzing infrastructure
+developed by Google. Fuzzing is an automated software testing technique
+that involves feeding massive amounts of random, unexpected, or
+malformed data into a program to see if it crashes. If the program
+crashes, it often indicates a security vulnerability, such as a memory
+corruption flaw. ClusterFuzz acts as the backend management system that
+automates this entire testing process at an enterprise scale.</p>
+<h2 id="running-thousands-of-virtual-machines">Running Thousands of
+Virtual Machines</h2>
+<p>To secure a codebase as large and complex as the Chromium web
+browser—the open-source project that powers Google Chrome—fuzzing on a
+few computers is not enough. Google runs ClusterFuzz on the Google Cloud
+Platform using over 25,000 CPU cores distributed across thousands of
+virtual machines (VMs).</p>
+<p>To run at this scale efficiently, ClusterFuzz relies heavily on
+preemptible VMs. These VMs utilize spare cloud capacity to run fuzzing
+tasks continuously, 24 hours a day. Because fuzzing tasks are stateless
+and can be stopped and started without losing critical progress, Google
+can seamlessly cycle through thousands of VMs, executing millions of
+test cases against Chromium every single day.</p>
+<h2 id="how-continuous-fuzzing-works-on-chromium">How Continuous Fuzzing
+Works on Chromium</h2>
+<p>Google’s continuous fuzzing process for Chromium operates through a
+strict, automated pipeline that requires zero human intervention:</p>
+<ul>
+<li><strong>Sanitizer-Instrumented Builds:</strong> Before fuzzing
+begins, the latest Chromium source code is compiled with specialized
+tools called Sanitizers (such as AddressSanitizer, MemorySanitizer, and
+UndefinedBehaviorSanitizer). Normally, a minor memory error might go
+unnoticed. Sanitizers act as tripwires that force the Chromium browser
+to crash immediately the moment a hidden memory error or logic flaw
+occurs.</li>
+<li><strong>Coverage-Guided Fuzzing Engines:</strong> ClusterFuzz
+deploys advanced fuzzing engines—primarily libFuzzer, AFL, and
+Honggfuzz—across its fleet of VMs. Instead of guessing blindly, these
+engines use "coverage guidance." They monitor which specific lines of
+Chromium code are executed by a test input, and then mutate that input
+to reach deeper, previously untested areas of the browser.</li>
+<li><strong>Centralized Corpus Management:</strong> The thousands of VMs
+share a centralized database of test inputs, known as a corpus. When one
+VM mutates a file in a way that triggers a brand-new code path in
+Chromium, that file is saved to the central corpus and shared with the
+rest of the VM fleet to maximize testing efficiency.</li>
+</ul>
+<h2 id="from-crash-to-automated-bug-report">From Crash to Automated Bug
+Report</h2>
+<p>Finding a crash is only the first step. ClusterFuzz's true power lies
+in its ability to automate the triage and debugging process. When one of
+the thousands of VMs detects a Chromium crash, ClusterFuzz automatically
+executes the following workflow:</p>
+<ol type="1">
+<li><strong>Deduplication:</strong> Multiple VMs often find the exact
+same bug simultaneously. ClusterFuzz analyzes the crash stack trace to
+ensure the vulnerability hasn't already been recorded, preventing
+developers from being spammed with duplicate reports.</li>
+<li><strong>Test Case Minimization:</strong> Fuzzing inputs are often
+large and messy. ClusterFuzz automatically strips away unnecessary bytes
+from the crashing input, leaving developers with the smallest, cleanest
+file possible required to reproduce the crash.</li>
+<li><strong>Bisecting:</strong> ClusterFuzz runs the crashing input
+against historical builds of Chromium. By using a binary search method,
+it pinpoints the exact code commit that introduced the bug and
+identifies the specific developer who wrote it.</li>
+<li><strong>Bug Filing and Verification:</strong> ClusterFuzz
+automatically opens a detailed ticket in the Chromium issue tracker,
+attaches the minimized test case, and assigns it to the responsible
+engineer. Once the engineer submits a code fix, ClusterFuzz
+automatically re-tests the updated browser with the crashing input. If
+the browser no longer crashes, ClusterFuzz marks the bug as verified and
+closes the ticket.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-google-uses-cluster-fuzz-to-secure-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Builds the Accessibility Tree - chromium</title>
+    <meta name="description" content="This article provides an overview of the architectural process Chromium uses to transform a web page&#39;s Document Object Model (DOM) into an internal Accessibility Tree, bridging the gap between raw web code and assistive technologies like NVDA and JAWS. It">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-builds-the-accessibility-tree">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Builds the Accessibility Tree - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-builds-the-accessibility-tree" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the architectural process Chromium uses to transform a web page&#39;s Document Object Model (DOM) into an internal Accessibility Tree, bridging the gap between raw web code and assistive technologies like NVDA and JAWS. It" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-builds-the-accessibility-tree">How Chromium Builds
+the Accessibility Tree</h1>
+<p>This article provides an overview of the architectural process
+Chromium uses to transform a web page's Document Object Model (DOM) into
+an internal Accessibility Tree, bridging the gap between raw web code
+and assistive technologies like NVDA and JAWS. It covers how the Blink
+rendering engine extracts semantic data from the DOM and CSS, how this
+data crosses security boundaries via inter-process communication, and
+how the main browser process exposes the final tree to operating system
+accessibility APIs.</p>
+<h3 id="1-extracting-semantics-in-the-renderer-process">1. Extracting
+Semantics in the Renderer Process</h3>
+<p>The construction of the Accessibility Tree begins inside Chromium’s
+sandboxed Renderer Process, managed by the Blink rendering engine.
+Chromium does not build the accessibility tree from the DOM alone; it
+combines the DOM tree with the Layout Tree (which includes computed CSS
+styles).</p>
+<p>CSS directly impacts accessibility. For example, elements styled with
+<code>display: none</code> or <code>visibility: hidden</code> are
+excluded from the accessibility tree, while CSS pseudo-elements
+(<code>::before</code> and <code>::after</code>) are included.</p>
+<p>Blink traverses the DOM and Layout trees simultaneously to create a
+parallel structure of <code>AXObject</code> instances. During this
+phase, Blink performs two critical actions:</p>
+<ul>
+<li><strong>Filtering:</strong> Not every DOM node becomes an
+<code>AXObject</code>. Purely visual or structural containers, such as a
+generic <code>&lt;div&gt;</code> or <code>&lt;span&gt;</code> used only
+for styling, are ignored to keep the tree clean and navigable.</li>
+<li><strong>Computation:</strong> For every relevant node, Blink
+calculates its core accessibility properties: <strong>Role</strong>
+(what the element is, e.g., button, heading), <strong>Name</strong> (its
+accessible label), <strong>State</strong> (e.g., checked, disabled,
+expanded), and <strong>Value</strong>. This calculation follows strict
+precedence rules, combining native HTML semantics with WAI-ARIA
+attributes (such as <code>aria-label</code> or <code>role</code>).</li>
+</ul>
+<h3 id="2-serialization-and-inter-process-communication-ipc">2.
+Serialization and Inter-Process Communication (IPC)</h3>
+<p>Because Chromium uses a multi-process architecture, the Renderer
+Process is heavily sandboxed for security. Screen readers like NVDA and
+JAWS run at the operating system level and cannot directly query the
+Renderer Process. Furthermore, screen readers require fast, synchronous
+responses to user commands; querying the Renderer directly could cause
+the screen reader to freeze if the web page's main thread is busy
+running heavy JavaScript.</p>
+<p>To solve this, Chromium caches a copy of the accessibility tree in
+the main Browser Process.</p>
+<p>Whenever the DOM or layout changes in a way that affects
+accessibility, Blink batches these modifications and serializes the
+affected <code>AXObject</code> nodes into a data structure called
+<code>AXTreeUpdate</code>. Chromium then sends this serialized data
+across process boundaries to the Browser Process using Mojo, Chromium's
+inter-process communication (IPC) system.</p>
+<h3 id="3-reconstructing-the-tree-in-the-browser-process">3.
+Reconstructing the Tree in the Browser Process</h3>
+<p>Once the <code>AXTreeUpdate</code> message arrives in the unsandboxed
+Browser Process, it is deserialized to construct or update a
+platform-independent representation of the tree known as
+<code>ui::AXTree</code>, which is composed of <code>ui::AXNode</code>
+instances.</p>
+<p>A component called the <code>BrowserAccessibilityManager</code>
+oversees this tree. For every <code>ui::AXNode</code>, the manager
+creates a platform-specific wrapper object called
+<code>BrowserAccessibility</code>. This separation allows Chromium to
+maintain one core logic system for tree management while adapting the
+output to fit the specific requirements of Windows, macOS, Linux,
+Android, or ChromeOS.</p>
+<h3 id="4-exposing-content-to-nvda-and-jaws">4. Exposing Content to NVDA
+and JAWS</h3>
+<p>The final step is translating the <code>BrowserAccessibility</code>
+objects into formats that Windows-based screen readers like NVDA and
+JAWS can understand.</p>
+<p>On Windows, assistive technologies rely on specific Component Object
+Model (COM) APIs to interact with applications. Chromium supports the
+following APIs for Windows screen readers:</p>
+<ul>
+<li><strong>Microsoft Active Accessibility (MSAA):</strong> A legacy API
+still used for basic compatibility.</li>
+<li><strong>IAccessible2 (IA2):</strong> An API that extends MSAA,
+heavily relied upon by both NVDA and JAWS for rich web content.</li>
+<li><strong>UI Automation (UIA):</strong> Microsoft's modern
+accessibility framework.</li>
+</ul>
+<p>The <code>BrowserAccessibility</code> wrappers in Chromium implement
+the interfaces for these exact APIs (such as <code>IAccessible2</code>
+on Windows). When a user navigates a page using NVDA or JAWS, the screen
+reader makes API calls directly to the Chromium Browser Process. The
+Browser Process immediately answers these queries using its cached
+<code>ui::AXTree</code> without waiting on the Renderer.</p>
+<p>Similarly, when a web page dynamically updates—such as a modal
+opening or an <code>aria-live</code> region changing—Blink detects the
+change, sends an <code>AXTreeUpdate</code> and an associated event to
+the Browser Process, and the Browser Process fires a native Windows OS
+event. NVDA or JAWS intercepts this event, queries the updated node in
+the <code>ui::AXTree</code>, and announces the change to the user.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-builds-the-accessibility-tree';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

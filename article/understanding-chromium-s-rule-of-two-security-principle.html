@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Chromium&#39;s Rule of Two Security Principle - chromium</title>
+    <meta name="description" content="This article provides a comprehensive breakdown of the &quot;Rule of Two,&quot; a core security principle used by Chromium engineers when developing new browser features. It explains the three primary risk factors in software development—untrusted input, unsafe pro">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-chromium-s-rule-of-two-security-principle">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Chromium&#39;s Rule of Two Security Principle - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-chromium-s-rule-of-two-security-principle" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive breakdown of the &quot;Rule of Two,&quot; a core security principle used by Chromium engineers when developing new browser features. It explains the three primary risk factors in software development—untrusted input, unsafe pro" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-chromiums-rule-of-two-security-principle">Understanding
+Chromium's Rule of Two Security Principle</h1>
+<p>This article provides a comprehensive breakdown of the "Rule of Two,"
+a core security principle used by Chromium engineers when developing new
+browser features. It explains the three primary risk factors in software
+development—untrusted input, unsafe programming languages, and high
+privileges—and demonstrates how limiting new code to no more than two of
+these factors prevents critical security vulnerabilities like remote
+code execution.</p>
+<h2 id="the-core-concept">The Core Concept</h2>
+<p>When developing new features for the Chromium web browser, engineers
+must adhere to a strict security guideline known as the Rule of Two. The
+principle states that any given piece of code may satisfy no more than
+two of the following three conditions at the same time:</p>
+<ol type="1">
+<li><strong>It processes untrusted input.</strong></li>
+<li><strong>It is written in an unsafe language.</strong></li>
+<li><strong>It runs with high privileges.</strong></li>
+</ol>
+<p>If a new feature requires all three conditions simultaneously, it is
+considered an unacceptable security risk and cannot be shipped without
+architectural changes.</p>
+<h2 id="breaking-down-the-three-conditions">Breaking Down the Three
+Conditions</h2>
+<p>To understand how the rule is applied, it is necessary to define the
+three risk factors in the context of web browser architecture:</p>
+<ul>
+<li><strong>Untrusted Input:</strong> Data that originates from the open
+internet or an unverified source. In a browser, this includes HTML, CSS,
+JavaScript, images, fonts, and network packets. Because an attacker can
+easily manipulate this data, it is always considered hostile.</li>
+<li><strong>Unsafe Language:</strong> Programming languages that lack
+memory safety, primarily C and C++. Chromium is predominantly written in
+C++. In these languages, programmer errors can easily lead to memory
+corruption bugs, such as buffer overflows or use-after-free
+vulnerabilities, which attackers exploit to hijack the software.</li>
+<li><strong>High Privileges:</strong> Code that runs without
+restrictions, having direct access to the user's operating system, file
+system, hardware, or sensitive data across different websites. In
+Chromium, the main "Browser Process" runs with high privileges, whereas
+"Renderer Processes" run inside a restrictive security sandbox (low
+privilege).</li>
+</ul>
+<h2 id="how-engineers-apply-the-rule">How Engineers Apply the Rule</h2>
+<p>Because the fundamental purpose of a web browser is to process data
+from the internet, dealing with <strong>untrusted input</strong> is
+usually unavoidable. Furthermore, because Chromium's codebase is largely
+C++, using an <strong>unsafe language</strong> is often the default.</p>
+<p>To comply with the Rule of Two, engineers must actively design
+features so that at least one of the three conditions is eliminated.
+This results in three acceptable development patterns:</p>
+<h3 id="1-untrusted-input--unsafe-language--must-use-low-privilege">1.
+Untrusted Input + Unsafe Language = Must Use Low Privilege</h3>
+<p>This is the most common approach in Chromium. If an engineer writes
+C++ code to parse untrusted data (like a new image format), that code
+must be isolated inside a strict sandbox. If an attacker exploits a
+memory bug in the C++ code, the sandbox prevents them from accessing the
+rest of the computer or reading data from other websites.</p>
+<h3 id="2-untrusted-input--high-privilege--must-use-a-safe-language">2.
+Untrusted Input + High Privilege = Must Use a Safe Language</h3>
+<p>If a feature must run in the high-privilege Browser Process and
+handle untrusted data, it cannot be written in C or C++. Instead,
+engineers must use a memory-safe language such as Rust, Java (on
+Android), or JavaScript. Memory-safe languages automatically prevent the
+memory corruption bugs that attackers rely on to compromise the
+system.</p>
+<h3 id="3-unsafe-language--high-privilege--must-use-trusted-input">3.
+Unsafe Language + High Privilege = Must Use Trusted Input</h3>
+<p>If C++ code must run in the high-privilege Browser Process, it may
+only interact with data that has already been vetted and sanitized.
+Typically, this means a low-privilege, sandboxed process takes the
+untrusted input, parses it, verifies its safety, and repackages it into
+a structured, safe format before handing it off to the high-privilege
+process.</p>
+<h2 id="why-the-rule-of-two-matters">Why the Rule of Two Matters</h2>
+<p>The Rule of Two is a pragmatic defense-in-depth strategy. It
+acknowledges that humans will inevitably write bugs in C++ and that
+attackers will inevitably send malicious data to the browser. By
+strictly separating high privileges from the combination of unsafe code
+and untrusted data, Chromium ensures that a single coding error does not
+result in a complete compromise of the user's device.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-chromium-s-rule-of-two-security-principle';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

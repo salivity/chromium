@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Built a Custom Multi-Process Architecture - chromium</title>
+    <meta name="description" content="This article explores the fundamental reasons why the Chromium engineering team abandoned traditional single-process browser designs in favor of a custom multi-process architecture. As websites evolved from static documents into complex, interactive appli">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-built-a-custom-multi-process-architecture">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Built a Custom Multi-Process Architecture - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-built-a-custom-multi-process-architecture" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the fundamental reasons why the Chromium engineering team abandoned traditional single-process browser designs in favor of a custom multi-process architecture. As websites evolved from static documents into complex, interactive appli" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-built-a-custom-multi-process-architecture">Why
+Chromium Built a Custom Multi-Process Architecture</h1>
+<p>This article explores the fundamental reasons why the Chromium
+engineering team abandoned traditional single-process browser designs in
+favor of a custom multi-process architecture. As websites evolved from
+static documents into complex, interactive applications, older browser
+designs struggled to keep up with the demands of the modern web. By
+isolating web pages and browser components into separate operating
+system processes, the Chromium team achieved massive improvements in
+stability, performance, and security, ultimately setting a new standard
+for how web browsers are built.</p>
+<h3 id="the-limitations-of-single-process-designs">The Limitations of
+Single-Process Designs</h3>
+<p>When early web browsers were created, web pages were mostly static
+text and images. Running the entire browser—including the user
+interface, network requests, layout rendering, and JavaScript
+execution—inside a single operating system process made sense. It was
+simple to build and used minimal system memory.</p>
+<p>However, by the mid-2000s, websites had transformed into full-fledged
+software applications. Running multiple complex web apps inside a single
+process created a massive bottleneck. A flaw in just one website could
+compromise the entire browser, leading the Chromium team to realize that
+a single-process design was no longer viable.</p>
+<h3 id="crash-isolation-and-stability">Crash Isolation and
+Stability</h3>
+<p>In a single-process browser, all open tabs share the same process and
+memory space. If a poorly coded website causes a fatal error in the
+rendering engine or the JavaScript engine, the entire browser crashes
+immediately. Users lose all their open tabs and unsaved work at
+once.</p>
+<p>Chromium solved this by acting like an operating system. Just as an
+OS separates different applications into distinct processes so one
+crashing app doesn't freeze the whole computer, Chromium places
+different web pages into separate "renderer" processes. If a web
+application crashes in Chromium, only that specific renderer process
+dies. The user sees a "Sad Tab" icon on the affected page, while the
+main browser interface and all other open tabs continue running
+smoothly.</p>
+<h3 id="performance-and-responsiveness">Performance and
+Responsiveness</h3>
+<p>Single-process browsers often suffered from "jank" or completely
+frozen interfaces. Because all tabs shared the same main thread, a heavy
+JavaScript calculation running in a background tab could freeze the
+user's scrolling in the foreground tab, or even lock up the browser's
+back button and address bar.</p>
+<p>With a multi-process architecture, Chromium runs the main browser UI
+in its own dedicated process, while web pages run in separate processes
+in the background. If a web page gets stuck in an infinite loop, the
+user can still effortlessly switch tabs, scroll other pages, or simply
+close the frozen tab. Furthermore, this design allowed Chromium to take
+full advantage of modern multi-core processors, running multiple tabs in
+parallel across different CPU cores.</p>
+<h3 id="clean-memory-management">Clean Memory Management</h3>
+<p>Single-process browsers were notorious for memory leaks. Over a long
+browsing session, opening and closing dozens of tabs would cause the
+browser's memory usage to bloat. Even after tabs were closed, the
+fragmented memory was rarely returned to the operating system
+completely, forcing users to restart their browsers to speed up their
+computers.</p>
+<p>In Chromium's multi-process model, memory management is drastically
+simplified. Because each tab (or group of connected tabs) runs in its
+own process, closing a tab terminates that specific process. When a
+process is terminated, the operating system instantly and completely
+reclaims every byte of memory that the tab was using, eliminating
+long-term memory bloat.</p>
+<h3 id="security-through-sandboxing">Security Through Sandboxing</h3>
+<p>Web browsers constantly download and execute untrusted code from all
+over the internet. The rendering engine, which parses HTML, CSS, and
+JavaScript, is massive, complex, and virtually impossible to make 100%
+bug-free. In a single-process browser, the rendering engine has the
+exact same system permissions as the browser itself. If an attacker
+exploits a bug in the rendering engine, they immediately gain the
+ability to read files on the user's hard drive, install malware, or
+access the network.</p>
+<p>The Chromium team utilized their multi-process design to implement a
+strict "sandbox." The main browser process has full access to the
+operating system, network, and user files, but it never directly
+processes untrusted web code. Instead, untrusted code is handled
+exclusively inside the isolated renderer processes. Chromium strips
+these renderer processes of almost all system privileges. Even if a
+malicious website successfully hacks a renderer process, it is trapped
+inside the sandbox—it cannot read the user's hard drive, access the
+webcam, or interact with the operating system without going through the
+heavily guarded main browser process.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-built-a-custom-multi-process-architecture';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

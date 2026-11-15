@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Vivaldi Replaces Chromium&#39;s C++ UI with React and HTML - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Vivaldi web browser discards the standard C++ Views user interface of the Chromium project in favor of a custom UI layer built with HTML, CSS, and React. By treating the browser interface itself as a w">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-vivaldi-replaces-chromium-s-c-ui-with-react-and-html">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Vivaldi Replaces Chromium&#39;s C++ UI with React and HTML - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-vivaldi-replaces-chromium-s-c-ui-with-react-and-html" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Vivaldi web browser discards the standard C++ Views user interface of the Chromium project in favor of a custom UI layer built with HTML, CSS, and React. By treating the browser interface itself as a w" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-vivaldi-replaces-chromiums-c-ui-with-react-and-html">How
+Vivaldi Replaces Chromium's C++ UI with React and HTML</h1>
+<p>This article provides a technical overview of how the Vivaldi web
+browser discards the standard C++ Views user interface of the Chromium
+project in favor of a custom UI layer built with HTML, CSS, and React.
+By treating the browser interface itself as a web application, Vivaldi
+achieves a high degree of customization and rapid feature development.
+We will explore the removal of the native Views framework, the
+implementation of the React-based frontend, the use of the
+<code>&lt;webview&gt;</code> tag to render web content, and the custom
+C++ bridge that allows the JavaScript UI to control the underlying
+browser engine.</p>
+<h3 id="bypassing-the-chromium-views-framework">Bypassing the Chromium
+Views Framework</h3>
+<p>In a standard Chromium browser, the user interface—including the tab
+bar, address bar, and menus—is built using a C++ framework known as
+"Views." While fast and tightly integrated with the operating system,
+the Views framework is rigid and requires compiling C++ code for every
+minor visual change.</p>
+<p>Vivaldi bypasses this native UI layer entirely. Instead of using C++
+to draw the browser window, Vivaldi initializes Chromium in a mode
+similar to the now-deprecated Chrome Apps architecture. When Vivaldi
+launches, it creates a borderless native window that immediately loads a
+local HTML document. This document serves as the foundational canvas for
+the entire browser interface.</p>
+<h3 id="the-react-html-and-css-frontend">The React, HTML, and CSS
+Frontend</h3>
+<p>Because the browser shell is essentially a local webpage rendered by
+the Blink engine, Vivaldi engineers can build the interface using
+standard web technologies:</p>
+<ul>
+<li><strong>HTML</strong> defines the structure of the toolbars, panels,
+and tab strips.</li>
+<li><strong>CSS</strong> handles the styling, animations, and dynamic
+theming (such as adapting the UI color to match the active
+website).</li>
+<li><strong>React</strong> manages the complex state of the user
+interface. Every tab, button, and panel is a React component. When a
+user moves a tab or opens a side panel, React efficiently updates the
+Document Object Model (DOM) without needing to redraw the entire window
+at the C++ level.</li>
+</ul>
+<h3 id="rendering-web-content-with-the-webview-tag">Rendering Web
+Content with the <code>&lt;webview&gt;</code> Tag</h3>
+<p>A major challenge of building a browser UI in HTML is displaying
+external websites inside that HTML interface without security risks or
+performance degradation. Standard <code>&lt;iframe&gt;</code> elements
+are insufficient because they share the same process and lack
+browser-level controls.</p>
+<p>Vivaldi solves this by utilizing Chromium’s
+<code>&lt;webview&gt;</code> tag. Originally designed for Chrome Apps,
+the <code>&lt;webview&gt;</code> tag acts as an isolated container. When
+you open a new tab in Vivaldi, React renders a new
+<code>&lt;webview&gt;</code> element in the DOM. Chromium's backend
+recognizes this tag and spins up a separate, sandboxed renderer process
+for the external webpage. This ensures that a crashing webpage does not
+crash Vivaldi's React-based UI, maintaining Chromium's multi-process
+security model.</p>
+<h3 id="bridging-the-gap-between-javascript-and-c">Bridging the Gap
+Between JavaScript and C++</h3>
+<p>A web-based UI cannot natively access system-level browser functions
+like managing bookmarks, reading browsing history, or controlling
+network requests. To make the React UI functional, Vivaldi connects the
+JavaScript frontend to the Chromium C++ backend using a custom API
+bridge.</p>
+<p>Vivaldi achieves this by leveraging and expanding upon the Chromium
+Extensions API architecture:</p>
+<ol type="1">
+<li><strong>Reusing <code>chrome.*</code> APIs:</strong> Vivaldi's UI
+has privileged access to standard Chrome Extension APIs (like
+<code>chrome.tabs</code> and <code>chrome.history</code>), allowing the
+React frontend to request data directly from the C++ engine.</li>
+<li><strong>Custom <code>vivaldi.*</code> C++ Bindings:</strong> For
+features unique to Vivaldi (such as tab stacking, mouse gestures, and
+the built-in mail client), Vivaldi's developers write custom C++ code in
+the Chromium layer. They then expose these functions to the JavaScript
+engine (V8) under a private <code>vivaldi.*</code> namespace.</li>
+</ol>
+<p>When a user clicks a button in the React interface, it triggers a
+JavaScript function that calls a <code>vivaldi.*</code> API. This call
+crosses the boundary into the C++ backend, executes the native Chromium
+code, and returns the result to the React state via asynchronous events,
+seamlessly uniting the web-based frontend with the native browser
+engine.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-vivaldi-replaces-chromium-s-c-ui-with-react-and-html';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

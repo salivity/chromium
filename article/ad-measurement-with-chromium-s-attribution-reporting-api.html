@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Measurement with Chromium&#39;s Attribution Reporting API - chromium</title>
+    <meta name="description" content="This article explains how the Chromium web browser&#39;s Attribution Reporting API enables advertisers to measure ad conversions without relying on third-party, cross-site tracking cookies. It covers the core mechanics of the system, including how the browser">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/ad-measurement-with-chromium-s-attribution-reporting-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ad Measurement with Chromium&#39;s Attribution Reporting API - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/ad-measurement-with-chromium-s-attribution-reporting-api" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium web browser&#39;s Attribution Reporting API enables advertisers to measure ad conversions without relying on third-party, cross-site tracking cookies. It covers the core mechanics of the system, including how the browser" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="ad-measurement-with-chromiums-attribution-reporting-api">Ad
+Measurement with Chromium's Attribution Reporting API</h1>
+<p>This article explains how the Chromium web browser's Attribution
+Reporting API enables advertisers to measure ad conversions without
+relying on third-party, cross-site tracking cookies. It covers the core
+mechanics of the system, including how the browser logs ad interactions
+locally on a user's device, matches those interactions with subsequent
+conversions, and generates two distinct types of privacy-preserving
+reports—event-level and summary reports—using data limits, encryption,
+and randomized noise to protect user identity.</p>
+<h2 id="local-on-device-matching">Local On-Device Matching</h2>
+<p>Traditionally, third-party cookies tracked users across different
+websites to see if an ad led to a sale. The Attribution Reporting API
+eliminates this by moving the tracking responsibility directly into the
+user's Chromium browser. Cross-site identifiers are never shared with
+advertisers or ad tech companies. Instead, the process relies on two
+local steps:</p>
+<ol type="1">
+<li><strong>Registering Ad Interactions (Attribution Sources):</strong>
+When a user clicks or views an ad on a publisher's website, the ad tech
+platform instructs the browser to record this event locally on the
+device. The browser saves specific contextual data, such as the ad ID,
+the time of the interaction, and the destination website where a
+conversion is expected to happen.</li>
+<li><strong>Triggering Conversions (Attribution Triggers):</strong>
+Later, when the user visits the advertiser's website and completes a
+desired action (like making a purchase or signing up for a newsletter),
+a pixel or script on the page informs the browser that a conversion has
+occurred.</li>
+</ol>
+<p>The browser then checks its private, local storage to see if this
+conversion matches any previously recorded ad interactions for that
+specific advertiser. If a match is found, the browser generates a report
+to send back to the ad tech platform.</p>
+<h2 id="two-types-of-attribution-reports">Two Types of Attribution
+Reports</h2>
+<p>To balance the need for marketing data with strict user privacy, the
+browser generates two different kinds of reports. Ad tech platforms can
+use both simultaneously for different analytical purposes.</p>
+<h3 id="1-event-level-reports">1. Event-Level Reports</h3>
+<p>Event-level reports connect a specific ad click or view with a
+conversion, answering optimization questions like "Which specific ad
+creative led to the most conversions?"</p>
+<p>Because these reports link an individual ad interaction to a
+conversion, the browser strictly limits the amount of conversion data
+attached to it. For example, a click might only allow 3 bits of
+conversion data (a number between 0 and 7), which is enough to
+categorize the conversion as a "purchase" or "signup," but not enough to
+include a specific purchase amount or user ID.</p>
+<h3 id="2-summary-reports-aggregatable-reports">2. Summary Reports
+(Aggregatable Reports)</h3>
+<p>Summary reports provide detailed conversion data, such as the exact
+dollar value of a purchase or geographic location, but only for groups
+of users rather than individuals. They answer questions like "What was
+the total return on ad spend for this specific campaign?"</p>
+<p>When a conversion occurs, the browser generates an "aggregatable
+report" containing high-resolution data, encrypts it, and sends it to
+the ad tech platform. The ad tech cannot read these individual reports.
+Instead, they must batch them together and send them to a secure
+"Aggregation Service" (run in a trusted execution environment). This
+service decrypts the data, combines the totals, adds a small amount of
+statistical noise, and outputs a final summary report. This ensures that
+no single user's behavior can be isolated.</p>
+<h2 id="built-in-privacy-mechanisms">Built-in Privacy Mechanisms</h2>
+<p>Simply moving the data to the browser is not enough to prevent bad
+actors from trying to link a user's identity across sites. The
+Attribution Reporting API enforces several cryptographic and statistical
+defenses to prevent cross-site tracking:</p>
+<ul>
+<li><strong>Delayed Reporting:</strong> The browser does not send
+reports immediately when a conversion happens. If it did, an advertiser
+and a publisher could compare timestamps to identify the exact user who
+just converted. Instead, the browser sends event-level reports during
+randomized time windows (ranging from two days to several weeks after
+the ad click), and delays aggregatable reports randomly by up to an
+hour.</li>
+<li><strong>Noise and Differential Privacy:</strong> A small percentage
+of the time, the browser will intentionally send fake conversion data or
+suppress real conversion data. This mathematically guarantees
+"differential privacy," meaning an ad tech company can never be 100%
+certain that a specific individual actually converted, while still
+allowing them to calculate accurate overarching trends by factoring in
+the known noise rate.</li>
+<li><strong>Rate Limits:</strong> The browser restricts how many
+conversions can be measured per ad click, how many ad tech platforms can
+register events on a single site, and how many destinations can be
+linked to a single source. This prevents companies from abusing the
+system to build covert user profiles.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/ad-measurement-with-chromium-s-attribution-reporting-api';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

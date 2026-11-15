@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Content Scripts: Isolated Worlds and the Shared DOM - chromium</title>
+    <meta name="description" content="This article explains the architectural mechanism that allows Chromium browser extensions to run content scripts in an &quot;isolated world&quot; while simultaneously sharing the underlying Document Object Model (DOM) with the host webpage. By examining the interac">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-content-scripts-isolated-worlds-and-the-shared-dom">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Content Scripts: Isolated Worlds and the Shared DOM - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-content-scripts-isolated-worlds-and-the-shared-dom" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the architectural mechanism that allows Chromium browser extensions to run content scripts in an &quot;isolated world&quot; while simultaneously sharing the underlying Document Object Model (DOM) with the host webpage. By examining the interac" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="chromium-content-scripts-isolated-worlds-and-the-shared-dom">Chromium
+Content Scripts: Isolated Worlds and the Shared DOM</h1>
+<p>This article explains the architectural mechanism that allows
+Chromium browser extensions to run content scripts in an "isolated
+world" while simultaneously sharing the underlying Document Object Model
+(DOM) with the host webpage. By examining the interaction between
+Chromium's Blink rendering engine and the V8 JavaScript engine, we will
+explore how separate JavaScript execution contexts are maintained, how
+C++ DOM nodes are mapped to distinct JavaScript wrappers, and how this
+design prevents conflicts and security vulnerabilities between
+extensions and web pages.</p>
+<h2 id="the-concept-of-isolated-worlds">The Concept of Isolated
+Worlds</h2>
+<p>When a webpage loads in Chromium, its JavaScript executes in what is
+known as the "Main World." When a browser extension injects a content
+script into that same page, Chromium creates a separate execution
+environment for the script called an "Isolated World."</p>
+<p>Isolated worlds exist to solve two major problems: collisions and
+security. Without isolation, a content script and a webpage might
+accidentally use the same global variable names, breaking functionality.
+Worse, a malicious webpage could overwrite standard JavaScript
+prototypes (like <code>Array.prototype.push</code>) to hijack the
+execution of the extension's content script, potentially gaining access
+to privileged extension APIs.</p>
+<h2 id="separating-the-c-dom-from-javascript">Separating the C++ DOM
+from JavaScript</h2>
+<p>To understand how an isolated world shares the DOM without sharing
+JavaScript state, you must look at how Chromium separates webpage
+structure from script execution. Chromium uses two primary components
+for this:</p>
+<ol type="1">
+<li><strong>Blink (The Rendering Engine):</strong> Written in C++, Blink
+is responsible for parsing HTML and constructing the actual DOM tree in
+memory. The true DOM lives entirely in C++.</li>
+<li><strong>V8 (The JavaScript Engine):</strong> V8 executes JavaScript
+code. JavaScript cannot directly manipulate C++ memory, so V8 uses
+"JavaScript wrappers"—objects in V8 memory that act as proxies holding
+pointers to the underlying C++ DOM nodes in Blink.</li>
+</ol>
+<h2 id="how-the-mapping-mechanism-works">How the Mapping Mechanism
+Works</h2>
+<p>When a webpage and a content script run on the same tab, there is
+only <strong>one</strong> C++ DOM tree in Blink, but there are
+<strong>multiple</strong> V8 execution contexts (one for the Main World,
+and one for each extension's Isolated World).</p>
+<p>Each V8 execution context gets its own global <code>window</code>
+object, its own built-in object prototypes, and its own
+<code>DOMDataStore</code>. The <code>DOMDataStore</code> is an internal
+mapping table that links C++ DOM nodes to their corresponding V8
+JavaScript wrappers for that specific world.</p>
+<p>Here is what happens when both worlds interact with the DOM:</p>
+<ol type="1">
+<li><strong>The Main World accesses an element:</strong> The webpage
+runs <code>const el = document.getElementById('header')</code>. Blink
+finds the C++ <code>HTMLElement</code> node in the DOM tree. It checks
+the Main World's <code>DOMDataStore</code>, creates a V8 wrapper for
+that node inside the Main World's memory, and returns it.</li>
+<li><strong>The Isolated World accesses the same element:</strong> The
+content script also runs
+<code>const el = document.getElementById('header')</code>. Blink finds
+the exact same C++ <code>HTMLElement</code> node. However, it checks the
+Isolated World's <code>DOMDataStore</code>, creates a completely
+separate V8 wrapper inside the Isolated World's memory, and returns
+it.</li>
+<li><strong>Modifying the DOM:</strong> When the content script runs
+<code>el.textContent = 'New Title'</code>, its V8 wrapper forwards this
+instruction to the underlying C++ DOM node in Blink. Because the
+webpage's V8 wrapper points to that exact same C++ node, the change is
+immediately reflected on the webpage and visible to the Main World's
+JavaScript.</li>
+</ol>
+<h2 id="what-is-shared-vs-what-is-isolated">What is Shared vs. What is
+Isolated</h2>
+<p>Because of the wrapper architecture, there is a strict boundary
+between DOM mutations and JavaScript mutations.</p>
+<p><strong>Shared across worlds:</strong></p>
+<ul>
+<li><strong>DOM Structure and Attributes:</strong> Adding, removing, or
+modifying HTML elements, classes, styles, and attributes alters the C++
+DOM, making it visible to all worlds.</li>
+<li><strong>DOM Events:</strong> Standard events (like
+<code>click</code> or <code>keydown</code>) and <code>CustomEvent</code>
+dispatches propagate through the C++ DOM tree and can be listened to by
+both the webpage and the content script.</li>
+</ul>
+<p><strong>Isolated to each world:</strong></p>
+<ul>
+<li><strong>Global Variables:</strong> Setting
+<code>window.myVar = 10</code> in the webpage modifies the Main World's
+V8 global object. The content script has a different V8 global object,
+so <code>window.myVar</code> will be <code>undefined</code> for the
+content script.</li>
+<li><strong>Expando Properties:</strong> If a webpage attaches a custom
+JavaScript property directly to a DOM node (e.g.,
+<code>document.body.secretData = '123'</code>), this property is saved
+on the Main World's V8 wrapper, not the C++ DOM node. The content
+script's V8 wrapper will not have this property.</li>
+<li><strong>JavaScript Prototypes:</strong> Modifying
+<code>HTMLElement.prototype</code> in the Main World only affects the
+prototype chain within that specific V8 context. The Isolated World
+retains its own clean, uncorrupted prototype chain.</li>
+</ul>
+<h2 id="communicating-between-worlds">Communicating Between Worlds</h2>
+<p>Because JavaScript memory is not shared, a content script and a
+webpage cannot invoke each other's functions directly. To pass data
+between the Main World and an Isolated World, developers must use the
+shared C++ infrastructure.</p>
+<p>This is officially done using <code>window.postMessage()</code> or by
+dispatching a <code>CustomEvent</code> on a shared DOM element. When
+these methods are called, Blink serializes the data from the sender's V8
+context, passes it through the C++ layer, and deserializes it into a new
+JavaScript object inside the receiver's V8 context, maintaining strict
+isolation while allowing controlled communication.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-content-scripts-isolated-worlds-and-the-shared-dom';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

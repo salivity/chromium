@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium DNS-over-HTTPS Stops Local Snooping - chromium</title>
+    <meta name="description" content="This article provides a complete overview of how the DNS-over-HTTPS (DoH) configuration in the Chromium web browser protects user privacy by encrypting domain name lookups. By encapsulating standard Domain Name System (DNS) queries inside secure HTTPS con">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-dns-over-https-stops-local-snooping">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium DNS-over-HTTPS Stops Local Snooping - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-dns-over-https-stops-local-snooping" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a complete overview of how the DNS-over-HTTPS (DoH) configuration in the Chromium web browser protects user privacy by encrypting domain name lookups. By encapsulating standard Domain Name System (DNS) queries inside secure HTTPS con" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-dns-over-https-stops-local-snooping">How Chromium
+DNS-over-HTTPS Stops Local Snooping</h1>
+<p>This article provides a complete overview of how the DNS-over-HTTPS
+(DoH) configuration in the Chromium web browser protects user privacy by
+encrypting domain name lookups. By encapsulating standard Domain Name
+System (DNS) queries inside secure HTTPS connections, Chromium prevents
+local network observers—such as attackers on public Wi-Fi, compromised
+routers, or strict local administrators—from seeing which websites a
+user is visiting. Below is a straightforward breakdown of traditional
+DNS vulnerabilities, how Chromium processes DoH requests, and the exact
+mechanisms that stop local network snooping.</p>
+<h3 id="the-problem-with-traditional-dns">The Problem with Traditional
+DNS</h3>
+<p>To understand how Chromium prevents snooping, it is first necessary
+to look at how standard DNS operates. When you type a website address
+into a browser, the browser must translate that human-readable domain
+name into a machine-readable IP address.</p>
+<p>Traditionally, this request is sent in plaintext over UDP or TCP
+using port 53. Because these packets are completely unencrypted, anyone
+monitoring the local network can intercept them. Even if the target
+website uses HTTPS encryption, the initial DNS lookup exposes the exact
+domain name you are trying to visit to anyone listening on the same
+local area network (LAN).</p>
+<h3 id="how-chromium-implements-dns-over-https">How Chromium Implements
+DNS-over-HTTPS</h3>
+<p>Chromium includes a built-in asynchronous DNS client (known as the
+Secure DNS feature) that overrides the operating system's default
+plaintext DNS behavior. When DoH is enabled in Chromium, the browser
+alters the lookup process in three specific ways:</p>
+<ol type="1">
+<li><strong>TLS Encryption:</strong> Chromium establishes a Transport
+Layer Security (TLS) connection with a designated DoH resolver before
+sending any lookup data.</li>
+<li><strong>HTTPS Formatting:</strong> The browser packages the raw DNS
+query as a standard HTTP GET or POST request.</li>
+<li><strong>Port 443 Routing:</strong> Instead of sending the request
+out on port 53, Chromium transmits the query over port 443, which is the
+standard port for all secure web traffic.</li>
+</ol>
+<h3 id="how-this-configuration-stops-local-observers">How This
+Configuration Stops Local Observers</h3>
+<p>By changing how DNS queries are packaged and routed, Chromium
+neutralizes local network snooping through several distinct
+mechanisms:</p>
+<ul>
+<li><strong>Payload Encryption:</strong> Because the DNS query is
+wrapped inside an encrypted TLS session, a local observer running
+packet-capture tools (like Wireshark) can only see random, encrypted
+data. Both the requested domain name and the returned IP address are
+completely hidden from view.</li>
+<li><strong>Traffic Blending:</strong> Traditional DNS traffic is easy
+to isolate because it uses a dedicated port (port 53). Because DoH uses
+port 443 via HTTP/2 or HTTP/3, the DNS lookups blend in seamlessly with
+normal, encrypted web browsing traffic. Local network monitors cannot
+easily distinguish between a DNS query and standard webpage data flowing
+to the same IP address.</li>
+<li><strong>Bypassing the Local Router:</strong> On a standard network,
+your device automatically uses the local router (via DHCP) as its first
+stop for DNS resolution, allowing the router to log every site you
+visit. When Chromium is configured to use a specific DoH provider, it
+bypasses the local network's DNS server entirely. It sends the encrypted
+packet straight through the local router directly to the external DoH
+server, blinding the local router to the contents of the request.</li>
+<li><strong>Preventing Man-in-the-Middle (MitM) Tampering:</strong>
+Local attackers often snoop on DNS by spoofing responses, redirecting
+users to malicious sites. Chromium verifies the TLS certificate of the
+DoH resolver. If a local observer tries to intercept and decrypt the DNS
+traffic, the certificate validation will fail, and Chromium will block
+the connection rather than expose the query.</li>
+</ul>
+<h3 id="chromiums-two-configuration-modes">Chromium's Two Configuration
+Modes</h3>
+<p>The level of protection against local observers depends on how the
+"Use secure DNS" setting is configured in Chromium's privacy and
+security settings:</p>
+<ul>
+<li><strong>With your current service provider (Automatic
+Mode):</strong> Chromium looks at the local network's default DNS
+settings and checks a built-in list to see if that provider offers a DoH
+server. If it does, Chromium automatically upgrades to DoH. However, if
+a malicious local router provides a non-DoH DNS IP address, or blocks
+the DoH connection, Chromium may fall back to plaintext DNS, leaving the
+user vulnerable to snooping.</li>
+<li><strong>With Custom Provider (Strict Mode):</strong> The user
+manually selects a trusted DoH resolver (such as Cloudflare, Quad9, or
+Google) or inputs a custom DoH URI template. In this mode, Chromium
+completely ignores the local network's DNS recommendations and refuses
+to fall back to plaintext DNS. If a local observer tries to block the
+DoH traffic to force a plaintext lookup, the DNS resolution simply
+fails, ensuring that no domain lookups are ever leaked to the local
+network.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-dns-over-https-stops-local-snooping';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Chromium Restricted High-Resolution Timers - chromium</title>
+    <meta name="description" content="Chromium restricted access to high-resolution timers like performance.now() to protect users from hardware-level side-channel attacks, most notably Spectre. These attacks exploit vulnerabilities in modern processors to read sensitive memory across differe">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/why-chromium-restricted-high-resolution-timers">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Chromium Restricted High-Resolution Timers - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/why-chromium-restricted-high-resolution-timers" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Chromium restricted access to high-resolution timers like performance.now() to protect users from hardware-level side-channel attacks, most notably Spectre. These attacks exploit vulnerabilities in modern processors to read sensitive memory across differe" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-chromium-restricted-high-resolution-timers">Why Chromium
+Restricted High-Resolution Timers</h1>
+<p>Chromium restricted access to high-resolution timers like
+<code>performance.now()</code> to protect users from hardware-level
+side-channel attacks, most notably Spectre. These attacks exploit
+vulnerabilities in modern processors to read sensitive memory across
+different websites sharing the same browser process. Because attackers
+require extremely accurate timers to execute these exploits, Chromium
+intentionally degraded timer precision by default. To regain access to
+high-resolution timers, developers must now enable cross-origin
+isolation, a security state that places the webpage in a dedicated
+process where sensitive cross-origin data cannot be stolen.</p>
+<h2 id="the-threat-of-spectre-and-side-channel-attacks">The Threat of
+Spectre and Side-Channel Attacks</h2>
+<p>In 2018, security researchers disclosed Spectre, a critical
+vulnerability affecting almost all modern CPUs. Spectre abuses a
+hardware feature called speculative execution. To maximize speed, a CPU
+guesses which instructions it will need to run next and executes them
+ahead of time. If the guess is wrong, the CPU discards the results.</p>
+<p>However, even when the CPU discards these results, the speculative
+execution leaves behind physical side effects in the processor's cache.
+By observing what data made it into the CPU cache, a malicious script on
+a webpage can infer the contents of protected memory. In a web browser,
+this means a malicious website could potentially read passwords,
+personal data, or authentication tokens belonging to a completely
+different website open in another tab or embedded via an iframe.</p>
+<h2 id="how-high-resolution-timers-enable-the-attack">How
+High-Resolution Timers Enable the Attack</h2>
+<p>A malicious script cannot directly read the CPU cache. Instead, it
+must deduce the cache's contents by measuring how long it takes to
+access specific memory locations.</p>
+<ol type="1">
+<li><strong>Cache Hit:</strong> If data is already in the CPU cache,
+accessing it is extremely fast.</li>
+<li><strong>Cache Miss:</strong> If data is not in the cache, the CPU
+must fetch it from the main memory (RAM), which takes significantly
+longer.</li>
+</ol>
+<p>The time difference between a cache hit and a cache miss is measured
+in nanoseconds. To successfully execute a Spectre attack and read leaked
+data, an attacker needs a stopwatch capable of measuring these
+microscopic time differences. In the browser, APIs like
+<code>performance.now()</code> and <code>SharedArrayBuffer</code> served
+as this exact stopwatch.</p>
+<h2 id="chromiums-mitigation-blunting-the-timers">Chromium's Mitigation:
+Blunting the Timers</h2>
+<p>Because Spectre is a hardware vulnerability, software makers like
+Google could not simply patch the CPU. Instead, they had to break the
+tools attackers used to exploit the vulnerability.</p>
+<p>Chromium responded by disabling <code>SharedArrayBuffer</code> by
+default and significantly reducing the precision of
+<code>performance.now()</code>. By coarsening the timer's resolution
+(rounding the time to the nearest 100 microseconds) and adding
+artificial randomness (jitter), Chromium effectively broke the
+attacker's stopwatch. Without a high-resolution timer, malicious scripts
+could no longer tell the difference between a fast cache hit and a slow
+cache miss, neutralizing the side-channel attack.</p>
+<h2 id="why-cross-origin-isolation-restores-precision">Why Cross-Origin
+Isolation Restores Precision</h2>
+<p>While reducing timer accuracy protected users, it hindered legitimate
+web applications. Game engines, video editors, and performance
+monitoring tools rely on microsecond precision to function
+correctly.</p>
+<p>To give developers these tools back safely, browser vendors
+introduced <strong>Cross-Origin Isolation</strong>. A webpage becomes
+cross-origin isolated when the server sends two specific HTTP
+headers:</p>
+<ul>
+<li><code>Cross-Origin-Opener-Policy: same-origin</code> (COOP)</li>
+<li><code>Cross-Origin-Embedder-Policy: require-corp</code> (COEP)</li>
+</ul>
+<p>When a webpage implements these headers, it explicitly forbids the
+loading of untrusted cross-origin resources and severs ties with
+cross-origin popups. Because the page guarantees it will only interact
+with resources that have explicitly opted in to being loaded, Chromium
+can safely place the entire webpage into its own isolated operating
+system process.</p>
+<p>When a webpage is strictly confined to its own process, no sensitive
+data from other websites exists in that process's memory space. Even if
+an attacker runs a Spectre attack inside a cross-origin isolated page,
+there is no foreign data in the memory for them to steal. Because the
+security risk is eliminated by this architectural boundary, Chromium
+safely unlocks the full, unthrottled precision of
+<code>performance.now()</code> and re-enables features like
+<code>SharedArrayBuffer</code>.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/why-chromium-restricted-high-resolution-timers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Handle Duplication on Microsoft Windows - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Chromium web browser manages the duplication of operating system handles across different processes on Microsoft Windows. Because Chromium relies on a strict multi-process architecture for security and">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/chromium-handle-duplication-on-microsoft-windows">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chromium Handle Duplication on Microsoft Windows - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/chromium-handle-duplication-on-microsoft-windows" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Chromium web browser manages the duplication of operating system handles across different processes on Microsoft Windows. Because Chromium relies on a strict multi-process architecture for security and" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chromium-handle-duplication-on-microsoft-windows">Chromium
+Handle Duplication on Microsoft Windows</h1>
+<p>This article provides a technical overview of how the Chromium web
+browser manages the duplication of operating system handles across
+different processes on Microsoft Windows. Because Chromium relies on a
+strict multi-process architecture for security and stability,
+unprivileged child processes cannot directly access most system
+resources. To bypass this limitation safely, Chromium uses a privileged
+broker process, the Windows <code>DuplicateHandle</code> API, and its
+Mojo Inter-Process Communication (IPC) system to seamlessly transfer
+resource handles—such as files, shared memory, and synchronization
+objects—across process boundaries without compromising the security
+sandbox.</p>
+<h2 id="the-sandbox-constraint">The Sandbox Constraint</h2>
+<p>Chromium separates its workload into multiple processes: a single
+privileged Browser process and multiple unprivileged child processes
+(such as Renderers, GPU, and Utility processes). On Windows, these child
+processes operate inside a restrictive security sandbox. They run with
+low integrity levels and restricted security tokens, meaning the Windows
+kernel blocks them from opening files, creating shared memory regions,
+or accessing hardware directly.</p>
+<p>When a sandboxed Renderer process needs to read a file or share a
+memory buffer with the GPU process, it cannot create the Windows
+<code>HANDLE</code> itself. Instead, the resource must be created
+elsewhere and transferred into the Renderer's process space.</p>
+<h2 id="the-windows-duplicatehandle-api">The Windows
+<code>DuplicateHandle</code> API</h2>
+<p>On Microsoft Windows, a <code>HANDLE</code> is not a global pointer;
+it is an index into a process-specific handle table managed by the OS
+kernel. Handle <code>0x100</code> in the Browser process means something
+entirely different than Handle <code>0x100</code> in a Renderer
+process.</p>
+<p>To share an underlying kernel object (like a file or memory section)
+between two processes, Windows provides the <code>DuplicateHandle</code>
+system call. This function takes a handle from a source process, creates
+a new entry in the target process's handle table pointing to the same
+kernel object, and returns the new handle value.</p>
+<p>To execute <code>DuplicateHandle</code>, the calling process must
+possess handles to both the source and target processes with the
+<code>PROCESS_DUP_HANDLE</code> access right.</p>
+<h2 id="the-browser-process-as-a-broker">The Browser Process as a
+Broker</h2>
+<p>For security reasons, sandboxed processes do not have
+<code>PROCESS_DUP_HANDLE</code> permissions for other processes. If a
+Renderer had this permission, a compromised Renderer could inject
+handles into other processes or exhaust system resources.</p>
+<p>Chromium solves this by designating the main Browser process as the
+"Broker." When the Browser process spawns a child process, it retains a
+privileged process handle to that child. Because the Browser process has
+<code>PROCESS_DUP_HANDLE</code> rights to all its children, it acts as
+the central authority for moving handles around:</p>
+<ol type="1">
+<li><strong>Browser to Child:</strong> The Browser creates a resource
+handle, calls <code>DuplicateHandle</code> targeting the child process,
+and sends the resulting numeric handle value to the child over an IPC
+message.</li>
+<li><strong>Child to Browser:</strong> The child sends the numeric value
+of its local handle to the Browser via IPC. The Browser then calls
+<code>DuplicateHandle</code>, using the child as the source and itself
+as the target.</li>
+<li><strong>Child to Child (e.g., Renderer to GPU):</strong> The source
+child sends a request to the Browser broker. The Browser uses
+<code>DuplicateHandle</code> to copy the handle directly from the source
+child's handle table into the destination child's handle table, then
+informs the destination child of the new handle value.</li>
+</ol>
+<h2 id="mojo-ipc-integration">Mojo IPC Integration</h2>
+<p>Developers working on Chromium rarely call
+<code>DuplicateHandle</code> manually. Instead, handle duplication is
+abstracted away by Mojo, Chromium’s IPC system.</p>
+<p>When a developer wants to send a Windows handle across processes,
+they wrap the native Windows <code>HANDLE</code> into a C++ object
+called <code>mojo::PlatformHandle</code>. When this object is attached
+to a Mojo message and sent over a pipe, Mojo’s underlying transport
+layer (ChannelWin) intercepts it:</p>
+<ul>
+<li>Mojo automatically strips the raw handle from the payload.</li>
+<li>If the sender is the Broker, Mojo immediately calls
+<code>DuplicateHandle</code> into the target process.</li>
+<li>If the sender is a sandboxed process talking to another sandboxed
+process, Mojo transparently routes the message through the Broker
+process, which performs the <code>DuplicateHandle</code> operation
+before forwarding the message to the final destination.</li>
+<li>Upon arrival in the target process, Mojo reconstructs the
+<code>mojo::PlatformHandle</code> with the newly duplicated handle
+value, making it immediately usable by the receiving code.</li>
+</ul>
+<h2 id="lifecycle-management-and-security">Lifecycle Management and
+Security</h2>
+<p>Managing handle lifetimes across processes is critical to prevent
+resource leaks and security vulnerabilities. Chromium enforces strict
+ownership rules using RAII (Resource Acquisition Is Initialization)
+wrappers, specifically <code>base::win::ScopedHandle</code>.</p>
+<p>When a handle is duplicated for IPC, the
+<code>DUPLICATE_CLOSE_SOURCE</code> flag is frequently used if the
+sending process no longer needs the resource. This tells the Windows
+kernel to automatically close the handle in the source process as soon
+as it is duplicated into the target, ensuring only one process owns the
+handle at any time.</p>
+<p>Furthermore, Chromium uses <code>DuplicateHandle</code> to enforce
+the principle of least privilege. When the Browser creates a shared
+memory region, it has full read-write access. Before duplicating that
+handle into an untrusted Renderer process, the Browser can modify the
+<code>dwDesiredAccess</code> parameter in <code>DuplicateHandle</code>
+to strip write permissions. The Renderer receives a valid handle to the
+exact same memory space, but the Windows kernel will strictly enforce it
+as read-only.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/chromium-handle-duplication-on-microsoft-windows';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

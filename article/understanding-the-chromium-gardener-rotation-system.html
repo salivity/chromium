@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Chromium Gardener Rotation System - chromium</title>
+    <meta name="description" content="This article explains how the Chromium project uses the Gardener rotation system to maintain the health of its continuous integration (CI) waterfall. It covers the core responsibilities of a Chromium Gardener, the revert-first policy used to keep the code">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-the-chromium-gardener-rotation-system">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Chromium Gardener Rotation System - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-the-chromium-gardener-rotation-system" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Chromium project uses the Gardener rotation system to maintain the health of its continuous integration (CI) waterfall. It covers the core responsibilities of a Chromium Gardener, the revert-first policy used to keep the code" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-the-chromium-gardener-rotation-system">Understanding
+the Chromium Gardener Rotation System</h1>
+<p>This article explains how the Chromium project uses the Gardener
+rotation system to maintain the health of its continuous integration
+(CI) waterfall. It covers the core responsibilities of a Chromium
+Gardener, the revert-first policy used to keep the codebase stable, how
+the global rotation schedule is structured, and the specialized tools
+engineers use to monitor builds and triage failures in real time.</p>
+<h2 id="the-role-of-a-chromium-gardener">The Role of a Chromium
+Gardener</h2>
+<p>In the Chromium project, the continuous integration system builds and
+tests the browser across dozens of configurations—including Windows,
+macOS, Linux, Android, iOS, and ChromeOS. Because hundreds of changes
+land every day, broken builds or failing tests can quickly block
+thousands of engineers from submitting new code.</p>
+<p>To prevent this, Chromium relies on "Gardeners" (a role formerly
+referred to as "Sheriffs"). A Gardener is an engineer temporarily
+assigned to monitor the CI waterfall, diagnose build and test failures,
+and take immediate action to keep the main development branch—known as
+"the tree"—green and open for commits.</p>
+<h2 id="structure-of-the-rotation">Structure of the Rotation</h2>
+<p>The Gardener rotation is a shared responsibility among active
+Chromium committers and engineers from contributing organizations. The
+rotation is structured to maximize coverage and prevent burnout:</p>
+<ul>
+<li><strong>Follow-the-Sun Coverage:</strong> Shifts are divided across
+global time zones, primarily the Americas (AMER), Europe/Middle
+East/Africa (EMEA), and Asia-Pacific (APAC). This ensures that engineers
+only monitor the waterfall during their normal business hours while
+maintaining 24-hour coverage during the workweek.</li>
+<li><strong>Primary and Secondary Pairing:</strong> Shifts typically
+pair two engineers together—often an experienced Gardener with a newer
+one—to share the workload and distribute knowledge.</li>
+<li><strong>Specialized Rotations:</strong> Because Chromium is massive,
+a single rotation cannot cover everything. Beyond the main Chromium
+Trunk Gardeners, there are specialized rotations for specific platforms
+and components, such as Android, iOS, ChromeOS, GPU, V8 (JavaScript
+engine), and Performance.</li>
+</ul>
+<h2 id="tools-for-monitoring-the-waterfall">Tools for Monitoring the
+Waterfall</h2>
+<p>Gardeners do not manually watch hundreds of individual buildbots on
+the raw CI waterfall. Instead, they rely on automated aggregation and
+alerting tools built on top of the LUCI (Layered Universal Continuous
+Integration) infrastructure:</p>
+<ul>
+<li><strong>Sheriff-o-Matic (SoM):</strong> This is the primary
+dashboard used by Gardeners. It automatically scans the waterfall,
+groups identical failures across different builders, and presents the
+Gardener with a prioritized list of actionable alerts.</li>
+<li><strong>LUCI Bisection:</strong> An automated system that runs in
+the background to pinpoint the exact changelist (CL) that introduced a
+compile failure or test regression, often proposing an automated revert
+before the Gardener even investigates.</li>
+</ul>
+<h2 id="the-triage-workflow-revert-first">The Triage Workflow: Revert
+First</h2>
+<p>When an alert appears on the dashboard, the Gardener follows a
+strict, fast-paced triage workflow. The guiding philosophy of the
+rotation is to prioritize the health of the tree over individual
+commits.</p>
+<ol type="1">
+<li><strong>Investigate the Failure:</strong> The Gardener checks the
+failure logs to determine if the issue is a compile failure, a
+consistent test failure, a flaky test (a test that passes and fails
+intermittently without code changes), or an infrastructure outage.</li>
+<li><strong>Identify the Culprit:</strong> Using the builder's blamelist
+and automated bisection tools, the Gardener identifies the specific CL
+that caused the breakage.</li>
+<li><strong>Revert the Changelist:</strong> Gardeners do not attempt to
+fix broken code themselves, nor do they wait for the original author to
+write a fix. They immediately revert the offending CL. This
+"revert-first" policy ensures the tree returns to a working state within
+minutes rather than hours.</li>
+<li><strong>Disable Flaky Tests:</strong> If a test fails intermittently
+and the culprit CL cannot be easily identified or reverted, the Gardener
+will submit a quick change to disable the test in the codebase and file
+a bug report assigned to the test's owner.</li>
+</ol>
+<h2 id="managing-tree-closures-and-handoffs">Managing Tree Closures and
+Handoffs</h2>
+<p>If a severe breakage occurs—such as a compilation failure on a major
+platform—the tree closes automatically. When the tree is closed, the
+commit queue halts, and no engineer can land new code. Resolving tree
+closures is the Gardener's highest priority. Once the offending CL is
+reverted and the builder passes again, the tree reopens
+automatically.</p>
+<p>At the end of their shift, the outgoing Gardeners write a concise
+handoff message in the dedicated Gardener chat channel. This summary
+informs the incoming rotation in the next time zone about any ongoing
+infrastructure issues, pending reverts, or flaky tests that are still
+being monitored, ensuring a seamless transition.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-the-chromium-gardener-rotation-system';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Deduplicates Fonts and Shared Memory - chromium</title>
+    <meta name="description" content="This article provides an overview of the specific architectural techniques the Chromium web browser uses to prevent memory bloat across dozens of open tabs. By leveraging operating system page caches, centralized font brokering, Mojo Inter-Process Communi">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-deduplicates-fonts-and-shared-memory">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Deduplicates Fonts and Shared Memory - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-deduplicates-fonts-and-shared-memory" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the specific architectural techniques the Chromium web browser uses to prevent memory bloat across dozens of open tabs. By leveraging operating system page caches, centralized font brokering, Mojo Inter-Process Communi" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-deduplicates-fonts-and-shared-memory">How Chromium
+Deduplicates Fonts and Shared Memory</h1>
+<p>This article provides an overview of the specific architectural
+techniques the Chromium web browser uses to prevent memory bloat across
+dozens of open tabs. By leveraging operating system page caches,
+centralized font brokering, Mojo Inter-Process Communication (IPC), and
+read-only shared memory regions, Chromium ensures that identical font
+tables, rasterized glyphs, and static engine assets are loaded into
+physical RAM only once, regardless of how many isolated renderer
+processes are active.</p>
+<h3 id="the-sandbox-challenge">The Sandbox Challenge</h3>
+<p>Chromium uses a multi-process architecture where almost every tab
+runs in its own isolated "renderer" process. For security reasons, these
+renderer processes are strictly sandboxed and forbidden from directly
+accessing the operating system’s file system, meaning they cannot simply
+read system font files from the hard drive.</p>
+<p>If Chromium copied the necessary font files into each tab's private
+memory space to bypass this restriction, opening thirty tabs would
+duplicate megabytes of identical font data thirty times. Chromium solves
+this through handle passing and shared memory.</p>
+<h3 id="os-level-memory-mapping-for-system-fonts">OS-Level Memory
+Mapping for System Fonts</h3>
+<p>When a tab needs to render text using a system font (like Arial or
+Roboto), it does not receive a copy of the font. Instead, Chromium
+relies on the operating system's virtual memory manager.</p>
+<ol type="1">
+<li><strong>Broker Request:</strong> The sandboxed renderer asks the
+privileged main Browser process for the font via Mojo, Chromium's IPC
+system.</li>
+<li><strong>File Descriptor Passing:</strong> The Browser process
+locates the font file on the disk, opens it in read-only mode, and
+passes a file handle (or file descriptor on POSIX systems) back to the
+renderer.</li>
+<li><strong>Memory Mapping (<code>mmap</code>):</strong> The renderer
+uses this handle to memory-map the font file into its own virtual
+address space.</li>
+</ol>
+<p>Because the mapping is strictly read-only, the operating system
+kernel recognizes that multiple processes are reading the exact same
+underlying file on the disk. The OS loads the font file into physical
+RAM (the OS page cache) only once, and simply points the virtual memory
+addresses of all thirty tabs to that single physical RAM location.</p>
+<h3 id="deduplicating-font-tables-via-the-font-proxy">Deduplicating Font
+Tables via the Font Proxy</h3>
+<p>Font files (like TrueType and OpenType) are actually databases
+containing multiple distinct tables—such as <code>cmap</code>
+(character-to-glyph mapping), <code>glyf</code> (glyph shapes), and
+<code>GPOS</code> (glyph positioning). Often, a tab only needs specific
+tables rather than the entire font file.</p>
+<p>On Windows, Chromium uses a <strong>DirectWrite Font Proxy</strong>.
+When a renderer process requests a specific font table to calculate text
+layout (via the HarfBuzz shaping engine), the proxy intercepts the call
+and routes it to the Browser process. The Browser process loads the
+requested table into a <strong>Read-Only Shared Memory Region</strong>
+(<code>base::ReadOnlySharedMemoryRegion</code>) and caches the
+handle.</p>
+<p>When a second or third tab requests the exact same font table, the
+Browser process does not reload the table. It simply duplicates the
+lightweight shared memory handle and sends it to the new tabs, granting
+them immediate read-only access to the already-allocated RAM.</p>
+<h3 id="centralizing-rasterized-glyphs-in-the-gpu-process">Centralizing
+Rasterized Glyphs in the GPU Process</h3>
+<p>Parsing font tables is only half the battle; the browser also has to
+rasterize (draw) the vector font shapes into pixel bitmaps. Chromium
+prevents tabs from duplicating these bitmaps by offloading the work to a
+single, centralized <strong>GPU Process</strong>.</p>
+<ul>
+<li><strong>Skia Glyph Atlases:</strong> Chromium’s graphics engine,
+Skia, maintains a centralized texture atlas (a large composite image of
+individual characters) inside the GPU process.</li>
+<li><strong>Cross-Tab Reuse:</strong> If Tab 1 renders a 16-pixel "E" in
+Times New Roman, the GPU process rasterizes that glyph and stores it in
+the atlas. If Tab 2 through Tab 20 also need a 16-pixel "E" in Times New
+Roman, they do not rasterize it themselves. They issue drawing commands
+to the GPU process, which reuses the single cached glyph from the shared
+atlas.</li>
+</ul>
+<h3 id="discardable-shared-memory-for-web-fonts-and-caches">Discardable
+Shared Memory for Web Fonts and Caches</h3>
+<p>Unlike system fonts, downloadable web fonts (like WOFF2 files fetched
+via CSS <code>@font-face</code>) do not exist permanently on the user's
+hard drive. To prevent duplication of these dynamic resources, Chromium
+uses two mechanisms:</p>
+<ol type="1">
+<li><strong>The Blink Memory Cache:</strong> If multiple tabs are
+running within the same renderer process (which happens when tabs share
+the same website domain or when the user exceeds the process limit),
+Blink’s internal <code>FontCache</code> shares the decoded
+<code>SkTypeface</code> objects directly via C++ pointers.</li>
+<li><strong>Discardable Shared Memory:</strong> For decoded resources
+that must cross process boundaries, Chromium uses
+<code>base::DiscardableSharedMemory</code>. The Browser process
+allocates a block of shared memory and hands it to the renderers. When a
+tab isn't actively looking at the data, it "unlocks" the memory. If the
+system runs low on RAM, the Browser process can instantly purge this
+unlocked memory without crashing the tab, regenerating the font data
+only if the user switches back to that tab.</li>
+</ol>
+<h3 id="v8-snapshots-and-static-engine-data">V8 Snapshots and Static
+Engine Data</h3>
+<p>Beyond fonts, Chromium uses the exact same read-only shared memory
+techniques to deduplicate its own internal engine resources across
+tabs:</p>
+<ul>
+<li><strong>V8 Context Snapshots:</strong> Every tab needs a JavaScript
+engine (V8) initialized with built-in objects (like <code>Array</code>,
+<code>Math</code>, and <code>Promise</code>). Instead of building these
+from scratch in every tab, Chromium maps a pre-compiled
+<code>v8_context_snapshot.bin</code> file into read-only shared memory.
+Every tab reads the exact same physical RAM for its baseline JavaScript
+environment.</li>
+<li><strong>Data Pack (<code>.pak</code>) Files:</strong> Default
+browser stylesheets (user-agent CSS), localized strings, and UI icons
+are bundled into <code>.pak</code> files. These are memory-mapped at
+browser startup, allowing dozens of processes to read default browser
+assets with zero memory duplication.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-deduplicates-fonts-and-shared-memory';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

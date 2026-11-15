@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Uses macOS Seatbelt to Restrict File Access - chromium</title>
+    <meta name="description" content="This article provides a technical overview of how the Chromium web browser leverages Apple&#39;s Seatbelt sandbox mechanism on macOS to enforce strict file system access controls. It breaks down the architecture of Chromium&#39;s multi-process model, the implemen">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-uses-mac-os-seatbelt-to-restrict-file-access">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Uses macOS Seatbelt to Restrict File Access - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-uses-mac-os-seatbelt-to-restrict-file-access" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a technical overview of how the Chromium web browser leverages Apple&#39;s Seatbelt sandbox mechanism on macOS to enforce strict file system access controls. It breaks down the architecture of Chromium&#39;s multi-process model, the implemen" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-uses-macos-seatbelt-to-restrict-file-access">How
+Chromium Uses macOS Seatbelt to Restrict File Access</h1>
+<p>This article provides a technical overview of how the Chromium web
+browser leverages Apple's Seatbelt sandbox mechanism on macOS to enforce
+strict file system access controls. It breaks down the architecture of
+Chromium's multi-process model, the implementation of Sandbox Profile
+Language (SBPL) policies, and the specific rules applied to isolate
+untrusted web content from the underlying operating system's files.</p>
+<h3 id="understanding-the-macos-seatbelt-mechanism">Understanding the
+macOS Seatbelt Mechanism</h3>
+<p>Seatbelt is Apple's kernel-level sandboxing technology, built upon
+the TrustedBSD Mandatory Access Control (MAC) framework. It intercepts
+system calls made by a process and evaluates them against a strict set
+of rules. These rules are defined using the Sandbox Profile Language
+(SBPL), which is based on TinyScheme (a dialect of Lisp). When a process
+initializes its sandbox, the macOS kernel compiles the SBPL profile into
+bytecode and enforces those restrictions for the remainder of the
+process's lifecycle.</p>
+<h3 id="chromiums-multi-process-architecture">Chromium’s Multi-Process
+Architecture</h3>
+<p>Chromium operates using a multi-process architecture to separate
+privileged operations from unprivileged ones. It consists of one main
+privileged "Browser" process and multiple unprivileged child processes,
+such as "Renderer" processes (which handle HTML, CSS, and JavaScript),
+GPU processes, and Utility processes.</p>
+<p>The Browser process has full access to the user's file system, within
+the bounds of the standard macOS user permissions. Conversely, child
+processes are treated as untrusted and are immediately placed into a
+Seatbelt sandbox upon creation.</p>
+<h3 id="the-deny-by-default-strategy">The "Deny by Default"
+Strategy</h3>
+<p>When Chromium launches a child process, it uses the macOS
+<code>sandbox_init_with_parameters</code> API to apply a specific
+<code>.sb</code> (Sandbox) profile before the process begins handling
+any web content.</p>
+<p>Every Chromium sandbox profile begins with a fundamental rule:
+<code>(deny default)</code>. This directive instructs the macOS kernel
+to block all system operations—including network access, Mach port
+lookups, and all file system interactions—unless an explicit
+<code>(allow ...)</code> rule is defined later in the profile. By
+default, a newly sandboxed Chromium process cannot read, write, or even
+check the metadata of a single file on the hard drive.</p>
+<h3 id="granular-file-system-whitelisting">Granular File System
+Whitelisting</h3>
+<p>Because a process cannot function in total isolation, Chromium's
+Seatbelt profiles carefully whitelist the absolute minimum file system
+paths required for the process to run. Seatbelt divides file access into
+specific operations, primarily <code>file-read-data</code>,
+<code>file-read-metadata</code>, and <code>file-write*</code>.</p>
+<p>Chromium uses dynamic parameters to inject specific paths into the
+SBPL profile at runtime. A standard child process is only granted read
+access to:</p>
+<ul>
+<li><strong>System Libraries:</strong> Paths like
+<code>/System/Library</code> and <code>/usr/lib</code> so the process
+can load essential macOS frameworks.</li>
+<li><strong>The Chromium Bundle:</strong> The specific directory where
+the Chromium application is installed, allowing the process to read its
+own executable code and resource files.</li>
+<li><strong>System Configuration Files:</strong> Specific files like
+<code>/dev/urandom</code> for cryptography and basic timezone data.</li>
+</ul>
+<p>Crucially, <code>file-write*</code> permissions are almost entirely
+omitted for most child processes. They cannot create, modify, or delete
+files anywhere on the disk.</p>
+<h3 id="locking-down-the-renderer-process">Locking Down the Renderer
+Process</h3>
+<p>The Renderer process is the most heavily restricted component because
+it directly parses untrusted code from the internet. In addition to
+blocking write access, the Renderer's Seatbelt profile explicitly denies
+read access to the user's home directory (<code>~/Documents</code>,
+<code>~/Downloads</code>, <code>~/Desktop</code>, etc.).</p>
+<p>Even if an attacker successfully exploits a vulnerability in the V8
+JavaScript engine or the Blink rendering engine, the macOS kernel will
+block any attempt by the compromised Renderer process to execute
+<code>open()</code> or <code>stat()</code> system calls on user
+files.</p>
+<h3 id="brokered-file-access-via-ipc">Brokered File Access via IPC</h3>
+<p>Web browsers occasionally need to access local files, such as when a
+user uploads a document or saves an image. Because the Renderer process
+is blocked from the file system by Seatbelt, Chromium uses a "broker"
+model to handle these legitimate requests.</p>
+<ol type="1">
+<li><strong>The Request:</strong> The sandboxed Renderer process sends a
+message to the privileged Browser process via Mojo, Chromium's
+Inter-Process Communication (IPC) system.</li>
+<li><strong>Validation:</strong> The Browser process evaluates the
+request to ensure it was initiated by a real user action (such as
+interacting with a file picker dialog).</li>
+<li><strong>File Descriptor Passing:</strong> The Browser process opens
+the file on behalf of the Renderer. It then passes the open <em>file
+descriptor</em> (not the file path) back to the Renderer over IPC.</li>
+</ol>
+<p>Because Seatbelt primarily restricts the <em>opening</em> of file
+paths (via the <code>open</code> system call) rather than reading from
+an already-open file descriptor, the Renderer can read the specific
+file's data without ever being granted broader access to the macOS file
+system.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-uses-mac-os-seatbelt-to-restrict-file-access';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

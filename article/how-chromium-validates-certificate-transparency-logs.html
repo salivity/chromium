@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Chromium Validates Certificate Transparency Logs - chromium</title>
+    <meta name="description" content="This article provides an overview of how the Chromium web browser enforces Certificate Transparency (CT) to secure TLS connections. Before trusting a server&#39;s TLS certificate, Chromium verifies that the certificate has been publicly logged by checking for">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/how-chromium-validates-certificate-transparency-logs">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Chromium Validates Certificate Transparency Logs - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/how-chromium-validates-certificate-transparency-logs" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Chromium web browser enforces Certificate Transparency (CT) to secure TLS connections. Before trusting a server&#39;s TLS certificate, Chromium verifies that the certificate has been publicly logged by checking for" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-chromium-validates-certificate-transparency-logs">How
+Chromium Validates Certificate Transparency Logs</h1>
+<p>This article provides an overview of how the Chromium web browser
+enforces Certificate Transparency (CT) to secure TLS connections. Before
+trusting a server's TLS certificate, Chromium verifies that the
+certificate has been publicly logged by checking for cryptographic
+proofs called Signed Certificate Timestamps (SCTs). By evaluating the
+SCT delivery mechanism, verifying the cryptographic signatures against
+known public logs, and ensuring compliance with specific log diversity
+and certificate lifetime policies, Chromium prevents the covert use of
+misissued or malicious certificates.</p>
+<h2 id="1-acquiring-signed-certificate-timestamps-scts">1. Acquiring
+Signed Certificate Timestamps (SCTs)</h2>
+<p>When a user navigates to an HTTPS website, Chromium does not query
+Certificate Transparency logs directly in real-time, as doing so would
+slow down the connection and compromise user privacy. Instead, it relies
+on Signed Certificate Timestamps (SCTs). An SCT is a cryptographic
+promise from a CT log that a certificate will be added to the log within
+a specific timeframe, known as the Maximum Merge Delay (typically 24
+hours).</p>
+<p>Chromium accepts SCTs delivered during the TLS handshake via three
+methods:</p>
+<ul>
+<li><strong>X.509v3 Certificate Extension:</strong> The Certificate
+Authority (CA) embeds the SCTs directly into the certificate before
+issuing it to the server. This is the most common method.</li>
+<li><strong>TLS Extension:</strong> The web server delivers the SCTs
+during the TLS handshake using the
+<code>signed_certificate_timestamp</code> extension.</li>
+<li><strong>OCSP Stapling:</strong> The web server includes the SCTs
+within a stapled Online Certificate Status Protocol (OCSP) response
+during the handshake.</li>
+</ul>
+<h2 id="2-cryptographic-signature-verification">2. Cryptographic
+Signature Verification</h2>
+<p>Once Chromium extracts the SCTs from the TLS handshake, it must
+verify their authenticity. Chromium maintains a built-in list of
+recognized CT logs, which is regularly updated via the browser's
+component updater. This list contains the public key, operator
+information, and current status of every recognized log.</p>
+<p>For each SCT received, Chromium performs the following checks:</p>
+<ul>
+<li>It identifies which CT log issued the SCT using the Log ID included
+in the timestamp.</li>
+<li>It retrieves the corresponding public key for that log from its
+internal list.</li>
+<li>It verifies the cryptographic signature of the SCT over the
+certificate data.</li>
+<li>It checks that the timestamp inside the SCT is in the past,
+rejecting any SCT that claims to have been issued in the future.</li>
+</ul>
+<p>If the signature is valid, Chromium knows for certain that the
+specific CT log reviewed the certificate and promised to publish it.</p>
+<h2 id="3-evaluating-ct-log-status">3. Evaluating CT Log Status</h2>
+<p>A valid cryptographic signature is not enough; the log itself must be
+in good standing. Chromium checks the operational status of the log that
+issued the SCT against its internal list:</p>
+<ul>
+<li><strong>Usable:</strong> The log is actively trusted and accepting
+new certificates.</li>
+<li><strong>ReadOnly:</strong> The log is still trusted, but it is no
+longer accepting new certificates.</li>
+<li><strong>Retired:</strong> The log was once trusted, and its past
+SCTs may still be valid under specific conditions, but it is no longer
+active.</li>
+<li><strong>Rejected:</strong> The log has failed to meet compliance
+standards, and its SCTs are completely untrusted.</li>
+</ul>
+<p>To pass validation, the SCTs must come from logs that were marked as
+"Usable" at the time the SCT was issued. Furthermore, at least one of
+the provided SCTs must come from a log that is still in the "Usable"
+state at the exact moment Chromium is validating the TLS connection.</p>
+<h2 id="4-enforcing-the-chromium-ct-policy">4. Enforcing the Chromium CT
+Policy</h2>
+<p>After verifying the individual SCTs and the status of their
+respective logs, Chromium evaluates the collection of valid SCTs against
+its Certificate Transparency Policy. This policy requires redundancy to
+ensure that a single compromised or failing CT log cannot undermine the
+entire security model.</p>
+<p>Chromium enforces two main criteria:</p>
+<h3 id="quantity-based-on-certificate-lifetime">Quantity Based on
+Certificate Lifetime</h3>
+<p>The number of required SCTs depends on how the SCTs were delivered
+and the validity period of the TLS certificate:</p>
+<ul>
+<li><strong>Delivered via TLS Extension or OCSP Stapling:</strong> At
+least <strong>2 valid SCTs</strong> are required, regardless of the
+certificate's lifetime.</li>
+<li><strong>Embedded in the Certificate:</strong> If the certificate is
+valid for 180 days or less, at least <strong>2 valid SCTs</strong> are
+required. If the certificate is valid for more than 180 days, at least
+<strong>3 valid SCTs</strong> are required.</li>
+</ul>
+<h3 id="log-operator-diversity">Log Operator Diversity</h3>
+<p>To prevent a single organization from controlling the validation
+process, Chromium enforces operator diversity. The required SCTs cannot
+all come from logs run by the same organization. A certificate must be
+accompanied by valid SCTs from at least <strong>two distinct CT log
+operators</strong> (for example, one SCT from a Google-operated log and
+one SCT from a Cloudflare-operated log).</p>
+<h2 id="5-the-final-trust-decision">5. The Final Trust Decision</h2>
+<p>If the presented SCTs are cryptographically valid, originate from
+active logs, and satisfy both the quantity and diversity policies,
+Chromium deems the certificate compliant with Certificate Transparency.
+Assuming standard X.509 path validation also succeeds, the TLS
+connection is established.</p>
+<p>If the certificate fails to meet any of these CT requirements,
+Chromium immediately aborts the TLS handshake, blocks the user from
+accessing the website, and displays a full-page security warning with
+the error code
+<code>NET::ERR_CERTIFICATE_TRANSPARENCY_REQUIRED</code>.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/how-chromium-validates-certificate-transparency-logs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

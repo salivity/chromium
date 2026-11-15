@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CefSharp: Bringing Chromium to .NET WinForms and WPF - chromium</title>
+    <meta name="description" content="This article provides a direct look at the CefSharp project and its role in modernizing .NET desktop applications. It covers what CefSharp is, the underlying architecture that powers it, and the specific mechanisms it uses to integrate the Chromium web br">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/cef-sharp-bringing-chromium-to-net-win-forms-and-wpf">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CefSharp: Bringing Chromium to .NET WinForms and WPF - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/cef-sharp-bringing-chromium-to-net-win-forms-and-wpf" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a direct look at the CefSharp project and its role in modernizing .NET desktop applications. It covers what CefSharp is, the underlying architecture that powers it, and the specific mechanisms it uses to integrate the Chromium web br" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="cefsharp-bringing-chromium-to-net-winforms-and-wpf">CefSharp:
+Bringing Chromium to .NET WinForms and WPF</h1>
+<p>This article provides a direct look at the CefSharp project and its
+role in modernizing .NET desktop applications. It covers what CefSharp
+is, the underlying architecture that powers it, and the specific
+mechanisms it uses to integrate the Chromium web browser engine into
+both Windows Forms (WinForms) and Windows Presentation Foundation (WPF)
+environments. Additionally, the article explains how CefSharp enables
+seamless two-way communication between native .NET code and web
+technologies.</p>
+<h3 id="what-is-the-cefsharp-project">What is the CefSharp Project?</h3>
+<p>CefSharp is an open-source framework that provides .NET bindings for
+the Chromium Embedded Framework (CEF). While CEF is a C/C++ project,
+CefSharp uses a combination of C++/CLI and C# to wrap these native
+libraries into managed .NET controls.</p>
+<p>By using CefSharp, developers can embed a full-featured,
+standards-compliant Chromium web browser directly into their C# or
+VB.NET applications. This solves a major problem in traditional .NET
+development by replacing the outdated, Internet Explorer-based
+<code>WebBrowser</code> control with the modern Blink rendering engine
+and V8 JavaScript engine used by Google Chrome.</p>
+<h3 id="how-cefsharp-works-under-the-hood">How CefSharp Works Under the
+Hood</h3>
+<p>To bring Chromium into a .NET environment without sacrificing
+stability, CefSharp relies on a multi-process architecture. When a .NET
+application initializes CefSharp, it runs the main application logic in
+the primary .NET process while spawning separate executables
+(<code>CefSharp.BrowserSubprocess.exe</code>) to handle HTML rendering,
+JavaScript execution, and GPU acceleration.</p>
+<p>Because the heavy web processing happens outside the main application
+process, the .NET UI remains responsive. Furthermore, if a complex web
+page crashes or encounters a memory leak, it only affects the
+subprocess, leaving the host .NET application completely intact.</p>
+<h3 id="bringing-chromium-to-winforms">Bringing Chromium to
+WinForms</h3>
+<p>For Windows Forms applications, the <code>CefSharp.WinForms</code>
+package provides a straightforward <code>ChromiumWebBrowser</code>
+control.</p>
+<p>In a WinForms environment, CefSharp embeds the browser using a
+standard Windows handle (HWND). The Chromium engine creates a child
+window and draws directly onto the native window surface using hardware
+acceleration. This direct rendering approach offers maximum performance,
+low memory overhead, and high frame rates, making it the preferred
+choice for applications that require heavy WebGL usage, fast video
+playback, or complex web animations.</p>
+<h3 id="bringing-chromium-to-wpf">Bringing Chromium to WPF</h3>
+<p>Integrating a native HWND control into WPF traditionally causes
+"airspace" issues, a limitation where the embedded browser always
+renders on top of other WPF elements, preventing transparency, rotation,
+and overlapping UI controls.</p>
+<p>The <code>CefSharp.Wpf</code> package solves this problem by
+utilizing Off-Screen Rendering (OSR). Instead of drawing directly to a
+native window handle, CefSharp instructs Chromium to render the web page
+to a shared memory buffer (a bitmap) in the background. CefSharp then
+takes this bitmap and draws it onto a native WPF image surface. This
+allows the Chromium browser to fully participate in the WPF rendering
+pipeline, enabling developers to overlay WPF buttons on top of the web
+browser, apply opacity effects, and use WPF transformations
+seamlessly.</p>
+<h3 id="bridging-net-and-the-web">Bridging .NET and the Web</h3>
+<p>CefSharp does more than just display web pages; it acts as a two-way
+bridge between the web user interface and the native .NET backend. This
+allows developers to build hybrid desktop applications using HTML, CSS,
+and JavaScript frameworks (like React, Angular, or Vue) for the
+frontend, while keeping the core business logic and system access in
+.NET.</p>
+<p>CefSharp achieves this integration through three main features:</p>
+<ul>
+<li><strong>JavaScript Evaluation:</strong> .NET code can directly
+execute JavaScript strings or trigger functions within the loaded web
+page and asynchronously await the return values in C#.</li>
+<li><strong>JavaScript Binding (JSB):</strong> Developers can expose C#
+classes and objects to the browser's JavaScript context. The web page
+can then invoke .NET methods directly from JavaScript, passing data back
+and forth as needed.</li>
+<li><strong>Custom Scheme Handlers:</strong> CefSharp allows developers
+to intercept network requests made by the browser. Instead of fetching
+HTML, CSS, and images from the internet, CefSharp can load these assets
+directly from local disk folders, zip archives, or embedded .NET DLL
+resources, eliminating the need to run a local web server.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/cef-sharp-bringing-chromium-to-net-win-forms-and-wpf';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

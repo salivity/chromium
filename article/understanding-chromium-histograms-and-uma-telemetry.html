@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Chromium Histograms and UMA Telemetry - chromium</title>
+    <meta name="description" content="This article explores how Chromium-based web browsers collect, aggregate, and transmit anonymized performance data. It covers the mechanics of in-memory data recording via the internal histograms diagnostic page and explains how the User Metrics Analysis">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/understanding-chromium-histograms-and-uma-telemetry">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Chromium Histograms and UMA Telemetry - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/understanding-chromium-histograms-and-uma-telemetry" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Chromium-based web browsers collect, aggregate, and transmit anonymized performance data. It covers the mechanics of in-memory data recording via the internal histograms diagnostic page and explains how the User Metrics Analysis" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-chromium-histograms-and-uma-telemetry">Understanding
+Chromium Histograms and UMA Telemetry</h1>
+<p>This article explores how Chromium-based web browsers collect,
+aggregate, and transmit anonymized performance data. It covers the
+mechanics of in-memory data recording via the internal histograms
+diagnostic page and explains how the User Metrics Analysis (UMA) system
+securely packages and sends this telemetry to developers to improve
+browser stability and speed while preserving user privacy.</p>
+<h3 id="the-foundation-how-histograms-record-data">The Foundation: How
+Histograms Record Data</h3>
+<p>Performance telemetry in Chromium begins at the source code level.
+Developers insert specific C++ macros into the codebase to measure
+execution times, memory consumption, network latency, and feature usage.
+Instead of logging every single event with a timestamp—which would
+consume massive amounts of memory and processing power—Chromium uses
+histograms.</p>
+<p>A histogram divides a range of possible values into distinct
+"buckets." When an event occurs, such as the time it takes to render a
+webpage, the browser simply increments the counter for the bucket that
+corresponds to that duration. This approach uses minimal memory and
+inherently strips away granular context, such as what the user was doing
+at the exact millisecond the event occurred.</p>
+<h3 id="multi-process-aggregation-and-the-histograms-page">Multi-Process
+Aggregation and the Histograms Page</h3>
+<p>Chromium uses a multi-process architecture, separating the main
+browser process from sandboxed child processes (like renderers, GPU
+tasks, and utility processes) for security and stability. Because child
+processes cannot directly write to the main browser's memory space, each
+process records its own local histograms in dedicated shared memory
+segments.</p>
+<p>Users and developers can view this raw data locally by navigating to
+the <code>chrome://histograms</code> diagnostic page (the URL prefix
+changes depending on the specific Chromium derivative, such as
+<code>edge://histograms</code> or <code>brave://histograms</code>).</p>
+<p>When this page is loaded, the following happens:</p>
+<ol type="1">
+<li>The main browser process requests the latest metric data from all
+active child processes.</li>
+<li>The browser merges the shared memory segments from these child
+processes with its own internal histogram data.</li>
+<li>The diagnostic page renders a plain-text snapshot of every active
+histogram, displaying the minimum and maximum bucket values, the number
+of samples in each bucket, and a visual ASCII representation of the
+distribution.</li>
+</ol>
+<p>This local collection happens in all Chromium builds regardless of
+user privacy settings, as the data remains entirely in the device's
+volatile memory (RAM) and is wiped when the browser closes.</p>
+<h3 id="the-user-metrics-analysis-uma-pipeline">The User Metrics
+Analysis (UMA) Pipeline</h3>
+<p>While histograms handle the local collection of data, the User
+Metrics Analysis (UMA) system is the framework responsible for
+transmitting these metrics to the browser vendor for analysis.</p>
+<p>In standard Chromium derivatives, the UMA service runs on a
+background timer, typically waking up every 30 minutes. During a
+collection cycle, UMA performs several actions:</p>
+<ul>
+<li><strong>Harvesting Deltas:</strong> UMA takes a snapshot of the
+current histograms and calculates the "delta"—the difference between the
+current bucket counts and the counts from the previous upload. This
+ensures data is not duplicated.</li>
+<li><strong>Attaching System Profiles:</strong> The histogram deltas are
+paired with high-level metadata about the environment, including the
+operating system version, CPU architecture, GPU model, and the exact
+browser build number.</li>
+<li><strong>Serialization:</strong> The combined data is compressed and
+serialized into a compact binary format using Protocol Buffers
+(protobufs) to minimize network bandwidth usage.</li>
+<li><strong>Transmission:</strong> The serialized log is uploaded via an
+encrypted HTTPS connection to the vendor's telemetry servers. If the
+device is offline, the logs are temporarily stored on the local disk and
+uploaded when a connection is restored.</li>
+</ul>
+<h3 id="anonymization-and-privacy-safeguards">Anonymization and Privacy
+Safeguards</h3>
+<p>UMA is designed to measure aggregate browser performance, not
+individual user behavior. To achieve this, the system relies on strict
+privacy controls:</p>
+<ul>
+<li><strong>Opt-In Requirement:</strong> The UMA upload pipeline is
+completely dormant unless the user has explicitly opted into "Help
+improve [Browser]'s features and performance" (usage statistics and
+crash reports) during setup or in the browser settings.</li>
+<li><strong>Absence of PII:</strong> Histograms only record numerical
+counts. They do not record URLs, search queries, form data, or any
+Personally Identifiable Information (PII).</li>
+<li><strong>Randomized Client IDs:</strong> To allow developers to see
+if a performance issue persists across multiple sessions on the same
+machine, UMA attaches a randomly generated 64-bit Client ID to the
+uploaded logs. This ID is not tied to a user's account or hardware
+serial numbers. If a user clears their browsing data or disables
+telemetry in their settings, this Client ID is immediately deleted,
+severing any link to previously uploaded data.</li>
+<li><strong>Vendor Modifications:</strong> Because Chromium is
+open-source, organizations that build browsers on top of it modify the
+UMA system to fit their policies. While Google Chrome routes UMA data to
+Google's servers, other derivatives may redirect the telemetry to their
+own servers, and privacy-focused forks like Ungoogled Chromium strip out
+the UMA transmission code entirely, leaving only the local
+<code>chrome://histograms</code> diagnostic functionality intact.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/understanding-chromium-histograms-and-uma-telemetry';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

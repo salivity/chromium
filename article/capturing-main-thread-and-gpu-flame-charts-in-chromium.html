@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capturing Main Thread and GPU Flame Charts in Chromium - chromium</title>
+    <meta name="description" content="This article explains the underlying mechanisms the Chromium Performance panel uses to record and visualize main thread activity and GPU frames as flame charts. It covers how the Chrome DevTools Protocol initiates tracing, how the V8 engine and browser in">
+    <link rel="canonical" href="https://salivity.github.io/chromium/article/capturing-main-thread-and-gpu-flame-charts-in-chromium">
+    <link rel="search" type="application/opensearchdescription+xml" title="chromium" href="/chromium/opensearch.xml">
+    <link rel="icon" href="/chromium/favicon.ico">
+    <link rel="stylesheet" href="/chromium/css/style.css">
+    <link media="print" rel="stylesheet" href="/chromium/css/print.css">
+    <script src="/chromium/js/fuse.min.js"></script>
+    <script src="/chromium/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Capturing Main Thread and GPU Flame Charts in Chromium - chromium" />
+    <meta property="og:url" content="https://salivity.github.io/chromium/article/capturing-main-thread-and-gpu-flame-charts-in-chromium" />
+    <meta property="og:image" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/chromium/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the underlying mechanisms the Chromium Performance panel uses to record and visualize main thread activity and GPU frames as flame charts. It covers how the Chrome DevTools Protocol initiates tracing, how the V8 engine and browser in" />
+    <link rel="manifest" href="/chromium/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/chromium/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>chromium</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/chromium/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="capturing-main-thread-and-gpu-flame-charts-in-chromium">Capturing
+Main Thread and GPU Flame Charts in Chromium</h1>
+<p>This article explains the underlying mechanisms the Chromium
+Performance panel uses to record and visualize main thread activity and
+GPU frames as flame charts. It covers how the Chrome DevTools Protocol
+initiates tracing, how the V8 engine and browser instrumentation capture
+main thread execution, how the GPU process tracks frame rendering, and
+how DevTools processes this raw data into a visual timeline.</p>
+<h3 id="the-tracing-infrastructure">The Tracing Infrastructure</h3>
+<p>When you click the "Record" button in the Chromium Performance panel,
+the DevTools frontend communicates with the browser's backend using the
+Chrome DevTools Protocol (CDP). Specifically, it sends the
+<code>Tracing.start</code> command.</p>
+<p>This command activates Perfetto, Chromium's underlying performance
+instrumentation and tracing system. Perfetto enables thousands of
+dormant, low-overhead trace points (<code>TRACE_EVENT</code> macros)
+embedded directly within the Chromium C++ codebase. As the browser runs,
+these trace points emit data containing a timestamp, process ID, thread
+ID, event name, and execution phase into a shared memory buffer.</p>
+<h3 id="capturing-main-thread-activity">Capturing Main Thread
+Activity</h3>
+<p>The main thread flame chart is constructed by combining two different
+data collection methods: instrumentation tracing for browser tasks and
+CPU sampling for JavaScript execution.</p>
+<p><strong>1. Browser Instrumentation</strong> For native browser
+operations—such as HTML parsing, style recalculation, layout, and
+paint—Chromium relies on exact instrumentation. When the main thread
+begins calculating a layout, it emits a "Begin" (<code>B</code>) trace
+event. When it finishes, it emits an "End" (<code>E</code>) event.
+Because these operations are relatively coarse, recording their exact
+start and end times does not significantly degrade browser
+performance.</p>
+<p><strong>2. JavaScript CPU Sampling</strong> Recording exact start and
+end events for every individual JavaScript function call would add
+massive overhead and skew the performance results. Instead, when tracing
+begins, DevTools instructs the V8 JavaScript engine to turn on its CPU
+Profiler.</p>
+<p>The V8 profiler uses sampling. At regular intervals (typically every
+100 microseconds), a separate profiler thread interrupts the main thread
+and takes a snapshot of the current JavaScript call stack. If the same
+functions appear on the call stack across multiple consecutive samples,
+V8 deduces that those functions were executing continuously during that
+time window.</p>
+<h3 id="capturing-gpu-frames">Capturing GPU Frames</h3>
+<p>Tracking a single visual frame is complex because a frame does not
+live on a single thread. It travels across a pipeline: from the
+Renderer's Main thread, to the Compositor thread, and finally to the GPU
+process (specifically the Viz display compositor).</p>
+<p>To capture this for the "Frames" and "GPU" sections of the flame
+chart, Chromium uses asynchronous trace events linked by a unique
+identifier, often a <code>FrameSeqId</code> (Frame Sequence ID).</p>
+<ol type="1">
+<li><strong>BeginFrame:</strong> The GPU process emits a hardware VSync
+signal, triggering a <code>BeginFrame</code> event carrying a unique
+ID.</li>
+<li><strong>Main and Compositor Threads:</strong> The main thread
+processes input, runs animations, and commits updates to the Compositor
+thread. The Compositor thread divides the page into tiles and packages
+them into a <code>CompositorFrame</code>, passing the unique ID
+along.</li>
+<li><strong>GPU Process Execution:</strong> The Viz thread in the GPU
+process receives the <code>CompositorFrame</code>, aggregates it with
+frames from other browser components, and issues low-level graphics
+commands (via Vulkan, Metal, DirectX, or OpenGL) to draw the
+pixels.</li>
+<li><strong>Presentation:</strong> The GPU swaps the frame buffers to
+display the image on the screen, emitting a final trace event marking
+the end of that specific frame ID's lifecycle.</li>
+</ol>
+<p>Additionally, the GPU track in the flame chart directly measures the
+time the GPU hardware spends executing command buffers by logging events
+before and after GPU tasks are flushed to the graphics driver.</p>
+<h3 id="constructing-the-flame-chart">Constructing the Flame Chart</h3>
+<p>When you stop the recording, DevTools calls <code>Tracing.end</code>.
+Perfetto flushes the memory buffers and streams the raw trace events
+(formatted as JSON or Protobuf) back to the DevTools frontend. DevTools
+then parses this data to draw the flame chart:</p>
+<ul>
+<li><strong>Sorting and Stacking:</strong> For the main thread, DevTools
+isolates all events sharing the main thread's ID and sorts them
+chronologically. It uses a stack-based algorithm: when it encounters a
+<code>B</code> (Begin) event, it pushes the task onto a stack; when it
+encounters an <code>E</code> (End) event, it pops the task off. The
+duration between <code>B</code> and <code>E</code> determines the
+horizontal width of the bar in the flame chart, while the depth of the
+stack determines its vertical position.</li>
+<li><strong>Merging JS Samples:</strong> DevTools takes the
+high-frequency V8 call stack samples and overlays them onto the
+instrumented browser tasks. If a <code>FunctionCall</code> browser event
+occurred between millisecond 10 and 20, DevTools injects all V8
+JavaScript stack samples recorded during that specific 10-millisecond
+window directly underneath the <code>FunctionCall</code> bar.</li>
+<li><strong>Correlating Frames:</strong> To draw the GPU and Frames
+tracks, DevTools scans the trace for the asynchronous frame IDs. It
+stitches together the lifecycle of each ID across the Main, Compositor,
+and GPU threads. Based on the total time taken from
+<code>BeginFrame</code> to screen presentation, DevTools color-codes the
+frame block (e.g., green for on-time frames, red for dropped frames that
+missed the VSync deadline).</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/chromium/article/capturing-main-thread-and-gpu-flame-charts-in-chromium';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/chromium/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/chromium/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
